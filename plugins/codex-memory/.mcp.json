@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "codex-memory": {
+      "command": "py",
+      "args": [
+        "-X",
+        "utf8",
+        "./mcp/memory_server.py",
+        "--stdio",
+        "--memory-scope",
+        "project"
+      ]
+    }
+  }
+}

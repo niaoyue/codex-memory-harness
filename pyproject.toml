@@ -1,0 +1,14 @@
+[project]
+name = "codex-memory-harness"
+version = "0.1.0"
+description = "Local Codex external memory and harness runtime package"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Codex Memory Harness Maintainers" }]
+dependencies = []
+
+[tool.codex-memory-harness]
+plugin = "plugins/codex-memory"
+installer = "plugins/codex-memory/scripts/install_codex_memory.py"
+release_builder = "scripts/build_release.py"

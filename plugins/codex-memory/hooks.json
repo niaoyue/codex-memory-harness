@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "py -X utf8 ./scripts/hook_bridge.py --codex-event PostToolUse"
+          }
+        ]
+      }
+    ]
+  }
+}

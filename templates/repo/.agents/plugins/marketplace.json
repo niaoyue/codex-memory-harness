@@ -1,0 +1,20 @@
+{
+  "name": "<PROJECT_NAME>-local",
+  "interface": {
+    "displayName": "<PROJECT_NAME> Local Plugins"
+  },
+  "plugins": [
+    {
+      "name": "codex-memory",
+      "source": {
+        "source": "local",
+        "path": "./plugins/codex-memory"
+      },
+      "policy": {
+        "installation": "INSTALLED_BY_DEFAULT",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

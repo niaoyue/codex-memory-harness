@@ -1,0 +1,20 @@
+{
+  "name": "codex-memory-harness",
+  "interface": {
+    "displayName": "Codex Memory Harness"
+  },
+  "plugins": [
+    {
+      "name": "codex-memory",
+      "source": {
+        "source": "local",
+        "path": "./plugins/codex-memory"
+      },
+      "policy": {
+        "installation": "INSTALLED_BY_DEFAULT",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+/.codex/
+.codex/memories/
+.codex/harness/tasks/
+plugins/codex-memory/storage/*.db
+plugins/codex-memory/storage/*.jsonl

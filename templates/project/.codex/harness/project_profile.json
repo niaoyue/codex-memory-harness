@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "name": "<PROJECT_NAME>",
+  "project_root": "<PROJECT_ROOT>",
+  "default_memory_scope": "project",
+  "harness": {
+    "task_spec_dir": ".codex/harness/tasks",
+    "artifact_policy": "record structured tool summaries, not raw sensitive output",
+    "distillation_policy": "project facts stay project-scoped; cross-project preferences go global"
+  },
+  "verification": {
+    "default_profile": "primary",
+    "runner": "C:\\Users\\<USER>\\plugins\\codex-memory\\scripts\\verification_runner.py",
+    "primary": [
+      "python_compile_memory",
+      "bootstrap_doctor",
+      "memory_check"
+    ]
+  }
+}

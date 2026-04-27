@@ -1,0 +1,40 @@
+{
+  "name": "codex-memory",
+  "version": "0.1.0",
+  "description": "Codex 外部记忆与 Harness 运行时插件，提供本地记忆、检索、上下文编排、验证和蒸馏闭环。",
+  "author": {
+    "name": "Codex Memory Harness Maintainers",
+    "email": "",
+    "url": ""
+  },
+  "homepage": "local://codex-memory-harness/docs",
+  "repository": "local://codex-memory-harness",
+  "license": "MIT",
+  "keywords": [
+    "codex",
+    "memory"
+  ],
+  "skills": "./skills/",
+  "hooks": "./hooks.json",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Codex Memory",
+    "shortDescription": "为 Codex 提供本地外部记忆与 Harness 运行时",
+    "longDescription": "面向 Codex 的本地外部记忆插件，支持任务状态、项目决策、混合检索、上下文包、任务蒸馏、启动自检、Harness 生命周期与验证回写。",
+    "developerName": "Codex Memory Harness Maintainers",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "websiteURL": "local://codex-memory-harness/docs",
+    "privacyPolicyURL": "local://codex-memory-harness/docs/PRIVACY.md",
+    "termsOfServiceURL": "local://codex-memory-harness/docs/USER_GUIDE.md",
+    "defaultPrompt": [
+      "读取当前任务状态并总结上下文。",
+      "查询项目决策并补全当前工作集。",
+      "为当前任务写回结构化总结。"
+    ],
+    "brandColor": "#2563EB"
+  }
+}

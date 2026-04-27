@@ -1,0 +1,274 @@
+from __future__ import annotations
+
+import argparse
+import json
+import os
+from pathlib import Path
+from typing import Any
+
+from init_storage import PROJECT_MARKERS, ensure_storage_layout, resolve_storage_paths
+
+
+PLUGIN_NAME = "codex-memory"
+HOME = Path.home()
+HOME_PLUGIN = HOME / "plugins" / PLUGIN_NAME
+HOME_AGENTS = HOME / ".codex" / "AGENTS.md"
+HOME_MARKETPLACE = HOME / ".agents" / "plugins" / "marketplace.json"
+GLOBAL_MEMORY = HOME / ".codex" / "memories"
+DEFAULT_TIMEOUT_SECONDS = 120
+DEFAULT_MAX_OUTPUT_CHARS = 1200
+
+
+def _plugin_root() -> Path:
+    return Path(__file__).resolve().parents[1]
+
+
+def _read_json(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    value = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(value, dict):
+        raise ValueError(f"JSON root must be an object: {path}")
+    return value
+
+
+def _write_json(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def _contains(path: Path, needle: str) -> bool:
+    if not path.exists():
+        return False
+    return needle in path.read_text(encoding="utf-8", errors="replace")
+
+
+def _has_marketplace_entry(path: Path) -> bool:
+    payload = _read_json(path)
+    plugins = payload.get("plugins") if isinstance(payload.get("plugins"), list) else []
+    return any(item.get("name") == PLUGIN_NAME for item in plugins if isinstance(item, dict))
+
+
+def _resolve_existing(path: Path) -> str:
+    if not path.exists():
+        return ""
+    try:
+        return str(path.resolve())
+    except OSError:
+        return "unresolved"
+
+
+def _points_to(path: Path, target: Path) -> bool:
+    if not path.exists() or not target.exists():
+        return False
+    try:
+        return path.resolve() == target.resolve()
+    except OSError:
+        return False
+
+
+def _cmd_quote(value: Path) -> str:
+    return '"' + str(value).replace('"', '\\"') + '"'
+
+
+def _find_project_root(start: Path) -> tuple[Path | None, list[str]]:
+    current = start.resolve()
+    for candidate in [current, *current.parents]:
+        matched = [marker for marker in PROJECT_MARKERS if (candidate / marker).exists()]
+        if (candidate / ".codex").is_dir():
+            matched.append(".codex")
+        if matched:
+            return candidate, sorted(set(matched))
+    return None, []
+
+
+def _command_config(plugin_root: Path, project_root: Path) -> dict[str, Any]:
+    script_root = plugin_root / "scripts"
+    return {
+        "version": 1,
+        "settings": {
+            "default_timeout_seconds": DEFAULT_TIMEOUT_SECONDS,
+            "max_output_chars": DEFAULT_MAX_OUTPUT_CHARS,
+        },
+        "commands": {
+            "memory_check": {
+                "description": "校验全局 codex-memory 插件入口与 marketplace 接入。",
+                "command": f"py -X utf8 {_cmd_quote(script_root / 'install_codex_memory.py')} --check",
+                "argv": [
+                    "py",
+                    "-X",
+                    "utf8",
+                    str(script_root / "install_codex_memory.py"),
+                    "--check",
+                ],
+                "timeout_seconds": 60,
+                "touched_paths": [
+                    str(HOME_PLUGIN),
+                    str(HOME_MARKETPLACE),
+                ],
+            },
+            "bootstrap_doctor": {
+                "description": "校验当前项目的 bootstrap、memory 与 harness 接入状态。",
+                "command": f"py -X utf8 {_cmd_quote(script_root / 'codex_bootstrap.py')} --cwd {_cmd_quote(project_root)} --doctor",
+                "argv": [
+                    "py",
+                    "-X",
+                    "utf8",
+                    str(script_root / "codex_bootstrap.py"),
+                    "--cwd",
+                    str(project_root),
+                    "--doctor",
+                ],
+                "timeout_seconds": 60,
+                "touched_paths": [
+                    ".codex/harness/commands.json",
+                    ".codex/harness/project_profile.json",
+                    ".codex/memories",
+                ],
+            },
+        },
+    }
+
+
+def _profile_config(plugin_root: Path, project_root: Path) -> dict[str, Any]:
+    return {
+        "version": 1,
+        "name": project_root.name,
+        "project_root": str(project_root),
+        "default_memory_scope": "project",
+        "harness": {
+            "task_spec_dir": ".codex/harness/tasks",
+            "artifact_policy": "record structured tool summaries, not raw sensitive output",
+            "distillation_policy": "project facts stay project-scoped; cross-project preferences go global",
+        },
+        "verification": {
+            "default_profile": "primary",
+            "runner": str(plugin_root / "scripts" / "verification_runner.py"),
+            "primary": [
+                "memory_check",
+                "bootstrap_doctor",
+            ],
+        },
+    }
+
+
+def _ensure_file(path: Path, payload: dict[str, Any], actions: list[dict[str, Any]]) -> None:
+    if path.exists():
+        actions.append({"action": "keep_existing", "path": str(path)})
+        return
+    _write_json(path, payload)
+    actions.append({"action": "create_file", "path": str(path)})
+
+
+def init_project(project_root: Path, plugin_root: Path) -> list[dict[str, Any]]:
+    actions: list[dict[str, Any]] = []
+    layout = ensure_storage_layout(scope="project", cwd=project_root)
+    actions.append({"action": "ensure_memory_layout", "path": layout["storage_dir"]})
+
+    harness_dir = project_root / ".codex" / "harness"
+    harness_dir.mkdir(parents=True, exist_ok=True)
+    actions.append({"action": "ensure_directory", "path": str(harness_dir)})
+    _ensure_file(harness_dir / "commands.json", _command_config(plugin_root, project_root), actions)
+    _ensure_file(harness_dir / "project_profile.json", _profile_config(plugin_root, project_root), actions)
+    return actions
+
+
+def inspect_state(cwd: Path, *, init: bool) -> dict[str, Any]:
+    plugin_root = _plugin_root()
+    start = cwd.resolve()
+    project_root, markers = _find_project_root(start)
+    selected_project = project_root or (start if init else None)
+    actions: list[dict[str, Any]] = []
+    if init and selected_project:
+        actions = init_project(selected_project, plugin_root)
+
+    storage = resolve_storage_paths(
+        scope="project" if selected_project else "global",
+        cwd=selected_project or start,
+    )
+    project_memory = selected_project / ".codex" / "memories" if selected_project else None
+    harness_dir = selected_project / ".codex" / "harness" if selected_project else None
+
+    checks = {
+        "home_agents_exists": HOME_AGENTS.exists(),
+        "home_agents_mentions_memory": _contains(HOME_AGENTS, "Codex Memory"),
+        "home_agents_mentions_bootstrap": _contains(HOME_AGENTS, "codex_bootstrap.py"),
+        "home_plugin_exists": HOME_PLUGIN.exists(),
+        "home_plugin_resolved_path": _resolve_existing(HOME_PLUGIN),
+        "home_plugin_points_to_current": _points_to(HOME_PLUGIN, plugin_root),
+        "home_marketplace_exists": HOME_MARKETPLACE.exists(),
+        "home_marketplace_has_entry": _has_marketplace_entry(HOME_MARKETPLACE),
+        "plugin_root_exists": plugin_root.exists(),
+        "bootstrap_script_exists": (plugin_root / "scripts" / "codex_bootstrap.py").exists(),
+        "harness_controller_exists": (plugin_root / "scripts" / "harness_controller.py").exists(),
+        "verification_runner_exists": (plugin_root / "scripts" / "verification_runner.py").exists(),
+        "global_memory_exists": GLOBAL_MEMORY.exists(),
+        "project_memory_exists": project_memory.exists() if project_memory else False,
+        "project_commands_exists": (harness_dir / "commands.json").exists() if harness_dir else False,
+        "project_profile_exists": (harness_dir / "project_profile.json").exists() if harness_dir else False,
+    }
+    ok = all(
+        checks[key]
+        for key in [
+            "home_agents_exists",
+            "home_plugin_exists",
+            "home_plugin_points_to_current",
+            "home_marketplace_has_entry",
+            "bootstrap_script_exists",
+            "harness_controller_exists",
+            "verification_runner_exists",
+        ]
+    )
+    if selected_project:
+        ok = ok and checks["project_memory_exists"] and checks["project_commands_exists"] and checks["project_profile_exists"]
+
+    recommendations = []
+    if not checks["home_agents_mentions_bootstrap"]:
+        recommendations.append("更新全局 AGENTS.md，加入 codex_bootstrap.py 启动/doctor 入口。")
+    if checks["home_plugin_exists"] and not checks["home_plugin_points_to_current"]:
+        recommendations.append("重新运行 install.ps1 -ReplaceExisting，让 home plugin 指向当前插件版本。")
+    if not selected_project:
+        recommendations.append("当前目录未识别为项目；如需项目级记忆，请在项目根目录运行 --init-project。")
+    elif not checks["project_commands_exists"] or not checks["project_profile_exists"]:
+        recommendations.append("运行 --init-project 生成缺失的 .codex/harness 配置。")
+
+    return {
+        "ok": ok,
+        "mode": "init-project" if init else "doctor",
+        "cwd": str(start),
+        "plugin_root": str(plugin_root),
+        "project": {
+            "detected": project_root is not None,
+            "root": str(selected_project) if selected_project else "",
+            "markers": markers,
+            "used_cwd_as_project": init and project_root is None,
+        },
+        "memory": {
+            "recommended_scope": "project" if selected_project else "global",
+            "storage": storage.as_dict(),
+        },
+        "checks": checks,
+        "actions": actions,
+        "recommended_env": {
+            "CODEX_MEMORY_SCOPE": "project" if selected_project else "global",
+            "CODEX_MEMORY_CWD": str(selected_project or start),
+        },
+        "recommendations": recommendations,
+    }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Bootstrap and diagnose Codex Memory for a Codex window.")
+    parser.add_argument("--cwd", help="Directory used to resolve the current project.")
+    parser.add_argument("--doctor", action="store_true", help="Inspect current state without creating project files.")
+    parser.add_argument("--init-project", action="store_true", help="Create missing project memory and harness config.")
+    args = parser.parse_args()
+
+    cwd = Path(args.cwd or os.environ.get("CODEX_MEMORY_CWD") or Path.cwd())
+    result = inspect_state(cwd, init=args.init_project)
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0 if result["ok"] else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
