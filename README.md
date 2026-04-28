@@ -59,6 +59,7 @@ codexm
 诊断当前窗口：
 
 ```powershell
+codex memory doctor
 codex-memory-doctor
 ```
 
@@ -71,8 +72,8 @@ codex-raw
 项目初始化或诊断：
 
 ```powershell
-py -X utf8 C:\Users\<你>\plugins\codex-memory\scripts\codex_bootstrap.py --cwd <项目目录> --doctor
-py -X utf8 C:\Users\<你>\plugins\codex-memory\scripts\codex_bootstrap.py --cwd <项目目录> --init-project
+codex memory doctor
+codex memory init
 ```
 
 ## 打包
@@ -112,7 +113,7 @@ py -X utf8 scripts\verify_project.py
 插件安装状态检查：
 
 ```powershell
-py -X utf8 plugins\codex-memory\scripts\install_codex_memory.py --check
+codex memory check-install
 ```
 
 编译插件 Python 文件：

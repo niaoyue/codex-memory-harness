@@ -84,7 +84,7 @@ function codex-raw {{
 }}
 
 function codex-memory-doctor {{
-    & "{launcher}" -DoctorOnly
+    & "{launcher}" memory doctor
 }}
 {PROFILE_END}
 """
@@ -106,22 +106,27 @@ def agents_block(home_plugin: Path) -> str:
 ```powershell
 codex
 codexm
+codex memory doctor
+codex memory init
+codex memory verify list
+codex memory verify run --profile primary
 codex-memory-doctor
 codex-raw
 ```
 
 ### 启动自检
 ```powershell
-py -X utf8 {home_plugin}\\scripts\\codex_bootstrap.py --cwd <当前项目目录> --doctor
-py -X utf8 {home_plugin}\\scripts\\codex_bootstrap.py --cwd <当前项目目录> --init-project
+codex memory doctor
+codex memory init
+codex memory check-install
 ```
 
 ### 任务生命周期
 ```powershell
-py -X utf8 {home_plugin}\\scripts\\hook_runner.py --event before_task --memory-scope project --memory-cwd <当前项目目录> --payload-file <payload.json>
-py -X utf8 {home_plugin}\\scripts\\hook_runner.py --event after_tool --memory-scope project --memory-cwd <当前项目目录> --payload-file <payload.json>
-py -X utf8 {home_plugin}\\scripts\\hook_runner.py --event before_response --memory-scope project --memory-cwd <当前项目目录> --payload-file <payload.json>
-py -X utf8 {home_plugin}\\scripts\\hook_runner.py --event on_task_complete --memory-scope project --memory-cwd <当前项目目录> --payload-file <payload.json>
+codex memory hook before_task --memory-scope project --memory-cwd <当前项目目录> --payload-file <payload.json>
+codex memory hook after_tool --memory-scope project --memory-cwd <当前项目目录> --payload-file <payload.json>
+codex memory hook before_response --memory-scope project --memory-cwd <当前项目目录> --payload-file <payload.json>
+codex memory hook on_task_complete --memory-scope project --memory-cwd <当前项目目录> --payload-file <payload.json>
 ```
 
 PowerShell 中优先使用 `--payload-file`，避免内联 JSON 转义问题。

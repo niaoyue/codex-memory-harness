@@ -31,6 +31,10 @@ codex
 
 - `codex`：普通无感入口。
 - `codexm`：显式 memory wrapper 入口。
+- `codex memory doctor`：诊断当前项目 memory/harness 状态。
+- `codex memory init`：初始化缺失的项目 `.codex` memory/harness 配置。
+- `codex memory verify ...`：运行当前项目配置化验证。
+- `codex memory harness ...`：运行 harness 任务生命周期命令。
 - `codex-memory-doctor`：只检查当前窗口接入状态，不启动 Codex。
 - `codex-raw`：绕过 memory wrapper，直接启动真实 Codex。
 
@@ -39,13 +43,13 @@ codex
 进入任意项目目录后运行：
 
 ```powershell
-codex-memory-doctor
+codex memory doctor
 ```
 
 如果项目缺少 `.codex/memories` 或 `.codex/harness`，正常启动 `codex` 时 wrapper 会自动初始化。也可以显式执行：
 
 ```powershell
-py -X utf8 C:\Users\<你>\plugins\codex-memory\scripts\codex_bootstrap.py --cwd <项目目录> --init-project
+codex memory init
 ```
 
 项目会获得：
@@ -93,11 +97,12 @@ py -X utf8 scripts\build_release.py
 ## 验证安装
 
 ```powershell
-py -X utf8 plugins\codex-memory\scripts\install_codex_memory.py --check
+codex memory check-install
+codex memory doctor
 codex-memory-doctor
 ```
 
-`--check` 只读检查，不会写文件。
+`check-install` 和 `doctor` 都是只读检查，不会写文件。
 
 ## 回退
 

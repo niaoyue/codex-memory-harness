@@ -193,6 +193,8 @@ def inspect_state(cwd: Path, *, init: bool) -> dict[str, Any]:
         "home_agents_exists": HOME_AGENTS.exists(),
         "home_agents_mentions_memory": _contains(HOME_AGENTS, "Codex Memory"),
         "home_agents_mentions_bootstrap": _contains(HOME_AGENTS, "codex_bootstrap.py"),
+        "home_agents_mentions_cli_entrypoints": _contains(HOME_AGENTS, "codex memory doctor")
+        or _contains(HOME_AGENTS, "codex_bootstrap.py"),
         "home_plugin_exists": HOME_PLUGIN.exists(),
         "home_plugin_resolved_path": _resolve_existing(HOME_PLUGIN),
         "home_plugin_points_to_current": _points_to(HOME_PLUGIN, plugin_root),
@@ -223,14 +225,14 @@ def inspect_state(cwd: Path, *, init: bool) -> dict[str, Any]:
         ok = ok and checks["project_memory_exists"] and checks["project_commands_exists"] and checks["project_profile_exists"]
 
     recommendations = []
-    if not checks["home_agents_mentions_bootstrap"]:
-        recommendations.append("更新全局 AGENTS.md，加入 codex_bootstrap.py 启动/doctor 入口。")
+    if not checks["home_agents_mentions_cli_entrypoints"]:
+        recommendations.append("更新全局 AGENTS.md，加入 codex memory doctor/init 启动自检入口。")
     if checks["home_plugin_exists"] and not checks["home_plugin_points_to_current"]:
         recommendations.append("重新运行 install.ps1 -ReplaceExisting，让 home plugin 指向当前插件版本。")
     if not selected_project:
-        recommendations.append("当前目录未识别为项目；如需项目级记忆，请在项目根目录运行 --init-project。")
+        recommendations.append("当前目录未识别为项目；如需项目级记忆，请在项目根目录运行 codex memory init。")
     elif not checks["project_commands_exists"] or not checks["project_profile_exists"]:
-        recommendations.append("运行 --init-project 生成缺失的 .codex/harness 配置。")
+        recommendations.append("运行 codex memory init 生成缺失的 .codex/harness 配置。")
 
     return {
         "ok": ok,

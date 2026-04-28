@@ -23,6 +23,7 @@ for path in (SCRIPTS_DIR, PLUGIN_SCRIPTS_DIR):
 import build_release
 import codex_bootstrap
 import init_storage
+import install_support
 import install_codex_memory
 import run_demo_flow
 import verification_runner
@@ -68,6 +69,39 @@ class InstallerTests(unittest.TestCase):
             self.assertEqual(removed["mode"], "backup")
             self.assertFalse(home_plugin.exists())
             self.assertTrue(Path(str(removed["backup_path"])).exists())
+
+
+class LauncherEntrypointTests(unittest.TestCase):
+    def test_generated_profile_routes_doctor_through_memory_subcommand(self) -> None:
+        block = install_support.profile_block(Path("C:/Users/Test/plugins/codex-memory"))
+
+        self.assertIn("function codex", block)
+        self.assertIn("function codexm", block)
+        self.assertIn("memory doctor", block)
+
+    def test_generated_agents_prefers_codex_memory_commands(self) -> None:
+        block = install_support.agents_block(Path("C:/Users/Test/plugins/codex-memory"))
+
+        self.assertIn("codex memory doctor", block)
+        self.assertIn("codex memory init", block)
+        self.assertIn("codex memory hook before_task", block)
+        self.assertNotIn("codex_bootstrap.py --cwd", block)
+        self.assertNotIn("hook_runner.py --event", block)
+
+    def test_launcher_declares_memory_command_dispatcher(self) -> None:
+        launcher = (PLUGIN_SCRIPTS_DIR / "codexm.ps1").read_text(encoding="utf-8")
+
+        self.assertIn("function Invoke-MemoryCommand", launcher)
+        self.assertIn('"verify"', launcher)
+        self.assertIn('"harness"', launcher)
+        self.assertIn('"hook"', launcher)
+
+    def test_launcher_respects_disable_wrapper_before_memory_dispatch(self) -> None:
+        launcher = (PLUGIN_SCRIPTS_DIR / "codexm.ps1").read_text(encoding="utf-8")
+
+        disable_check = 'if ($env:CODEX_MEMORY_DISABLE_WRAPPER -eq "1")'
+        memory_dispatch = 'if ($CodexArgs.Count -gt 0 -and $CodexArgs[0].ToLowerInvariant() -eq "memory")'
+        self.assertLess(launcher.index(disable_check), launcher.index(memory_dispatch))
 
 
 class DemoCleanupTests(unittest.TestCase):
@@ -169,6 +203,42 @@ class BootstrapTests(unittest.TestCase):
         self.assertFalse(result["ok"])
         self.assertFalse(result["checks"]["home_plugin_points_to_current"])
         self.assertTrue(any("ReplaceExisting" in item for item in result["recommendations"]))
+
+    def test_doctor_accepts_codex_memory_cli_guidance(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            project_root = temp_root / "project"
+            project_root.mkdir()
+            (project_root / ".codex" / "memories").mkdir(parents=True)
+            harness_dir = project_root / ".codex" / "harness"
+            harness_dir.mkdir(parents=True)
+            (harness_dir / "commands.json").write_text("{}", encoding="utf-8")
+            (harness_dir / "project_profile.json").write_text("{}", encoding="utf-8")
+
+            home_agents = temp_root / "AGENTS.md"
+            home_agents.write_text("Codex Memory\ncodex memory doctor\n", encoding="utf-8")
+            home_marketplace = temp_root / "marketplace.json"
+            home_marketplace.write_text(
+                json.dumps({"plugins": [{"name": "codex-memory"}]}),
+                encoding="utf-8",
+            )
+            global_memory = temp_root / "global-memory"
+            global_memory.mkdir()
+            plugin_root = codex_bootstrap._plugin_root()
+
+            patches = [
+                mock.patch.object(codex_bootstrap, "HOME_PLUGIN", plugin_root),
+                mock.patch.object(codex_bootstrap, "GLOBAL_MEMORY", global_memory),
+                mock.patch.object(codex_bootstrap, "HOME_AGENTS", home_agents),
+                mock.patch.object(codex_bootstrap, "HOME_MARKETPLACE", home_marketplace),
+            ]
+            with patches[0], patches[1], patches[2], patches[3]:
+                result = codex_bootstrap.inspect_state(project_root, init=False)
+
+        self.assertTrue(result["checks"]["home_agents_mentions_cli_entrypoints"])
+        self.assertFalse(
+            any("codex memory doctor/init" in item for item in result["recommendations"])
+        )
 
 
 class _Completed:

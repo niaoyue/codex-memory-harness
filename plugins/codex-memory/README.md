@@ -35,7 +35,7 @@ py -X utf8 plugins\codex-memory\scripts\install_codex_memory.py --replace-existi
 只读检查：
 
 ```powershell
-py -X utf8 plugins\codex-memory\scripts\install_codex_memory.py --check
+codex memory check-install
 ```
 
 ## 记忆存储分层
@@ -61,19 +61,19 @@ C:\Users\<你>\.codex\memories
 ## Harness
 
 ```powershell
-py -X utf8 C:\Users\<你>\plugins\codex-memory\scripts\harness_controller.py --project-root <项目目录> start --task-file task.json
-py -X utf8 C:\Users\<你>\plugins\codex-memory\scripts\harness_controller.py --project-root <项目目录> checkpoint --task-id <task-id> --result-file result.json
-py -X utf8 C:\Users\<你>\plugins\codex-memory\scripts\harness_controller.py --project-root <项目目录> complete --task-id <task-id> --summary-file summary.md
+codex memory harness start --task-file task.json
+codex memory harness checkpoint --task-id <task-id> --result-file result.json
+codex memory harness complete --task-id <task-id> --summary-file summary.md
 ```
 
 ## Bootstrap / Doctor
 
 ```powershell
-py -X utf8 C:\Users\<你>\plugins\codex-memory\scripts\codex_bootstrap.py --cwd <项目目录> --doctor
-py -X utf8 C:\Users\<你>\plugins\codex-memory\scripts\codex_bootstrap.py --cwd <项目目录> --init-project
+codex memory doctor
+codex memory init
 ```
 
-`--doctor` 只检查状态，`--init-project` 只创建缺失的 `.codex/memories` 和 `.codex/harness` 配置，不覆盖已有配置。
+`doctor` 只检查状态，`init` 只创建缺失的 `.codex/memories` 和 `.codex/harness` 配置，不覆盖已有配置。
 
 ## PowerShell Launcher
 
@@ -82,6 +82,9 @@ py -X utf8 C:\Users\<你>\plugins\codex-memory\scripts\codex_bootstrap.py --cwd 
 ```powershell
 codex
 codexm
+codex memory doctor
+codex memory init
+codex memory verify run --profile primary
 codex-memory-doctor
 codex-raw
 ```

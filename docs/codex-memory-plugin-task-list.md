@@ -142,6 +142,7 @@
   - `harness_controller.py start` 可创建 task spec 并加载上下文。
   - `harness_controller.py checkpoint` 可记录 structured artifact 并写入 after_tool。
   - `harness_controller.py complete` 可执行 checklist、写总结并触发蒸馏。
+  - 用户首选通过 `codex memory harness start/checkpoint/complete` 访问上述能力。
   - `.codex/harness/commands.json` 与 `project_profile.json` 存在且可解析。
 
 ### Step 10（已完成）
@@ -152,6 +153,7 @@
 - 验收：
   - `verification_runner.py list` 可列出配置化命令。
   - `verification_runner.py run --profile primary` 可执行项目验证配置。
+  - 用户首选通过 `codex memory verify list` 与 `codex memory verify run --profile primary` 访问验证入口。
   - 传入 `--task-id` 时可自动写入 harness checkpoint。
   - 明显危险命令会被拒绝。
 
@@ -161,10 +163,10 @@
 - 范围：T25。
 - 不做：强制拦截真实 `codex` 命令、远程守护进程、宿主私有 hook。
 - 验收：
-  - `codex_bootstrap.py --doctor` 可输出当前窗口 memory/harness 状态。
-  - `codex_bootstrap.py --init-project` 可创建缺失的项目 memory/harness 配置，且不覆盖已有配置。
+  - `codex memory doctor` 可输出当前窗口 memory/harness 状态。
+  - `codex memory init` 可创建缺失的项目 memory/harness 配置，且不覆盖已有配置。
   - 当前项目 primary 验证包含 bootstrap doctor。
-  - 全局与项目说明包含 bootstrap/doctor 使用入口。
+  - 全局与项目说明包含 `codex memory doctor/init` 使用入口。
 
 ### Step 12（已完成）
 
@@ -172,7 +174,7 @@
 - 范围：T26。
 - 不做：覆盖真实 `codex` 命令、修改 PATH 顺序、强制 shell hook。
 - 验收：
-  - `codexm.ps1 -DoctorOnly` 可输出 doctor JSON。
+  - `codex memory doctor` 与 `codexm memory doctor` 可输出 doctor JSON。
   - PowerShell profile 中注册 `codexm` 函数。
   - `codexm.ps1` 可定位真实 `codex` 命令，且不递归调用自身。
   - 当前项目 primary 验证包含 `codexm_doctor`。
