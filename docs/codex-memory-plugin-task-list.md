@@ -9,7 +9,7 @@
 - `done`：已完成
 - `blocked`：受阻
 
-当前策略：一次只推进一个主任务，避免并行改动过多导致上下文污染。
+当前实现策略：一次只推进一个主里程碑，避免并行改动过多导致上下文污染。未来 workspace routing 允许 coordinator 分配多个 SubAgent 并行处理不同子项目，但当前项目尚未实现并发 SubAgent 调度器。
 
 ## 2. 主任务清单
 
@@ -36,7 +36,7 @@
 | T18 | 6 | 对齐 Codex 插件市场接入 | repo/home marketplace 与本机插件入口 | T15 | done |
 | T19 | 6 | 对齐官方 hooks 入口格式 | `hooks.json` 与 `hook_bridge.py` | T15 | done |
 | T20 | 6 | 落地无感使用默认工作流 | 安装脚本、仓库 AGENTS 与自动兜底 | T18,T19 | done |
-| T21 | 7 | 实现全局/项目记忆隔离 | 全局 `.codex/memories` 与项目 `.codex/memories` | T20 | done |
+| T21 | 7 | 实现用户全局层/项目私有层隔离 | 用户全局 `~/.codex/memories` 与项目私有 `.codex/memories` | T20 | done |
 | T22 | 8 | 实现最小 Harness Controller | start/checkpoint/complete 三段式控制器 | T21 | done |
 | T23 | 8 | 增加项目 harness 配置 | `.codex/harness` 配置与命令注册 | T22 | done |
 | T24 | 9 | 增加 Harness Verification Runner | 配置化验证执行、危险命令拦截、checkpoint 回写 | T23 | done |
@@ -49,6 +49,21 @@
 | T31 | 14 | 实现写入前敏感信息扫描器 | memory/artifact/index 写入前脱敏与拒绝策略 | T28,T29,T30 | todo |
 | T32 | 14 | 实现 SubAgent artifact schema | roles、subagents artifact、冲突检测和汇总规则 | T30 | todo |
 | T33 | 14 | 实现可选语义检索 provider | embedding 索引、rebuild、降级和删除策略 | T29,T31 | todo |
+| T34 | 15 | 补齐游戏客户端专项工作流文档 | `docs/GAME_CLIENT_WORKFLOW.md` | T28,T30 | done |
+| T35 | 15 | 评估 `codex game-client` 独立命令 | Unity/Laya/Cocos profile 生成、doctor、verify、release-check | T34 | todo |
+| T36 | 16 | 补齐 Workspace 自适应路由设计 | `docs/WORKSPACE_ADAPTIVE_ROUTING.md` | T30,T34 | done |
+| T37 | 16 | 实现 workspace scanner | project inventory、子项目识别、置信度和信号输出 | T36 | todo |
+| T38 | 16 | 实现 route plan schema | task route、subagent route binding、verification aggregation | T36 | todo |
+| T39 | 17 | 审查并修正 Workspace 路由文档设计 | 文档一致性修正、runtime 差距说明、memory/cwd 策略 | T36 | done |
+| T40 | 17 | 拆分 Workspace 路由实现任务 | `docs/WORKSPACE_ROUTING_TASK_LIST.md` | T39 | done |
+| T44 | 17 | 同步 workspace 隐私与检索设计边界 | `docs/PRIVACY.md`、`docs/MEMORY_RETRIEVAL_STRATEGY.md` | T39 | done |
+| T45 | 17 | 修复 working set glob 触发检索降级 | fulltext 检索按 literal 处理 `*.md` 等模式 | T39 | done |
+| T41 | 18 | 实现 verification command cwd | 支持每个子项目独立 cwd/profile 聚合执行 | T38 | todo |
+| T42 | 18 | 实现 SubAgent scope guard | 检测 SubAgent touched paths 是否越过 assigned scope | T38 | todo |
+| T43 | 18 | 实现 workspace memory 分层 | workspace summary 与子项目 facts 分层写入 | T38 | todo |
+| T46 | 17 | 设计项目共享 memory 层 | `.codex/shared` 分层说明、冲突策略、提升流程文档 | T44 | done |
+| T47 | 19 | 实现项目共享 memory 模板 | `.codex/shared` 目录模板、schema、示例和 `.gitignore` 精细放行 | T46 | todo |
+| T48 | 19 | 实现 memory promote 命令 | 从本地 summary/decision 提升为共享 Markdown，执行脱敏和校验 | T46,T31 | todo |
 
 ## 3. 当前推荐执行步
 
@@ -130,12 +145,12 @@
 
 ### Step 8（已完成）
 
-- 目标：完成全局记忆与项目记忆的存储隔离。
+- 目标：完成用户全局层与项目私有层的存储隔离。
 - 范围：T21。
 - 不做：远程同步、多用户权限系统、向量库。
 - 验收：
-  - 默认项目记忆写入 `<项目根目录>/.codex/memories/`。
-  - 显式全局记忆写入 `C:/Users/<USER>/.codex/memories/`。
+  - 默认项目私有记忆写入 `<项目根目录>/.codex/memories/`。
+  - 显式用户全局记忆写入 `C:/Users/<USER>/.codex/memories/`。
   - `hook_runner.py` 与 `memory_server.py` 均支持 `--memory-scope`。
   - `.codex/memories/` 不进入检索证据包。
 
@@ -207,6 +222,43 @@
   - `docs/SUBAGENT_WORKFLOW.md` 说明当前是角色协作协议，不是内建 SubAgent 调度器。
   - README、用户指南和系统总结有对应入口。
 
+### Step 15（已完成）
+
+- 目标：针对 Unity、LayaBox/LayaAir、Cocos Creator 客户端项目补齐专项工作流路线。
+- 范围：T34。
+- 不做：实现 `codex game-client` 命令、写死业务项目引擎路径、引入外部游戏模板。
+- 验收：
+  - `docs/GAME_CLIENT_WORKFLOW.md` 对 BMAD-METHOD、BMGD 和 Claude-Code-Game-Studios 进行客户端向裁剪。
+  - 文档覆盖客户端任务分级、角色分工、路径规则、验证 profile、未来命令路线。
+  - README、用户指南和系统总结有对应入口。
+
+### Step 16（已完成）
+
+- 目标：补齐多项目 workspace 下的自动路由设计。
+- 范围：T36。
+- 不做：实现 workspace scanner、route plan 运行时、SubAgent 调度器。
+- 验收：
+  - `docs/WORKSPACE_ADAPTIVE_ROUTING.md` 说明 workspace 子项目发现、任务路由、SubAgent route binding、综合事务 coordinator、验证聚合和冲突处理。
+  - `docs/GAME_CLIENT_WORKFLOW.md` 明确游戏客户端只是 workspace routing 的 `game_client` domain。
+  - `docs/SUBAGENT_WORKFLOW.md` 增加 route binding 说明。
+  - README、用户指南和系统总结有对应入口。
+
+### Step 17（已完成）
+
+- 目标：全面审查 workspace routing、game client、SubAgent 和系统总结文档设计，修正不一致和缺口。
+- 范围：T39、T40、T44、T45、T46。
+- 不做：实现 runtime scanner、route planner、verification aggregator。
+- 验收：
+  - `docs/WORKSPACE_ADAPTIVE_ROUTING.md` 补齐设计审查结论、route plan artifact、verification cwd 差距和 memory 分层策略。
+  - `docs/SUBAGENT_WORKFLOW.md` 的 artifact 示例包含 `project_id`、`domain`、`assigned_scope` 和 `cwd`。
+  - `docs/GAME_CLIENT_WORKFLOW.md` 明确 `game-client.json` 只适合单客户端仓库或 workspace 中的局部扩展。
+  - `docs/PRIVACY.md` 补齐 workspace scanner、route plan、子项目 memory 和游戏资产/渠道敏感项边界。
+  - `docs/MEMORY_RETRIEVAL_STRATEGY.md` 补齐 workspace/project/domain/scope/task_id 等未来检索 metadata。
+  - `docs/MEMORY_LAYERING.md` 说明用户全局层、项目私有层、项目共享层分别放什么，以及共享层冲突处理。
+  - `retrieval_store.py` 修复 working set 中 `*.md` 这类 glob 派生检索词导致 `rg` 正则报错的问题。
+  - `docs/WORKSPACE_ROUTING_TASK_LIST.md` 拆分 workspace routing 实现任务并同步当前进度。
+  - README、用户指南、系统总结和本任务清单有对应入口。
+
 ## 4. 每步完成后的固定动作
 
 每完成一个主步，都执行以下动作：
@@ -216,19 +268,24 @@
 3. 记录是否影响下一步边界。
 4. 如有阻塞，明确写出阻塞原因和替代方案。
 
-## 5. 暂不进入本轮的事项
+## 5. 暂不进入当前实现的事项
 
-以下事项明确不进入第一步：
+以下事项仍未实现：
 
 - 复杂向量检索
 - 远程数据库
 - 副模型训练
 - 高级 rerank
 - 云端同步
+- workspace scanner runtime
+- route planner runtime
+- verification aggregation runtime
+- SubAgent route binding runtime
+- `.codex/shared` 初始化模板与 promote 命令
 
 ## 6. 当前状态与下一步
 
-阶段 6 已完成，当前状态如下：
+当前已完成至 Step 17，状态如下：
 
 - Step 6 已完成
 - Step 7 已完成
@@ -239,4 +296,7 @@
 - Step 12 已完成
 - Step 13 已完成
 - Step 14 已完成
-- 如需继续增强，下一轮优先进入写入前敏感信息扫描器、eval suite、SubAgent artifact schema、语义检索 provider、记忆迁移或更强的上下文编排
+- Step 15 已完成
+- Step 16 已完成
+- Step 17 已完成
+- 如需继续增强，下一轮优先进入项目共享 memory 模板、memory promote 命令、workspace routing schema、workspace scanner、route planner、verification command cwd、SubAgent scope guard、workspace memory 分层、写入前敏感信息扫描器、eval suite、游戏客户端 profile 模板、语义检索 provider、记忆迁移或更强的上下文编排

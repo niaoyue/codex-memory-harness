@@ -82,6 +82,9 @@ codex harness checkpoint --task-id <task-id> --result-file role-result.json
   "touched_paths": ["README.md", "docs/SUBAGENT_WORKFLOW.md"],
   "signals": {
     "role": "Reviewer",
+    "project_id": "codex-memory-harness",
+    "domain": "docs",
+    "assigned_scope": ["README.md", "docs/"],
     "status": "findings",
     "findings": [
       {
@@ -168,7 +171,32 @@ codex harness roles record --task-id <task-id> --role Reviewer --result-file res
 
 第一阶段不需要自动启动子进程，只需要标准化角色计划和 artifact 记录。等角色协议稳定后，再考虑并发调度、超时控制、冲突检测和结果合并。
 
-## 10. 验收标准
+## 10. Workspace 路由绑定
+
+当 Codex 运行在一个包含多个子项目的 workspace 中，SubAgent 还需要绑定具体项目路由。不要只按“Reviewer / Implementer”区分角色，还要记录它负责的 project、domain 和 scope。
+
+推荐 route binding：
+
+```json
+{
+  "subagent_id": "agent-client-ui-review",
+  "role": "Reviewer",
+  "project_id": "client-unity",
+  "domain": "game_client",
+  "cwd": "client",
+  "assigned_scope": ["client/Assets/Scripts/UI"],
+  "rules": ["workspace/base", "game_client/unity", "game_client/ui"],
+  "verification_profiles": ["client_quick", "client_ui_smoke"]
+}
+```
+
+综合事务应由 coordinator 管理多个 route binding，并汇总各项目 artifact。完整 workspace 路由设计见：
+
+```text
+docs/WORKSPACE_ADAPTIVE_ROUTING.md
+```
+
+## 11. 验收标准
 
 当未来声明“已支持 SubAgent 分工”时，至少要满足：
 

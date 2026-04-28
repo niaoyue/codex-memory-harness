@@ -243,7 +243,7 @@ class RetrievalEngine:
     def search_fulltext(self, query: str, limit: int = 10) -> list[EvidenceItem]:
         normalized_query = _clean_query(query)
         result = _run_rg(
-            ["--json", "-n", "-m", "2", "--max-columns", "240", "--smart-case", normalized_query, "."]
+            ["--json", "-n", "-F", "-m", "2", "--max-columns", "240", "--smart-case", normalized_query, "."]
         )
 
         items: list[EvidenceItem] = []

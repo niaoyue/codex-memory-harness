@@ -19,6 +19,16 @@
 | 任务总结 | `.codex/memories/summaries/*.md` | 保存任务完成后的总结 |
 | 事件与蒸馏资产 | `.codex/memories/events.jsonl`、`distilled/` | 保存工具事件和可复用经验 |
 
+这些属于项目私有层，默认不提交。团队共享知识应进入 `.codex/shared`，以 Markdown 和 metadata 表示，避免直接共享 SQLite、JSONL 或 raw summary。
+
+三层记忆关系：
+
+| 层级 | 检索用途 | 默认权重 |
+|---|---|---|
+| 用户全局层 `~/.codex/memories` | 用户偏好、通用流程、跨项目习惯 | 低于项目规则 |
+| 项目私有层 `.codex/memories` | 当前用户在该项目的任务状态、summary、运行发现 | 当前任务高权重，但不作为团队事实 |
+| 项目共享层 `.codex/shared` | 团队确认的稳定事实、决策、流程和路由摘要 | 高于个人记忆，低于用户本次明确要求 |
+
 工作区证据检索由 `retrieval_store.py` 负责：
 
 - `exact`：文件名、路径、固定字符串、标识符检索。
@@ -32,6 +42,29 @@
 - 再放入任务总结。
 - 再放入项目决策。
 - 最后按预算加入 evidence。
+
+### 2.1 Workspace 路由下的索引作用域
+
+当 Codex 运行在一个多项目 workspace 中，memory 和检索索引不能只依赖仓库根目录。每条可检索记录都应逐步补齐以下 metadata：
+
+| 字段 | 作用 |
+|---|---|
+| `workspace_id` | 区分同一机器上的不同 workspace |
+| `project_id` | 区分客户端、服务器、后台、文档、美术工程等子项目 |
+| `domain` | 标记 `game_client`、`game_server`、`backoffice_web`、`design_docs`、`art_pipeline` 等领域 |
+| `scope` | 标记路径范围、模块、角色或 SubAgent assigned scope |
+| `task_id` | 支持按任务删除、回放、解释和审计 |
+| `route_plan_id` | 把检索记录关联到当时的 workspace route plan |
+| `confidence` | 标记自动识别或总结的置信度，避免低置信结果被当作事实 |
+
+默认检索策略：
+
+- 项目共享层优先提供团队确认事实，项目私有层提供当前用户的任务连续性。
+- 单项目任务优先读取该 `project_id` 和 scope 的 memory。
+- 综合事务先读取 workspace 级 route plan 和 contract summary，再按 affected projects 读取子项目 memory。
+- SubAgent 只自动装载自己 route binding 相关的 memory；跨项目事实由 coordinator 汇总。
+- 找不到 `project_id` 的历史记录只能作为低置信参考，不能直接覆盖当前项目规则。
+- 如果用户全局层和项目共享层冲突，项目共享层优先；如果项目共享层和用户本次请求冲突，用户本次请求优先。
 
 ## 3. 为什么不先上向量数据库
 
@@ -71,6 +104,7 @@
 - 写入前敏感信息扫描已经落地。
 - memory archive/cleanup 已经落地，能控制索引规模。
 - 每条可索引内容都有来源、时间、scope、task_id 和可删除标识。
+- 多项目 workspace 中，每条可索引内容都有 `workspace_id`、`project_id`、`domain`、`scope`、`task_id` 和可删除标识。
 - 有清晰的 rebuild/reindex 命令。
 - 检索结果能解释来源，不能只返回相似度分数。
 - 默认关闭，用户显式启用。
@@ -128,7 +162,14 @@ codex memory search --semantic "之前安装器旧版本怎么处理"
 - 没有启用向量检索时，`--semantic` 返回明确的不可用原因。
 - exact/fulltext 永远可用。
 - 索引目录不进入发布包。
-- 索引内容不跨项目自动共享。
+- 项目私有层索引内容不跨项目自动共享。
+- 项目共享层索引只能来自 `.codex/shared` 中通过校验的内容。
+
+完整记忆分层策略见：
+
+```text
+docs/MEMORY_LAYERING.md
+```
 
 ## 8. 当前落点
 

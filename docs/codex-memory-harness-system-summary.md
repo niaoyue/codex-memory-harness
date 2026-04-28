@@ -112,16 +112,36 @@ Windows PowerShell profile 可选：
 <USER_HOME>/Documents/WindowsPowerShell/Microsoft.PowerShell_profile.ps1
 ```
 
-项目级 memory：
+项目私有层：
 
 ```text
 <PROJECT_ROOT>/.codex/memories
 ```
 
-全局 memory：
+用户全局层：
 
 ```text
 <USER_HOME>/.codex/memories
+```
+
+项目共享 memory 建议位置：
+
+```text
+<PROJECT_ROOT>/.codex/shared
+```
+
+三者边界：
+
+| 层级 | 是否提交 | 内容 |
+|---|---|---|
+| 用户全局层 | 不提交 | 跨项目偏好、通用工作流、长期个人规则 |
+| 项目私有层 | 不提交 | 本地任务状态、事件、summary、distilled 草稿 |
+| 项目共享层 | 可提交，需审查 | 团队确认的项目事实、架构决策、流程、路由摘要 |
+
+完整分层策略见：
+
+```text
+docs/MEMORY_LAYERING.md
 ```
 
 ## 6. 使用方式
@@ -437,28 +457,95 @@ docs/MEMORY_RETRIEVAL_STRATEGY.md
 docs/EXTERNAL_BENCHMARK.md
 ```
 
-## 18. 当前限制
+## 18. 游戏客户端专项路线
+
+针对 Unity、LayaBox/LayaAir、Cocos Creator 客户端项目，本仓库不直接内置引擎命令，而是建议业务项目通过 `.codex/harness/commands.json` 配置自己的验证 profile。
+
+当前已经落地文档：
+
+```text
+docs/GAME_CLIENT_WORKFLOW.md
+```
+
+该路线吸收 BMAD Game Dev Studio 的 Quick Flow / Full Production、GDD、架构、story、QA、performance 工作流，也吸收 Claude-Code-Game-Studios 的游戏工作室角色、路径规则、hooks、质量门禁和会话状态思路。落地时收敛为客户端专项角色和 profile，不覆盖完整游戏工作室模板。
+
+如果是单一游戏客户端仓库，后续可以保留调试入口：
+
+```powershell
+codex game-client doctor
+codex game-client init --engine unity
+codex game-client init --engine laya
+codex game-client init --engine cocos
+codex game-client verify --profile client_quick
+codex game-client release-check
+```
+
+如果是多项目 workspace，更推荐 workspace 级自动路由：
+
+```text
+docs/WORKSPACE_ADAPTIVE_ROUTING.md
+```
+
+## 19. Workspace 自适应路由
+
+当一个 workspace 同时包含游戏客户端、游戏服务器、后台应用、文档设计、美术工程和发布脚本时，路由对象不应该只是“引擎”，而应该是“子项目实例 + 任务域 + SubAgent scope”。
+
+当前已经落地文档：
+
+```text
+docs/WORKSPACE_ADAPTIVE_ROUTING.md
+```
+
+推荐未来入口：
+
+```powershell
+codex workspace doctor
+codex workspace route --task-file task.json
+codex workspace route --changed
+codex workspace verify --auto
+```
+
+workspace routing 会先形成 project inventory，再为当前任务生成 route plan。specialist SubAgent 绑定单个子项目 route，coordinator SubAgent 负责跨项目契约、验证聚合、冲突处理和最终 summary。
+
+当前只落地文档和路线，不实现上述命令。
+
+详细任务拆分和进度见：
+
+```text
+docs/WORKSPACE_ROUTING_TASK_LIST.md
+```
+
+## 20. 当前限制
 
 - 不能修改模型内部记忆。
 - 不能保证非 PowerShell 启动方式自动经过 wrapper。
 - 旧 Codex 宿主是否自动读取插件 marketplace，仍取决于宿主能力。
 - 当前检索是本地 MVP，尚未接入 embedding。
 - 当前没有内建 SubAgent 调度器，只提供角色协作协议和 artifact 记录方式。
+- 当前没有内建游戏客户端专项命令，只提供文档路线和项目级 verification profile 建议。
+- 当前没有内建 workspace 自适应路由，只提供 route plan、SubAgent route binding 和验证聚合设计。
+- 当前没有内建项目共享 memory 提升流程，只实现用户全局层和项目私有层。
+- 当前 verification runner 尚不支持每个子项目独立 cwd 的自动聚合执行。
 - 当前 eval 回放体系尚未平台化。
 - 全局 AGENTS 的旧未标记规则不会被强行改写。
 
-## 19. 后续增强
+## 21. 后续增强
 
 优先级建议：
 
 1. 敏感信息扫描器：写入 memory、artifact、索引前强制脱敏。
 2. `.codex/evals`：把失败任务和高价值任务转为可回放评测。
 3. memory archive/cleanup：避免长期膨胀。
-4. SubAgent artifact schema：记录角色计划、角色输出、冲突文件和结果汇总。
-5. 多项目模板生成器：快速给项目接入 `.codex/harness`。
-6. 可选本地语义检索：在不开启网络的前提下增强召回。
-7. 安装器 dry-run：让用户安装前预览所有写入。
+4. 项目共享 memory：`.codex/shared` 模板、schema 校验、promote 命令和冲突策略。
+5. Workspace scanner：生成 project inventory。
+6. Route plan schema：记录任务路由、SubAgent route binding 和验证聚合。
+7. SubAgent artifact schema：记录角色计划、角色输出、冲突文件和结果汇总。
+8. 游戏客户端 profile 模板：按 Unity/Laya/Cocos 生成推荐 verification profile。
+9. `codex workspace ...`：在业务项目需求稳定后提供 workspace 自动路由入口。
+10. 多项目模板生成器：快速给项目接入 `.codex/harness`。
+11. 可选本地语义检索：在不开启网络的前提下增强召回。
+12. 安装器 dry-run：让用户安装前预览所有写入。
 
-## 20. 一句话总结
+## 22. 一句话总结
 
 Codex Memory Harness 是一套本地、可控、可打包安装的 Codex 外部记忆与任务运行时系统。它不改变模型内部能力，但通过 memory、context、harness、verification、distillation 和 PowerShell wrapper，把 Codex 的跨任务连续协作能力从“会话内临时上下文”提升为“本机可维护的工程化闭环”。

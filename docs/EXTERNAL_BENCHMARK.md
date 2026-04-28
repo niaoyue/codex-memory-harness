@@ -31,7 +31,7 @@
 
 ## 3. 当前实现对标结论
 
-总体结论：当前项目已经覆盖最小可用的本地 memory/harness/verification 闭环，但还没有实现完整 SubAgent 调度器、真实语义向量召回、平台化 eval 回放和远程执行环境。缺口已经通过本轮文档明确化，并纳入后续路线。
+总体结论：当前项目已经覆盖最小可用的本地 memory/harness/verification 闭环，但还没有实现完整 SubAgent 调度器、真实语义向量召回、平台化 eval 回放和远程执行环境。缺口已经在文档中明确化，并纳入后续路线。
 
 | 外部能力点 | 当前实现 | 状态 | 差距与处理 |
 |---|---|---|---|
@@ -41,10 +41,11 @@
 | 验证闭环 | `verification_runner.py` 读取 `.codex/harness` 配置并 checkpoint | 已实现 MVP | 还不是完整 eval 平台，没有历史失败用例回放 |
 | 记忆沉淀 | SQLite、JSONL、summary、distilled asset | 已实现 MVP | 缺少长期清理、归档和迁移工具 |
 | 上下文预算 | `DEFAULT_CONTEXT_BUDGET` 分配 task、summary、decision、evidence 字符预算 | 已实现 MVP | 后续应支持 profile 配置 |
-| 角色分工 | 本轮新增 `docs/SUBAGENT_WORKFLOW.md` | 文档已补齐，运行时未实现 | 当前只定义协作协议，不自动创建或调度 SubAgent |
+| 角色分工 | `docs/SUBAGENT_WORKFLOW.md` | 文档已补齐，运行时未实现 | 当前只定义协作协议，不自动创建或调度 SubAgent |
 | 语义召回 | `retrieval_store.py` 保留 `semantic` placeholder | 预留接口 | 暂不依赖向量库，路线见 `docs/MEMORY_RETRIEVAL_STRATEGY.md` |
 | 可审计性 | task spec、run state、artifacts、verification payload、本地 memory | 已实现 MVP | 后续可增加 artifact schema 版本和导出命令 |
 | 安全边界 | 打包排除、敏感字段脱敏、危险命令拦截、隐私文档 | 已实现 MVP | 写入前敏感扫描器仍是后续增强 |
+| Workspace 路由 | `docs/WORKSPACE_ADAPTIVE_ROUTING.md`、`docs/WORKSPACE_ROUTING_TASK_LIST.md` | 文档已补齐，运行时未实现 | 当前只定义 project inventory、route plan、SubAgent route binding 和验证聚合路线 |
 
 ## 4. 是否已经“都做到了”
 
@@ -55,13 +56,16 @@
 - 之前没说清：为什么不引入向量数据库、SubAgent 怎么分工、哪些能力只是规划层而非运行时能力。
 - 未做到：真实 SubAgent 调度器、并发 agent artifact 汇聚、向量数据库、embedding 索引、eval replay 平台、远程沙箱执行。
 
-## 5. 本轮补齐的文档
+## 5. 已补齐的文档
 
-本轮新增或更新的文档入口：
+当前已新增或更新的文档入口：
 
 - `docs/EXTERNAL_BENCHMARK.md`：外部资料对标、已实现能力、缺口和路线。
 - `docs/MEMORY_RETRIEVAL_STRATEGY.md`：解释为什么当前不依赖向量数据库，以及未来如何接入。
 - `docs/SUBAGENT_WORKFLOW.md`：定义 SubAgent 角色分工、artifact 协议和未来落地路线。
+- `docs/GAME_CLIENT_WORKFLOW.md`：定义 Unity、LayaBox/LayaAir、Cocos Creator 客户端专项流程。
+- `docs/WORKSPACE_ADAPTIVE_ROUTING.md`：定义多项目 workspace 的自动识别、路由、SubAgent 绑定和验证聚合设计。
+- `docs/WORKSPACE_ROUTING_TASK_LIST.md`：把 workspace routing 设计拆成带状态的实现任务。
 - `README.md`、`docs/USER_GUIDE.md`、`docs/codex-memory-harness-system-summary.md`、`docs/codex-memory-plugin-task-list.md`：补充上述入口和状态说明。
 
 ## 6. 后续路线建议

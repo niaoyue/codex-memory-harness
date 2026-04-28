@@ -64,22 +64,38 @@ codex memory init
 
 ## 记忆分层
 
-默认写项目级 memory：
+Codex Memory 分三层：
+
+| 层级 | 位置 | 是否提交 | 适合内容 |
+|---|---|---|---|
+| 用户全局层 | `C:\Users\<你>\.codex\memories` | 不提交 | 跨项目长期偏好、通用工作流、用户明确要求全局沉淀的非敏感规则 |
+| 项目私有层 | `<项目根目录>/.codex/memories` | 不提交 | 当前项目的本地任务状态、工具事件、summary、distilled 草稿 |
+| 项目共享层 | `<项目根目录>/.codex/shared` | 可提交，需审查 | 团队确认的项目事实、架构决策、流程、路由和验证规则摘要 |
+
+默认写项目私有层：
 
 ```text
 <项目根目录>/.codex/memories
 ```
 
-只有这些内容才应写全局 memory：
+只有这些内容才应写用户全局层：
 
 - 跨项目长期偏好。
 - 反复复用的个人工作流。
 - 用户明确要求全局沉淀的规则。
 
-全局 memory 位置：
+用户全局层位置：
 
 ```text
 C:\Users\<你>\.codex\memories
+```
+
+项目共享层不能直接提交 `.codex/memories`。应先从本地 summary、decision、verification 中提取稳定、脱敏、可审查的 Markdown，再放入 `.codex/shared`。
+
+完整分层、冲突处理和提升流程见：
+
+```text
+docs/MEMORY_LAYERING.md
 ```
 
 当前记忆检索默认使用 SQLite、JSONL、Markdown summary 和本地 `rg` 检索，不依赖向量数据库。原因和后续可选接入路线见：
@@ -102,6 +118,24 @@ docs/EXTERNAL_BENCHMARK.md
 
 ```text
 docs/SUBAGENT_WORKFLOW.md
+```
+
+如果当前项目是 Unity、LayaBox/LayaAir 或 Cocos Creator 游戏客户端，可参考游戏客户端专项工作流。该文档说明如何把玩法、UI、资源、性能、热更新和发版检查接入 harness：
+
+```text
+docs/GAME_CLIENT_WORKFLOW.md
+```
+
+如果 Codex 在一个 workspace 下运行，而该 workspace 同时包含客户端、服务器、后台、文档、美术工程或发布脚本，应优先参考 workspace 自适应路由。它说明如何自动识别子项目、给 SubAgent 绑定项目路由，并处理跨项目综合事务：
+
+```text
+docs/WORKSPACE_ADAPTIVE_ROUTING.md
+```
+
+Workspace routing 的实现拆分和当前进度见：
+
+```text
+docs/WORKSPACE_ROUTING_TASK_LIST.md
 ```
 
 ## 打包给别人

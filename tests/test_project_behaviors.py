@@ -25,6 +25,7 @@ import codex_bootstrap
 import init_storage
 import install_support
 import install_codex_memory
+import retrieval_store
 import run_demo_flow
 import verification_runner
 
@@ -198,6 +199,27 @@ class DemoCleanupTests(unittest.TestCase):
 
         self.assertEqual(len(remaining), 1)
         self.assertIn("other-task", remaining[0])
+
+
+class RetrievalStoreTests(unittest.TestCase):
+    def test_fulltext_search_treats_glob_patterns_as_literals(self) -> None:
+        calls: list[list[str]] = []
+
+        class EmptyRgResult:
+            stdout = ""
+            stderr = ""
+            returncode = 1
+
+        def fake_run(args: list[str]) -> EmptyRgResult:
+            calls.append(args)
+            return EmptyRgResult()
+
+        with mock.patch.object(retrieval_store, "_run_rg", side_effect=fake_run):
+            items = retrieval_store.RetrievalEngine().search_fulltext("*.md")
+
+        self.assertEqual(items, [])
+        self.assertIn("-F", calls[0])
+        self.assertIn("*.md", calls[0])
 
 
 class VerificationRunnerTests(unittest.TestCase):
