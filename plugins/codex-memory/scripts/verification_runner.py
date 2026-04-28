@@ -136,11 +136,14 @@ def select_command_names(args: argparse.Namespace, commands: dict[str, CommandSp
 
 
 def assert_safe_command(spec: CommandSpec) -> None:
-    command_text = spec.command or _display_command(spec.argv)
-    normalized = " ".join(command_text.lower().split())
-    blocked = [pattern for pattern in BLOCKED_PATTERNS if pattern in normalized]
-    if blocked:
-        raise ValueError(f"Command {spec.name!r} contains blocked pattern: {blocked[0]}")
+    command_texts = [spec.command]
+    if spec.argv:
+        command_texts.append(_display_command(spec.argv))
+    for command_text in [text for text in command_texts if text.strip()]:
+        normalized = " ".join(command_text.lower().split())
+        blocked = [pattern for pattern in BLOCKED_PATTERNS if pattern in normalized]
+        if blocked:
+            raise ValueError(f"Command {spec.name!r} contains blocked pattern: {blocked[0]}")
     if spec.allow_shell and not spec.command.strip():
         raise ValueError(f"Command {spec.name!r} allows shell execution but has no command string.")
 

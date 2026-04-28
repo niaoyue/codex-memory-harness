@@ -11,13 +11,15 @@ cd H:\dev\company\codex-memory-harness
 .\install.ps1
 ```
 
-如果安装器提示 `Home plugin already points elsewhere`，说明机器上已经有旧版本或旧项目的 `codex-memory`：
+如果已经安装的是当前版本，安装器会提示 `already_installed`，不会重新安装插件。
+
+如果机器上已经有旧版本或其他项目安装的 `codex-memory`，默认安装不会覆盖它。需要更新到当前包时显式运行：
 
 ```powershell
-.\install.ps1 -ReplaceExisting
+.\install.ps1 -UpdateExisting
 ```
 
-这会把 `~/plugins/codex-memory` 迁移到当前项目。它不会修改真实 Codex CLI 文件。
+这会把 `~/plugins/codex-memory` 更新到当前包。它不会修改真实 Codex CLI 文件。`-ReplaceExisting` 仍可作为兼容别名使用，但推荐新命令写法 `-UpdateExisting`。
 
 ## 日常使用
 
@@ -33,8 +35,10 @@ codex
 - `codexm`：显式 memory wrapper 入口。
 - `codex memory doctor`：诊断当前项目 memory/harness 状态。
 - `codex memory init`：初始化缺失的项目 `.codex` memory/harness 配置。
-- `codex memory verify ...`：运行当前项目配置化验证。
-- `codex memory harness ...`：运行 harness 任务生命周期命令。
+- `codex memory install/update/check-install`：安装、更新或检查插件接入。
+- `codex harness ...`：运行 harness 任务生命周期命令。
+- `codex harness verify ...`：运行当前项目配置化验证。
+- `codex package build/verify`：维护者打包和项目健康检查入口。
 - `codex-memory-doctor`：只检查当前窗口接入状态，不启动 Codex。
 - `codex-raw`：绕过 memory wrapper，直接启动真实 Codex。
 
@@ -78,12 +82,34 @@ codex memory init
 C:\Users\<你>\.codex\memories
 ```
 
+当前记忆检索默认使用 SQLite、JSONL、Markdown summary 和本地 `rg` 检索，不依赖向量数据库。原因和后续可选接入路线见：
+
+```text
+docs/MEMORY_RETRIEVAL_STRATEGY.md
+```
+
+## Harness Engineering 对标
+
+本项目已经具备本地 memory、harness 生命周期和验证回写的 MVP，但还没有内建 SubAgent 调度器、向量数据库或 eval replay 平台。
+
+如果需要确认当前能力边界：
+
+```text
+docs/EXTERNAL_BENCHMARK.md
+```
+
+如果需要按多角色方式执行复杂任务，当前应按文档里的角色协议记录 artifact，而不是假设项目会自动启动多个 SubAgent：
+
+```text
+docs/SUBAGENT_WORKFLOW.md
+```
+
 ## 打包给别人
 
 维护者在项目根目录运行：
 
 ```powershell
-py -X utf8 scripts\build_release.py
+codex package build
 ```
 
 把 `dist/codex-memory-harness-0.1.0.zip` 发给用户。用户解压后运行：
@@ -103,6 +129,18 @@ codex-memory-doctor
 ```
 
 `check-install` 和 `doctor` 都是只读检查，不会写文件。
+
+验证当前仓库健康状态：
+
+```powershell
+codex package verify
+```
+
+验证当前项目 harness 配置：
+
+```powershell
+codex harness verify run --profile primary
+```
 
 ## 回退
 

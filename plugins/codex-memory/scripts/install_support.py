@@ -108,8 +108,12 @@ codex
 codexm
 codex memory doctor
 codex memory init
-codex memory verify list
-codex memory verify run --profile primary
+codex memory install
+codex memory update
+codex memory check-install
+codex harness verify list
+codex harness verify run --profile primary
+codex package verify
 codex-memory-doctor
 codex-raw
 ```
@@ -127,6 +131,16 @@ codex memory hook before_task --memory-scope project --memory-cwd <当前项目�
 codex memory hook after_tool --memory-scope project --memory-cwd <当前项目目录> --payload-file <payload.json>
 codex memory hook before_response --memory-scope project --memory-cwd <当前项目目录> --payload-file <payload.json>
 codex memory hook on_task_complete --memory-scope project --memory-cwd <当前项目目录> --payload-file <payload.json>
+```
+
+### Harness 与打包
+```powershell
+codex harness start --task-file task.json
+codex harness checkpoint --task-id <task-id> --result-file result.json
+codex harness complete --task-id <task-id> --summary-file summary.md
+codex harness verify run --profile primary
+codex package build
+codex package verify
 ```
 
 PowerShell 中优先使用 `--payload-file`，避免内联 JSON 转义问题。

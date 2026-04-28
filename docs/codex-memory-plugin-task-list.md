@@ -43,6 +43,12 @@
 | T25 | 10 | 增加全局 Bootstrap / Doctor | 窗口启动自检、项目初始化、状态诊断 JSON | T24 | done |
 | T26 | 11 | 增加 PowerShell codexm 启动器 | 全局 profile 函数、doctor/init 后启动真实 Codex | T25 | done |
 | T27 | 12 | 增加 PowerShell codex 包装函数 | profile 级 codex wrapper、codex-raw 回退、禁用开关 | T26 | done |
+| T28 | 13 | 补齐 Harness Engineering 外部对标文档 | `docs/EXTERNAL_BENCHMARK.md` | T27 | done |
+| T29 | 13 | 补齐记忆检索与向量库策略 | `docs/MEMORY_RETRIEVAL_STRATEGY.md` | T28 | done |
+| T30 | 13 | 补齐 SubAgent 角色分工协议 | `docs/SUBAGENT_WORKFLOW.md` | T28 | done |
+| T31 | 14 | 实现写入前敏感信息扫描器 | memory/artifact/index 写入前脱敏与拒绝策略 | T28,T29,T30 | todo |
+| T32 | 14 | 实现 SubAgent artifact schema | roles、subagents artifact、冲突检测和汇总规则 | T30 | todo |
+| T33 | 14 | 实现可选语义检索 provider | embedding 索引、rebuild、降级和删除策略 | T29,T31 | todo |
 
 ## 3. 当前推荐执行步
 
@@ -142,7 +148,7 @@
   - `harness_controller.py start` 可创建 task spec 并加载上下文。
   - `harness_controller.py checkpoint` 可记录 structured artifact 并写入 after_tool。
   - `harness_controller.py complete` 可执行 checklist、写总结并触发蒸馏。
-  - 用户首选通过 `codex memory harness start/checkpoint/complete` 访问上述能力。
+  - 用户首选通过 `codex harness start/checkpoint/complete` 访问上述能力。
   - `.codex/harness/commands.json` 与 `project_profile.json` 存在且可解析。
 
 ### Step 10（已完成）
@@ -153,7 +159,7 @@
 - 验收：
   - `verification_runner.py list` 可列出配置化命令。
   - `verification_runner.py run --profile primary` 可执行项目验证配置。
-  - 用户首选通过 `codex memory verify list` 与 `codex memory verify run --profile primary` 访问验证入口。
+  - 用户首选通过 `codex harness verify list` 与 `codex harness verify run --profile primary` 访问验证入口。
   - 传入 `--task-id` 时可自动写入 harness checkpoint。
   - 明显危险命令会被拒绝。
 
@@ -177,7 +183,7 @@
   - `codex memory doctor` 与 `codexm memory doctor` 可输出 doctor JSON。
   - PowerShell profile 中注册 `codexm` 函数。
   - `codexm.ps1` 可定位真实 `codex` 命令，且不递归调用自身。
-  - 当前项目 primary 验证包含 `codexm_doctor`。
+  - 当前项目 primary 验证包含 bootstrap doctor，并可通过 `codex harness verify run --profile primary` 执行。
 
 ### Step 13（已完成）
 
@@ -189,6 +195,17 @@
   - `codex-raw` 可绕过 wrapper 调用真实 Codex。
   - `CODEX_MEMORY_DISABLE_WRAPPER=1` 可作为禁用开关。
   - `codexm.ps1` 仍可跳过函数并定位真实外部 Codex 命令。
+
+### Step 14（已完成）
+
+- 目标：对照 Harness Engineering 外部资料，补齐当前能力、缺口和路线说明。
+- 范围：T28、T29、T30。
+- 不做：实现真实 SubAgent 调度器、向量数据库、embedding 索引、eval replay 平台。
+- 验收：
+  - `docs/EXTERNAL_BENCHMARK.md` 说明外部资料读取状态、当前实现对标和缺口。
+  - `docs/MEMORY_RETRIEVAL_STRATEGY.md` 说明为什么当前不依赖向量数据库，以及后续可选接入路线。
+  - `docs/SUBAGENT_WORKFLOW.md` 说明当前是角色协作协议，不是内建 SubAgent 调度器。
+  - README、用户指南和系统总结有对应入口。
 
 ## 4. 每步完成后的固定动作
 
@@ -221,4 +238,5 @@
 - Step 11 已完成
 - Step 12 已完成
 - Step 13 已完成
-- 如需继续增强，下一轮再进入 eval suite、真实宿主 hook 覆盖扩展、语义检索接入、记忆迁移或更强的上下文编排
+- Step 14 已完成
+- 如需继续增强，下一轮优先进入写入前敏感信息扫描器、eval suite、SubAgent artifact schema、语义检索 provider、记忆迁移或更强的上下文编排

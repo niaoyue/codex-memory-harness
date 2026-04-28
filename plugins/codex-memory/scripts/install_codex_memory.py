@@ -208,16 +208,28 @@ def _ensure_copy(src: Path, dst: Path) -> dict[str, Any]:
     return {"path": str(dst), "mode": "copy", "created": True, "status": "ok"}
 
 
-def _ensure_home_plugin_install(mode: str, *, replace_existing: bool) -> dict[str, Any]:
+def _ensure_home_plugin_install(mode: str, *, update_existing: bool) -> dict[str, Any]:
     src = _plugin_root()
     dst = _home_plugin_path()
     replacement = None
-    if dst.exists() and dst.resolve() != src.resolve():
-        if not replace_existing:
-            raise RuntimeError(
-                "Home plugin already points elsewhere. Re-run with --replace-existing "
-                f"to migrate it: {dst} -> {_safe_existing_target(dst)}"
-            )
+    if dst.exists():
+        if _points_to(dst, src):
+            return {
+                "path": str(dst),
+                "mode": "current",
+                "created": False,
+                "status": "already_installed",
+                "resolved_path": _safe_existing_target(dst),
+                "replacement": None,
+            }
+        if not update_existing:
+            return {
+                "path": str(dst),
+                "created": False,
+                "status": "installed_elsewhere",
+                "resolved_path": _safe_existing_target(dst),
+                "recommended_action": "Run install.ps1 -UpdateExisting to update this installation to the current package.",
+            }
         replacement = _remove_existing_home_plugin(dst)
     if mode == "copy":
         result = _ensure_copy(src, dst)
@@ -284,7 +296,7 @@ def install(
     profile_shells: str,
     *,
     install_agents: bool,
-    replace_existing: bool,
+    update_existing: bool,
 ) -> dict[str, Any]:
     result: dict[str, Any] = {"scope": scope, "mode": mode}
     if scope in ("repo", "all"):
@@ -297,17 +309,22 @@ def install(
     if scope in ("home", "all"):
         result["home_plugin"] = _ensure_home_plugin_install(
             mode,
-            replace_existing=replace_existing,
+            update_existing=update_existing,
         )
-        result["home_marketplace"] = _upsert_marketplace_entry(
-            _home_marketplace_path(),
-            default_name="local-user-plugins",
-            default_display_name="Local User Plugins",
-            source_path=f"./plugins/{PLUGIN_NAME}",
-        )
-        if install_agents:
-            result["home_agents"] = ensure_agents(_home_plugin_path())
-        result["powershell_profiles"] = ensure_profile(_home_plugin_path(), profile_shells)
+        if result["home_plugin"].get("status") == "installed_elsewhere":
+            result["home_marketplace"] = {"skipped": True, "reason": "installed_elsewhere"}
+            result["home_agents"] = {"skipped": True, "reason": "installed_elsewhere"}
+            result["powershell_profiles"] = []
+        else:
+            result["home_marketplace"] = _upsert_marketplace_entry(
+                _home_marketplace_path(),
+                default_name="local-user-plugins",
+                default_display_name="Local User Plugins",
+                source_path=f"./plugins/{PLUGIN_NAME}",
+            )
+            if install_agents:
+                result["home_agents"] = ensure_agents(_home_plugin_path())
+            result["powershell_profiles"] = ensure_profile(_home_plugin_path(), profile_shells)
     result["check"] = _check_state()
     return result
 
@@ -364,7 +381,12 @@ def main() -> int:
     parser.add_argument(
         "--replace-existing",
         action="store_true",
-        help="Replace an existing ~/plugins/codex-memory that points at another source.",
+        help="Alias for --update-existing.",
+    )
+    parser.add_argument(
+        "--update-existing",
+        action="store_true",
+        help="Update an existing ~/plugins/codex-memory that points at another source.",
     )
     parser.add_argument(
         "--uninstall",
@@ -388,7 +410,7 @@ def main() -> int:
             args.scope,
             args.profile_shells,
             install_agents=not args.skip_agents,
-            replace_existing=args.replace_existing,
+            update_existing=args.update_existing or args.replace_existing,
         )
 
     print(json.dumps(result, ensure_ascii=False, indent=2))

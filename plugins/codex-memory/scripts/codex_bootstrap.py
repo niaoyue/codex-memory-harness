@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -67,8 +68,17 @@ def _points_to(path: Path, target: Path) -> bool:
         return False
 
 
-def _cmd_quote(value: Path) -> str:
-    return '"' + str(value).replace('"', '\\"') + '"'
+def _codexm_argv(script_root: Path, *args: str) -> list[str]:
+    windows_powershell = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
+    return [
+        shutil.which("pwsh") or shutil.which("powershell") or str(windows_powershell),
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        str(script_root / "codexm.ps1"),
+        *args,
+    ]
 
 
 def _find_project_root(start: Path) -> tuple[Path | None, list[str]]:
@@ -93,14 +103,8 @@ def _command_config(plugin_root: Path, project_root: Path) -> dict[str, Any]:
         "commands": {
             "memory_check": {
                 "description": "校验全局 codex-memory 插件入口与 marketplace 接入。",
-                "command": f"py -X utf8 {_cmd_quote(script_root / 'install_codex_memory.py')} --check",
-                "argv": [
-                    "py",
-                    "-X",
-                    "utf8",
-                    str(script_root / "install_codex_memory.py"),
-                    "--check",
-                ],
+                "command": "codex memory check-install",
+                "argv": _codexm_argv(script_root, "memory", "check-install"),
                 "timeout_seconds": 60,
                 "touched_paths": [
                     str(HOME_PLUGIN),
@@ -109,16 +113,8 @@ def _command_config(plugin_root: Path, project_root: Path) -> dict[str, Any]:
             },
             "bootstrap_doctor": {
                 "description": "校验当前项目的 bootstrap、memory 与 harness 接入状态。",
-                "command": f"py -X utf8 {_cmd_quote(script_root / 'codex_bootstrap.py')} --cwd {_cmd_quote(project_root)} --doctor",
-                "argv": [
-                    "py",
-                    "-X",
-                    "utf8",
-                    str(script_root / "codex_bootstrap.py"),
-                    "--cwd",
-                    str(project_root),
-                    "--doctor",
-                ],
+                "command": "codex memory doctor",
+                "argv": _codexm_argv(script_root, "memory", "doctor"),
                 "timeout_seconds": 60,
                 "touched_paths": [
                     ".codex/harness/commands.json",
@@ -228,7 +224,7 @@ def inspect_state(cwd: Path, *, init: bool) -> dict[str, Any]:
     if not checks["home_agents_mentions_cli_entrypoints"]:
         recommendations.append("更新全局 AGENTS.md，加入 codex memory doctor/init 启动自检入口。")
     if checks["home_plugin_exists"] and not checks["home_plugin_points_to_current"]:
-        recommendations.append("重新运行 install.ps1 -ReplaceExisting，让 home plugin 指向当前插件版本。")
+        recommendations.append("重新运行 install.ps1 -UpdateExisting，让 home plugin 更新到当前插件版本。")
     if not selected_project:
         recommendations.append("当前目录未识别为项目；如需项目级记忆，请在项目根目录运行 codex memory init。")
     elif not checks["project_commands_exists"] or not checks["project_profile_exists"]:

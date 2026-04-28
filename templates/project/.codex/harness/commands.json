@@ -7,13 +7,16 @@
   "commands": {
     "memory_check": {
       "description": "校验全局 codex-memory 插件入口与 marketplace 接入。",
-      "command": "py -X utf8 C:\\Users\\<USER>\\plugins\\codex-memory\\scripts\\install_codex_memory.py --check",
+      "command": "codex memory check-install",
       "argv": [
-        "py",
-        "-X",
-        "utf8",
-        "C:\\Users\\<USER>\\plugins\\codex-memory\\scripts\\install_codex_memory.py",
-        "--check"
+        "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "C:\\Users\\<USER>\\plugins\\codex-memory\\scripts\\codexm.ps1",
+        "memory",
+        "check-install"
       ],
       "timeout_seconds": 60,
       "touched_paths": [
@@ -23,37 +26,22 @@
     },
     "bootstrap_doctor": {
       "description": "校验当前项目的 bootstrap、memory 与 harness 接入状态。",
-      "command": "py -X utf8 C:\\Users\\<USER>\\plugins\\codex-memory\\scripts\\codex_bootstrap.py --cwd <PROJECT_ROOT> --doctor",
+      "command": "codex memory doctor",
       "argv": [
-        "py",
-        "-X",
-        "utf8",
-        "C:\\Users\\<USER>\\plugins\\codex-memory\\scripts\\codex_bootstrap.py",
-        "--cwd",
-        "<PROJECT_ROOT>",
-        "--doctor"
+        "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "C:\\Users\\<USER>\\plugins\\codex-memory\\scripts\\codexm.ps1",
+        "memory",
+        "doctor"
       ],
       "timeout_seconds": 60,
       "touched_paths": [
         ".codex/harness/commands.json",
         ".codex/harness/project_profile.json",
         ".codex/memories"
-      ]
-    },
-    "python_compile_memory": {
-      "description": "编译全局插件 scripts 与 mcp 下全部 Python 文件。",
-      "command": "py -X utf8 -c \"import py_compile, pathlib; root=pathlib.Path(r'C:\\Users\\<USER>\\plugins\\codex-memory'); files=list((root/'scripts').glob('*.py'))+list((root/'mcp').glob('*.py')); [py_compile.compile(str(f), doraise=True) for f in files]; print('compile-ok', len(files))\"",
-      "argv": [
-        "py",
-        "-X",
-        "utf8",
-        "-c",
-        "import py_compile, pathlib; root=pathlib.Path(r'C:\\Users\\<USER>\\plugins\\codex-memory'); files=list((root/'scripts').glob('*.py'))+list((root/'mcp').glob('*.py')); [py_compile.compile(str(f), doraise=True) for f in files]; print('compile-ok', len(files))"
-      ],
-      "timeout_seconds": 60,
-      "touched_paths": [
-        "C:/Users/<USER>/plugins/codex-memory/scripts",
-        "C:/Users/<USER>/plugins/codex-memory/mcp"
       ]
     }
   }

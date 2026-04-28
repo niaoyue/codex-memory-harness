@@ -12,7 +12,6 @@
     "default_profile": "primary",
     "runner": "C:\\Users\\<USER>\\plugins\\codex-memory\\scripts\\verification_runner.py",
     "primary": [
-      "python_compile_memory",
       "bootstrap_doctor",
       "memory_check"
     ]

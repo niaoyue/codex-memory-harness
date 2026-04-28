@@ -70,8 +70,58 @@ class InstallerTests(unittest.TestCase):
             self.assertFalse(home_plugin.exists())
             self.assertTrue(Path(str(removed["backup_path"])).exists())
 
+    def test_home_plugin_install_reports_current_as_already_installed(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            home_plugin = Path(temp_dir) / "codex-memory"
+            home_plugin.mkdir()
+
+            with (
+                mock.patch.object(install_codex_memory, "_plugin_root", return_value=home_plugin),
+                mock.patch.object(install_codex_memory, "_home_plugin_path", return_value=home_plugin),
+            ):
+                result = install_codex_memory._ensure_home_plugin_install(
+                    "auto",
+                    update_existing=False,
+                )
+
+        self.assertEqual(result["status"], "already_installed")
+        self.assertFalse(result["created"])
+
+    def test_home_plugin_install_does_not_replace_other_install_without_update(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            plugin_root = temp_root / "current" / "codex-memory"
+            home_plugin = temp_root / "home" / "codex-memory"
+            plugin_root.mkdir(parents=True)
+            home_plugin.mkdir(parents=True)
+
+            with (
+                mock.patch.object(install_codex_memory, "_plugin_root", return_value=plugin_root),
+                mock.patch.object(install_codex_memory, "_home_plugin_path", return_value=home_plugin),
+            ):
+                result = install_codex_memory._ensure_home_plugin_install(
+                    "auto",
+                    update_existing=False,
+                )
+
+            self.assertEqual(result["status"], "installed_elsewhere")
+            self.assertIn("-UpdateExisting", result["recommended_action"])
+            self.assertTrue(home_plugin.exists())
+
 
 class LauncherEntrypointTests(unittest.TestCase):
+    def test_project_template_prefers_codex_entrypoints(self) -> None:
+        template = json.loads(
+            (PROJECT_ROOT / "templates" / "project" / ".codex" / "harness" / "commands.json").read_text(
+                encoding="utf-8",
+            )
+        )
+
+        commands = template["commands"]
+        self.assertEqual(commands["memory_check"]["command"], "codex memory check-install")
+        self.assertEqual(commands["bootstrap_doctor"]["command"], "codex memory doctor")
+        self.assertNotIn("py -X utf8", json.dumps(template))
+
     def test_generated_profile_routes_doctor_through_memory_subcommand(self) -> None:
         block = install_support.profile_block(Path("C:/Users/Test/plugins/codex-memory"))
 
@@ -84,6 +134,8 @@ class LauncherEntrypointTests(unittest.TestCase):
 
         self.assertIn("codex memory doctor", block)
         self.assertIn("codex memory init", block)
+        self.assertIn("codex harness verify run --profile primary", block)
+        self.assertIn("codex package verify", block)
         self.assertIn("codex memory hook before_task", block)
         self.assertNotIn("codex_bootstrap.py --cwd", block)
         self.assertNotIn("hook_runner.py --event", block)
@@ -92,6 +144,8 @@ class LauncherEntrypointTests(unittest.TestCase):
         launcher = (PLUGIN_SCRIPTS_DIR / "codexm.ps1").read_text(encoding="utf-8")
 
         self.assertIn("function Invoke-MemoryCommand", launcher)
+        self.assertIn("function Invoke-HarnessCommand", launcher)
+        self.assertIn("function Invoke-PackageCommand", launcher)
         self.assertIn('"verify"', launcher)
         self.assertIn('"harness"', launcher)
         self.assertIn('"hook"', launcher)
@@ -147,6 +201,16 @@ class DemoCleanupTests(unittest.TestCase):
 
 
 class VerificationRunnerTests(unittest.TestCase):
+    def test_safe_command_checks_actual_argv_even_with_display_command(self) -> None:
+        spec = verification_runner.CommandSpec(
+            name="danger",
+            command="codex package verify",
+            argv=["pwsh", "-NoProfile", "-Command", "git reset --hard"],
+        )
+
+        with self.assertRaises(ValueError):
+            verification_runner.assert_safe_command(spec)
+
     def test_run_command_uses_argv_without_shell_by_default(self) -> None:
         calls: list[dict[str, object]] = []
 
@@ -167,6 +231,19 @@ class VerificationRunnerTests(unittest.TestCase):
 
 
 class BootstrapTests(unittest.TestCase):
+    def test_project_command_config_uses_codex_style_entrypoints(self) -> None:
+        config = codex_bootstrap._command_config(
+            PROJECT_ROOT / "plugins" / "codex-memory",
+            PROJECT_ROOT,
+        )
+        commands = config["commands"]
+
+        self.assertEqual(commands["memory_check"]["command"], "codex memory check-install")
+        self.assertEqual(commands["bootstrap_doctor"]["command"], "codex memory doctor")
+        for spec in commands.values():
+            self.assertNotIn("py -X utf8", spec["command"])
+            self.assertIn("codexm.ps1", " ".join(spec["argv"]))
+
     def test_doctor_is_not_ready_when_home_plugin_points_elsewhere(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_root = Path(temp_dir)
@@ -202,7 +279,7 @@ class BootstrapTests(unittest.TestCase):
 
         self.assertFalse(result["ok"])
         self.assertFalse(result["checks"]["home_plugin_points_to_current"])
-        self.assertTrue(any("ReplaceExisting" in item for item in result["recommendations"]))
+        self.assertTrue(any("UpdateExisting" in item for item in result["recommendations"]))
 
     def test_doctor_accepts_codex_memory_cli_guidance(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

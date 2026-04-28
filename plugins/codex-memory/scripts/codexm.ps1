@@ -9,6 +9,8 @@ param(
 
 $ErrorActionPreference = "Stop"
 $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+$PluginRoot = Split-Path -Parent $ScriptRoot
+$RepoRoot = Split-Path -Parent (Split-Path -Parent $PluginRoot)
 $BootstrapScript = Join-Path $ScriptRoot "codex_bootstrap.py"
 $HarnessScript = Join-Path $ScriptRoot "harness_controller.py"
 $HookScript = Join-Path $ScriptRoot "hook_runner.py"
@@ -26,20 +28,65 @@ function Invoke-PythonScriptAndExit {
     exit $LASTEXITCODE
 }
 
+function Resolve-RepoScript {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ScriptName,
+        [Parameter(Mandatory = $true)]
+        [string]$Cwd
+    )
+
+    $candidates = @(
+        (Join-Path $Cwd "scripts\$ScriptName"),
+        (Join-Path $RepoRoot "scripts\$ScriptName")
+    )
+    foreach ($candidate in $candidates) {
+        if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+            return $candidate
+        }
+    }
+    Write-Error "未找到 $ScriptName。请在 Codex Memory Harness 仓库根目录运行该命令。"
+    exit 64
+}
+
 function Write-MemoryHelp {
     @"
 Codex Memory 命令：
   codex memory doctor              诊断当前项目 memory/harness 接入状态。
   codex memory init                初始化缺失的 .codex memory/harness 文件。
+  codex memory install [...]        安装或修复当前插件接入；已安装当前版本时只提示已安装。
+  codex memory update [...]         将已有旧安装更新到当前插件版本。
   codex memory check-install       检查全局插件、profile 和 marketplace 接入。
+  codex memory uninstall [...]      移除 marketplace/profile/全局规则接入。
   codex memory hook <event> [...]   执行 memory 生命周期 hook 事件。
-  codex memory verify list         列出当前项目配置化验证命令。
-  codex memory verify run [...]    运行当前项目配置化验证命令。
-  codex memory harness ...         执行 harness start/checkpoint/complete。
 
 兼容别名：
+  codex harness ...                执行 harness 生命周期与验证命令。
+  codex package ...                执行本仓库打包与健康检查。
+  codex memory verify ...          兼容旧入口，等同于 codex harness verify ...
+  codex memory harness ...         兼容旧入口，等同于 codex harness ...
   codex-memory-doctor              等同于 codex memory doctor。
   codexm memory ...                通过显式 wrapper 执行同一组命令。
+"@
+}
+
+function Write-HarnessHelp {
+    @"
+Codex Harness 命令：
+  codex harness start --task-file task.json
+  codex harness checkpoint --task-id <task-id> --result-file result.json
+  codex harness complete --task-id <task-id> --summary-file summary.md
+  codex harness verify list
+  codex harness verify run --profile primary
+  codex harness verify run --task-id <task-id> --profile primary
+"@
+}
+
+function Write-PackageHelp {
+    @"
+Codex Package 命令：
+  codex package build              生成可分发 zip。
+  codex package verify             运行项目健康检查、编译、行为测试和发布包边界检查。
 "@
 }
 
@@ -73,8 +120,20 @@ function Invoke-MemoryCommand {
         "init-project" {
             Invoke-PythonScriptAndExit -ScriptPath $BootstrapScript -Arguments @("--cwd", $cwd, "--init-project")
         }
+        "install" {
+            Invoke-PythonScriptAndExit -ScriptPath $InstallScript -Arguments $remaining
+        }
+        "update" {
+            Invoke-PythonScriptAndExit -ScriptPath $InstallScript -Arguments (@("--update-existing") + $remaining)
+        }
         "check-install" {
             Invoke-PythonScriptAndExit -ScriptPath $InstallScript -Arguments @("--check")
+        }
+        "check" {
+            Invoke-PythonScriptAndExit -ScriptPath $InstallScript -Arguments @("--check")
+        }
+        "uninstall" {
+            Invoke-PythonScriptAndExit -ScriptPath $InstallScript -Arguments (@("--uninstall") + $remaining)
         }
         "hook" {
             if ($remaining.Count -eq 0) {
@@ -93,15 +152,87 @@ function Invoke-MemoryCommand {
             Invoke-PythonScriptAndExit -ScriptPath $HookScript -Arguments $scriptArgs
         }
         "verify" {
-            $scriptArgs = @("--project-root", $cwd) + $remaining
-            Invoke-PythonScriptAndExit -ScriptPath $VerificationScript -Arguments $scriptArgs
+            Invoke-HarnessCommand -Arguments (@("verify") + $remaining)
         }
         "harness" {
-            $scriptArgs = @("--project-root", $cwd) + $remaining
-            Invoke-PythonScriptAndExit -ScriptPath $HarnessScript -Arguments $scriptArgs
+            Invoke-HarnessCommand -Arguments $remaining
         }
         default {
             Write-Error "未知 Codex Memory 命令：$($Arguments[0])。运行 'codex memory help' 查看可用命令。"
+            exit 64
+        }
+    }
+}
+
+function Invoke-HarnessCommand {
+    param(
+        [string[]]$Arguments = @()
+    )
+
+    $cwd = (Get-Location).ProviderPath
+    if ($Arguments.Count -eq 0 -or $Arguments[0] -in @("help", "-h", "--help")) {
+        Write-HarnessHelp
+        exit 0
+    }
+
+    $command = $Arguments[0].ToLowerInvariant()
+    $remaining = @()
+    if ($Arguments.Count -gt 1) {
+        $remaining = $Arguments[1..($Arguments.Count - 1)]
+    }
+
+    switch ($command) {
+        "start" {
+            Invoke-PythonScriptAndExit -ScriptPath $HarnessScript -Arguments (@("--project-root", $cwd, "start") + $remaining)
+        }
+        "checkpoint" {
+            Invoke-PythonScriptAndExit -ScriptPath $HarnessScript -Arguments (@("--project-root", $cwd, "checkpoint") + $remaining)
+        }
+        "complete" {
+            Invoke-PythonScriptAndExit -ScriptPath $HarnessScript -Arguments (@("--project-root", $cwd, "complete") + $remaining)
+        }
+        "verify" {
+            Invoke-PythonScriptAndExit -ScriptPath $VerificationScript -Arguments (@("--project-root", $cwd) + $remaining)
+        }
+        default {
+            Write-Error "未知 Codex Harness 命令：$($Arguments[0])。运行 'codex harness help' 查看可用命令。"
+            exit 64
+        }
+    }
+}
+
+function Invoke-PackageCommand {
+    param(
+        [string[]]$Arguments = @()
+    )
+
+    $cwd = (Get-Location).ProviderPath
+    if ($Arguments.Count -eq 0 -or $Arguments[0] -in @("help", "-h", "--help")) {
+        Write-PackageHelp
+        exit 0
+    }
+
+    $command = $Arguments[0].ToLowerInvariant()
+    $remaining = @()
+    if ($Arguments.Count -gt 1) {
+        $remaining = $Arguments[1..($Arguments.Count - 1)]
+    }
+
+    switch ($command) {
+        "build" {
+            $script = Resolve-RepoScript -ScriptName "build_release.py" -Cwd $cwd
+            Invoke-PythonScriptAndExit -ScriptPath $script -Arguments $remaining
+        }
+        "verify" {
+            $script = Resolve-RepoScript -ScriptName "verify_project.py" -Cwd $cwd
+            Invoke-PythonScriptAndExit -ScriptPath $script -Arguments $remaining
+        }
+        "check" {
+            $script = Resolve-RepoScript -ScriptName "verify_project.py" -Cwd $cwd
+            Invoke-PythonScriptAndExit -ScriptPath $script -Arguments $remaining
+        }
+        default {
+            Write-Error "未知 Codex Package 命令：$($Arguments[0])。运行 'codex package help' 查看可用命令。"
             exit 64
         }
     }
@@ -202,6 +333,22 @@ if ($CodexArgs.Count -gt 0 -and $CodexArgs[0].ToLowerInvariant() -eq "memory") {
         $memoryArgs = $CodexArgs[1..($CodexArgs.Count - 1)]
     }
     Invoke-MemoryCommand -Arguments $memoryArgs
+}
+
+if ($CodexArgs.Count -gt 0 -and $CodexArgs[0].ToLowerInvariant() -eq "harness") {
+    $harnessArgs = @()
+    if ($CodexArgs.Count -gt 1) {
+        $harnessArgs = $CodexArgs[1..($CodexArgs.Count - 1)]
+    }
+    Invoke-HarnessCommand -Arguments $harnessArgs
+}
+
+if ($CodexArgs.Count -gt 0 -and $CodexArgs[0].ToLowerInvariant() -eq "package") {
+    $packageArgs = @()
+    if ($CodexArgs.Count -gt 1) {
+        $packageArgs = $CodexArgs[1..($CodexArgs.Count - 1)]
+    }
+    Invoke-PackageCommand -Arguments $packageArgs
 }
 
 if (-not $SkipBootstrap) {

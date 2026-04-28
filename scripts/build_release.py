@@ -74,7 +74,7 @@ def build(output_dir: Path) -> Path:
         "name": "codex-memory-harness",
         "version": version(),
         "built_at": datetime.now(timezone.utc).isoformat(),
-        "install": "Run install.ps1 or py -X utf8 plugins/codex-memory/scripts/install_codex_memory.py",
+        "install": "Run install.ps1 for first install, install.ps1 -UpdateExisting for updating an existing install.",
     }
 
     with zipfile.ZipFile(package_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:

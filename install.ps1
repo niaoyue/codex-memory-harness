@@ -6,6 +6,7 @@ param(
     [string]$ProfileShells = "pwsh",
 
     [switch]$ReplaceExisting,
+    [switch]$UpdateExisting,
     [switch]$SkipAgents
 )
 
@@ -27,6 +28,10 @@ $InstallerArgs = @(
 
 if ($ReplaceExisting) {
     $InstallerArgs += "--replace-existing"
+}
+
+if ($UpdateExisting) {
+    $InstallerArgs += "--update-existing"
 }
 
 if ($SkipAgents) {

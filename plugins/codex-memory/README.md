@@ -20,21 +20,19 @@
 .\install.ps1
 ```
 
-也可以直接调用插件安装器：
+如果当前版本已经安装，安装器会提示 `already_installed`，不会重复安装。
+
+如果已有旧安装指向其他项目，默认不会覆盖；显式更新到当前版本：
 
 ```powershell
-py -X utf8 plugins\codex-memory\scripts\install_codex_memory.py
+.\install.ps1 -UpdateExisting
 ```
 
-如果已有旧安装指向其他项目：
+安装完成后，也可以通过 Codex 入口检查或修复当前安装：
 
 ```powershell
-py -X utf8 plugins\codex-memory\scripts\install_codex_memory.py --replace-existing
-```
-
-只读检查：
-
-```powershell
+codex memory install
+codex memory update
 codex memory check-install
 ```
 
@@ -61,10 +59,21 @@ C:\Users\<你>\.codex\memories
 ## Harness
 
 ```powershell
-codex memory harness start --task-file task.json
-codex memory harness checkpoint --task-id <task-id> --result-file result.json
-codex memory harness complete --task-id <task-id> --summary-file summary.md
+codex harness start --task-file task.json
+codex harness checkpoint --task-id <task-id> --result-file result.json
+codex harness complete --task-id <task-id> --summary-file summary.md
+codex harness verify run --profile primary
 ```
+
+Harness Engineering 对标、向量检索策略和 SubAgent 角色协议在仓库根目录文档中维护：
+
+```text
+docs/EXTERNAL_BENCHMARK.md
+docs/MEMORY_RETRIEVAL_STRATEGY.md
+docs/SUBAGENT_WORKFLOW.md
+```
+
+当前插件不内建 SubAgent 调度器，也不默认依赖向量数据库。
 
 ## Bootstrap / Doctor
 
@@ -84,7 +93,8 @@ codex
 codexm
 codex memory doctor
 codex memory init
-codex memory verify run --profile primary
+codex harness verify run --profile primary
+codex package verify
 codex-memory-doctor
 codex-raw
 ```
