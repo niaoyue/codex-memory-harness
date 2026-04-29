@@ -207,6 +207,8 @@ class WorkspaceHookIntegrationTests(unittest.TestCase):
                     "after_tool",
                     {
                         "task_id": "route-task",
+                        "binding_id": "binding-client-route",
+                        "project_id": "client-unity",
                         "tool_name": "edit",
                         "summary": "Touched server path",
                         "touched_paths": ["server/api/login.proto"],
@@ -320,6 +322,29 @@ class WorkspaceHookIntegrationTests(unittest.TestCase):
         self.assertFalse(scope_guard[0]["ok"])
         self.assertEqual(scope_guard[0]["binding_id"], "binding-client-route")
         self.assertEqual(scope_guard[0]["violations"][0]["path"], "server/api/login.proto")
+
+    def test_after_tool_uses_adaptive_bindings_for_unbound_checkpoint(self) -> None:
+        stale_plan = _route_plan()
+        expanded_plan = _route_plan()
+        expanded_plan["routes"][0]["assigned_scope"] = ["client/Assets", "tests"]
+        with _memory_env():
+            with mock.patch.object(
+                workspace_lifecycle.workspace_router,
+                "build_route_plan",
+                side_effect=[stale_plan, expanded_plan],
+            ):
+                runner = hook_runner.HookRunner(memory_store=memory_store.MemoryStore())
+                runner.run_event(
+                    "before_task",
+                    {"task_id": "route-task", "objective": "Fix client UI", "working_set": ["client/Assets/Login.cs"]},
+                )
+                result = runner.run_event(
+                    "after_tool",
+                    {"task_id": "route-task", "tool_name": "edit", "touched_paths": ["tests/test_workspace_router.py"]},
+                )
+
+        scope_guard = result["result"]["task_state"]["metadata"]["workspace_routing"]["scope_guard"]
+        self.assertTrue(scope_guard[0]["ok"], scope_guard[0]["violations"])
 
 
 def _route_plan() -> dict[str, object]:

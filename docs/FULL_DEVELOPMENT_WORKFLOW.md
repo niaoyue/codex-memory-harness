@@ -4,7 +4,7 @@
 
 本文描述 Codex Memory Harness 全部规划能力实现后的目标开发流程。
 
-它不是当前运行时能力声明。当前仓库已经具备 memory、harness、verification、敏感信息扫描、项目共享 memory promote、workspace routing schema、只读 scanner、只读 route planner、最小 verification aggregation、SubAgent binding/scope guard/coordinator summary 和 lifecycle 软集成的本地 MVP，但真实 SubAgent 自动调度和 AI 诊断日志 release gate 仍在路线中。
+它不是当前运行时能力声明。当前仓库已经具备 memory、harness、verification、敏感信息扫描、项目共享 memory promote、workspace routing schema、只读 scanner、只读 route planner、最小 verification aggregation、SubAgent binding/scope guard/coordinator summary/dispatch plan、游戏客户端 profile 模板、基础 AI 诊断日志 release gate 和 lifecycle 软集成的本地 MVP，但真实 SubAgent 自动执行器和发布级完整验证平台仍在路线中。
 
 ## 2. 完整能力假设
 
@@ -19,6 +19,20 @@
 - 支持多项目 verification aggregation，每个子项目可使用自己的 cwd 和 profile。
 - 支持 scope guard、敏感信息扫描、裸日志检查和 release gate。
 - 支持项目私有 memory、用户全局 memory、项目共享 memory 的分层写入。
+
+### 2.1 第一阶段职责边界
+
+“第一步”在不同层级含义不同，不能混为一个动作：
+
+| 层级 | 第一动作 | 当前处理状态 | 说明 |
+|---|---|---|---|
+| Codex 窗口启动 | PowerShell wrapper 执行 bootstrap / doctor，必要时初始化缺失项目配置 | 已自动处理 | 仅限经过 `codex` / `codexm` wrapper 的 PowerShell 启动；`codex-raw` 或非 wrapper 启动不会自动执行 |
+| Harness 任务生命周期 | `codex harness start` 触发 `before_task` | 已实现运行时能力 | wrapper 只负责窗口启动，不能单独理解每条用户任务；任务开始仍需要 agent、hook 或自动化调用 harness/controller |
+| Workspace 路由 | `before_task` 生成 route plan 和 SubAgent bindings | 已做 lifecycle 软集成 | route plan/bindings 写入 task metadata；低置信度会降级为只读分析或提示确认 |
+| SubAgent 执行 | 按 binding 绑定 project/domain/cwd/scope/rules/profile | 已实现 binding 和 dispatch plan，不自动执行 | 当前不会自动创建真实 SubAgent；`codex workspace schedule` 只生成可执行计划，宿主或主 agent 使用 SubAgent 时必须带上对应 binding |
+| 发布/提交前 gate | 聚合验证、scope guard、敏感扫描、诊断日志 release gate、`codex xhigh review --uncommitted` | 部分实现 | 验证聚合、scope guard、敏感扫描、基础诊断 release gate 和 review 入口已有；仍不是完整发布平台 |
+
+因此，当前“第一步”已经覆盖启动自检和任务路由软集成，但还没有做到只靠 wrapper 自动捕获并编排所有用户任务。
 
 ## 3. 用户体感流程
 
@@ -40,9 +54,10 @@
 4. 各 SubAgent 只处理自己的项目和 scope。
 5. 需要运行反馈时，临时开启对应 scope 的 AI 诊断日志。
 6. 修改完成后自动聚合验证。
-7. Release gate 检查诊断日志关闭、敏感信息、scope 越权和构建边界。
-8. Codex 给出最终 summary、验证证据、发布顺序和回滚说明。
-9. 稳定结论写入项目私有 memory；可共享事实经 review 后提升到项目共享层。
+7. 代码变更优先通过 `codex xhigh review --uncommitted` 做最终审核。
+8. Release gate 检查诊断日志关闭、敏感信息、scope 越权和构建边界。
+9. Codex 给出最终 summary、验证证据、发布顺序和回滚说明。
+10. 稳定结论写入项目私有 memory；可共享事实经 review 后提升到项目共享层。
 
 ## 4. 总流程图
 
@@ -99,7 +114,8 @@ flowchart TD
   AC -- "是" --> AE["Scope Guard"]
   AE --> AF["敏感信息扫描"]
   AF --> AG["AI 诊断日志 release gate"]
-  AG --> AH{"是否发布/提交就绪?"}
+  AG --> AG1["代码审核 gate: codex xhigh review --uncommitted"]
+  AG1 --> AH{"是否发布/提交就绪?"}
 
   AH -- "否" --> AI["输出未完成项和风险"]
   AH -- "是" --> AJ["生成 summary / release notes / 回滚说明"]
@@ -126,6 +142,7 @@ flowchart TD
 5. 把失败证据、日志摘要、touched paths 写入 checkpoint。
 6. 如果 touched paths 扩大到其他项目，回到 Task Router 重新路由。
 7. 如果验证通过，进入聚合验证和 gate。
+8. 对代码变更运行 `codex xhigh review --uncommitted`；SubAgent review 只作为专题辅助，不替代最终 gate。
 
 ## 6. SubAgent 分工
 
@@ -224,7 +241,9 @@ Release gate 必须检查：
 - 只读 workspace scanner 和 `codex workspace doctor/scan`。
 - 只读 route planner 和 `codex workspace route`。
 - 最小 workspace verification aggregation 和 `codex workspace verify`。
-- SubAgent route binding、scope guard 和 coordinator summary 的最小运行时。
+- SubAgent route binding、scope guard、coordinator summary 和 dispatch plan 的最小运行时。
+- 游戏客户端 Unity/Laya/Cocos profile 模板生成器。
+- 基础 AI 诊断日志 release gate runtime。
 - `before_task` / `after_tool` / `before_response` 的 workspace routing 软集成。
 - `workspace_meta` 根工具工程识别和根路径路由。
 - SubAgent 角色协议文档。
@@ -234,7 +253,6 @@ Release gate 必须检查：
 
 仍需实现：
 
-- 自动 SubAgent 调度。
-- AI 诊断日志 release gate runtime。
+- 真实 SubAgent 自动执行器。
 - 发布级完整验证平台。
 - workspace memory 自动分层写入。

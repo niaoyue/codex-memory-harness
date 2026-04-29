@@ -33,6 +33,12 @@ DOMAIN_RULES = {
     "workspace_meta": ["workspace/base"],
     "unknown": ["workspace/generic"],
 }
+GAME_CLIENT_TASK_RULES = {
+    "ui": "game_client/ui",
+    "asset": "game_client/assets",
+    "release": "release/high_risk",
+    "contract": "game_client/network",
+}
 CONTRACT_WORDS = ("api", "proto", "protocol", "contract", "interface", "接口", "协议", "契约")
 UI_WORDS = ("ui", "panel", "button", "view", "界面", "面板", "按钮")
 PROFILE_PRIORITY = {
@@ -262,7 +268,7 @@ def route_entry(
         "engine": project.get("engine"),
         "task_type": task_type,
         "assigned_scope": scope,
-        "rules": route_rules(project),
+        "rules": route_rules(project, task_type),
         "verification_profile_ids": profile_ids(project, task_type),
         "diagnostic_logging": diagnostic_logging_policy(workspace_diagnostic, project_diagnostic, task_type),
         "memory_binding": memory_binding(project),
@@ -272,11 +278,15 @@ def route_entry(
     return {key: value for key, value in payload.items() if value not in (None, [], {})}
 
 
-def route_rules(project: dict[str, Any]) -> list[str]:
-    rules = string_list(project.get("rules"))
-    if rules:
-        return rules
-    return DOMAIN_RULES.get(str(project.get("domain") or "unknown"), DOMAIN_RULES["unknown"])
+def route_rules(project: dict[str, Any], task_type: str) -> list[str]:
+    domain = str(project.get("domain") or "unknown")
+    result = string_list(project.get("rules")) or list(DOMAIN_RULES.get(domain, DOMAIN_RULES["unknown"]))
+    engine = str(project.get("engine") or "").strip().lower()
+    if domain == "game_client" and engine:
+        result.append(f"game_client/{engine}")
+        if task_type in GAME_CLIENT_TASK_RULES:
+            result.append(GAME_CLIENT_TASK_RULES[task_type])
+    return list(dict.fromkeys(result))
 
 
 def profile_ids(project: dict[str, Any], task_type: str) -> list[str]:

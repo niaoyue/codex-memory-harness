@@ -101,6 +101,7 @@ def agents_block(home_plugin: Path) -> str:
 - 不要求用户手动调用记忆命令；代理应在任务生命周期内自动调用 `before_task`、`after_tool`、`before_response`、`on_task_complete`。
 - 插件不可用时必须降级为普通无记忆模式，并在最终答复的工具调用简报中说明局限。
 - 不得把敏感信息、密钥、令牌或内部链接写入记忆；写入前应做最小化摘要。
+- 代码审核优先使用 `codex xhigh review --uncommitted` 作为最终 review gate；SubAgent reviewer 只做限定 scope 的专题/旁路审查。
 
 ### 常用入口
 ```powershell
@@ -141,6 +142,7 @@ codex harness complete --task-id <task-id> --summary-file summary.md
 codex harness verify run --profile primary
 codex package build
 codex package verify
+codex xhigh review --uncommitted
 ```
 
 PowerShell 中优先使用 `--payload-file`，避免内联 JSON 转义问题。

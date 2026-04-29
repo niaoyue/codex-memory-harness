@@ -283,7 +283,7 @@ codex harness verify run --task-id <TASK_ID> --profile primary
 
 ## 11. SubAgent 角色协作
 
-当前项目没有实现并发 SubAgent 调度器。它支持的是通过 harness artifact 记录不同角色产物，让主 agent 或宿主环境提供的 SubAgent 能力按统一协议协作。
+当前项目没有实现宿主级并发 SubAgent 执行器。它支持的是通过 harness artifact 记录不同角色产物，让主 agent 或宿主环境提供的 SubAgent 能力按统一协议协作；同时可以通过 `codex workspace schedule` 从 route plan 生成 coordinator/specialist dispatch plan。
 
 推荐角色：
 
@@ -292,7 +292,7 @@ codex harness verify run --task-id <TASK_ID> --profile primary
 | Task Planner | 明确目标、验收标准、工作集和风险 |
 | Architect | 判断模块边界、接口方向和迁移策略 |
 | Implementer | 执行最小必要代码或文档修改 |
-| Reviewer | 审查回归风险、边界条件和缺失测试 |
+| Reviewer | 做限定 scope 的专题审查；最终代码审核优先使用 `codex xhigh review --uncommitted` |
 | Verifier | 运行配置化验证并解释失败 |
 | Documentation Maintainer | 更新 README、用户指南和迁移说明 |
 | Security Reviewer | 检查敏感信息、网络边界和危险命令 |
@@ -469,15 +469,13 @@ docs/GAME_CLIENT_WORKFLOW.md
 
 该路线吸收 BMAD Game Dev Studio 的 Quick Flow / Full Production、GDD、架构、story、QA、performance 工作流，也吸收 Claude-Code-Game-Studios 的游戏工作室角色、路径规则、hooks、质量门禁和会话状态思路。落地时收敛为客户端专项角色和 profile，不覆盖完整游戏工作室模板。
 
-如果是单一游戏客户端仓库，后续可以保留调试入口：
+如果是单一游戏客户端仓库，当前优先使用 workspace 子命令生成模板：
 
 ```powershell
-codex game-client doctor
-codex game-client init --engine unity
-codex game-client init --engine laya
-codex game-client init --engine cocos
-codex game-client verify --profile client_quick
-codex game-client release-check
+codex workspace game-client template --engine unity
+codex workspace game-client init --engine unity --project-cwd client
+codex workspace game-client init --engine laya --project-cwd client
+codex workspace game-client init --engine cocos --project-cwd client
 ```
 
 如果是多项目 workspace，更推荐 workspace 级自动路由：
@@ -507,7 +505,7 @@ codex workspace verify --auto
 
 workspace routing 会先形成 project inventory，再为当前任务生成 route plan。specialist SubAgent 绑定单个子项目 route，coordinator SubAgent 负责跨项目契约、验证聚合、冲突处理和最终 summary。
 
-当前只落地文档和路线，不实现上述命令。
+当前已经落地 `codex workspace doctor/scan/route/verify/bind/scope-check/summarize/schedule/game-client` 的最小本地运行时；仍未实现自动启动真实 SubAgent 和发布级完整验证平台。
 
 详细任务拆分和进度见：
 
@@ -547,10 +545,10 @@ docs/AI_DIAGNOSTIC_LOGGING.md
 - 不能保证非 PowerShell 启动方式自动经过 wrapper。
 - 旧 Codex 宿主是否自动读取插件 marketplace，仍取决于宿主能力。
 - 当前检索是本地 MVP，尚未接入 embedding。
-- 当前没有内建 SubAgent 调度器，只提供角色协作协议和 artifact 记录方式。
-- 当前没有内建游戏客户端专项命令，只提供文档路线和项目级 verification profile 建议。
-- 当前没有内建真实 SubAgent 自动调度或发布级 workspace 平台；已提供只读 workspace scanner、只读 route planner、最小 workspace verification aggregation、SubAgent route binding、scope guard、coordinator summary、memory lifecycle 软集成、project inventory、routing config、route plan 和验证聚合 schema，以及 `.codex/harness/workspace-routing.json` 模板。
-- 当前已内建基础敏感信息扫描器；AI 诊断日志 release gate 自动检查仍未实现。
+- 当前没有内建真实 SubAgent 自动执行器；已提供角色协作协议、artifact 记录、route binding、scope guard、coordinator summary 和 dispatch plan。
+- 当前已内建 `codex workspace game-client init/template`，但没有顶层 `codex game-client ...` 独立入口，也不内置具体业务项目的引擎脚本。
+- 当前没有内建发布级 workspace 平台；已提供只读 workspace scanner、只读 route planner、最小 workspace verification aggregation、SubAgent route binding、scope guard、coordinator summary、dispatch plan、memory lifecycle 软集成、project inventory、routing config、route plan 和验证聚合 schema，以及 `.codex/harness/workspace-routing.json` 模板。
+- 当前已内建基础敏感信息扫描器和基础 AI 诊断日志 release gate；release gate 不覆盖所有平台构建配置和完整发布流水线。
 - 当前已实现项目共享 memory 初始化模板、promote、validate 和索引重建的最小 runtime；严格 JSON Schema 校验和多人冲突自动处理尚未实现。
 - 当前 workspace verifier 已支持每个 route 使用自己的 cwd/profile 聚合执行；发布级完整验证平台仍未实现。
 - 当前 eval 回放体系尚未平台化。
@@ -564,13 +562,12 @@ docs/AI_DIAGNOSTIC_LOGGING.md
 2. `.codex/evals`：把失败任务和高价值任务转为可回放评测。
 3. memory archive/cleanup：避免长期膨胀。
 4. 项目共享 memory：严格 schema 校验、冲突策略和 review 辅助。
-5. 自动 SubAgent 调度：在宿主支持时按 binding 启动 specialist/coordinator。
-6. 游戏客户端 profile 模板：按 Unity/Laya/Cocos 生成推荐 verification profile。
-7. AI 诊断日志 release gate：检查诊断开关、调试宏、临时 sink 和裸日志绕过。
-8. Workspace memory 自动分层写入：把 workspace summary 与子项目事实按 semantic scope 分别沉淀。
-9. 多项目模板生成器：快速给项目接入 `.codex/harness`。
-10. 可选本地语义检索：在不开启网络的前提下增强召回。
-11. 安装器 dry-run：让用户安装前预览所有写入。
+5. 真实 SubAgent 自动执行器：在宿主支持时按 dispatch plan 启动 specialist/coordinator，并回写超时、取消和失败状态。
+6. Workspace memory 自动分层写入：把 workspace summary 与子项目事实按 semantic scope 分别沉淀。
+7. 多项目业务模板生成器：补服务器、后台、文档、美术工程和发布脚本模板。
+8. 发布级完整验证平台：覆盖渠道包、热更、构建产物、回滚材料和平台配置。
+9. 可选本地语义检索：在不开启网络的前提下增强召回。
+10. 安装器 dry-run：让用户安装前预览所有写入。
 
 ## 24. 一句话总结
 

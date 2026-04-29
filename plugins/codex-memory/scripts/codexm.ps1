@@ -21,6 +21,8 @@ $WorkspaceScript = Join-Path $ScriptRoot "workspace_scanner.py"
 $WorkspaceRouterScript = Join-Path $ScriptRoot "workspace_router.py"
 $WorkspaceVerifierScript = Join-Path $ScriptRoot "workspace_verifier.py"
 $WorkspaceSubagentsScript = Join-Path $ScriptRoot "workspace_subagents.py"
+$SubagentSchedulerScript = Join-Path $ScriptRoot "subagent_scheduler.py"
+$GameClientProfilesScript = Join-Path $ScriptRoot "game_client_profiles.py"
 
 function Invoke-PythonScriptAndExit {
     param(
@@ -72,6 +74,7 @@ Codex Memory 命令：
   codex harness ...                执行 harness 生命周期与验证命令。
   codex package ...                执行本仓库打包与健康检查。
   codex workspace ...              执行只读 workspace 扫描与诊断。
+  codex xhigh review --uncommitted 转发为非交互 codex review，并设置 xhigh reasoning。
   codex memory verify ...          兼容旧入口，等同于 codex harness verify ...
   codex memory harness ...         兼容旧入口，等同于 codex harness ...
   codex-memory-doctor              等同于 codex memory doctor。
@@ -107,8 +110,10 @@ Codex Workspace 命令：
   codex workspace route [...]      只读生成 route plan，不执行修改或验证。
   codex workspace verify [...]     按 route plan 聚合验证结果。
   codex workspace bind [...]       生成 SubAgent route binding，不启动 SubAgent。
+  codex workspace schedule [...]   自动生成 SubAgent dispatch plan。
   codex workspace scope-check [...] 检查 touched paths 是否越过 binding scope。
   codex workspace summarize [...]  汇总 SubAgent artifact、冲突和验证 gap。
+  codex workspace game-client init --engine unity|laya|cocos
 "@
 }
 
@@ -299,6 +304,8 @@ function Invoke-WorkspaceCommand {
         "bind" {
             Invoke-PythonScriptAndExit -ScriptPath $WorkspaceSubagentsScript -Arguments (@("--project-root", $cwd, "bind") + $remaining)
         }
+        "schedule" { Invoke-PythonScriptAndExit -ScriptPath $SubagentSchedulerScript -Arguments (@("--project-root", $cwd) + $remaining) }
+        "game-client" { Invoke-PythonScriptAndExit -ScriptPath $GameClientProfilesScript -Arguments (@("--project-root", $cwd) + $remaining) }
         "scope-check" {
             Invoke-PythonScriptAndExit -ScriptPath $WorkspaceSubagentsScript -Arguments (@("--project-root", $cwd, "scope-check") + $remaining)
         }
@@ -359,6 +366,31 @@ function Invoke-RealCodex {
 
     & $codex @Arguments
     exit $LASTEXITCODE
+}
+
+function Resolve-CodexReviewAlias {
+    param(
+        [string[]]$Arguments
+    )
+
+    if ($Arguments.Count -lt 2) {
+        return $Arguments
+    }
+
+    $effort = $Arguments[0].ToLowerInvariant()
+    $command = $Arguments[1].ToLowerInvariant()
+    if ($command -ne "review") {
+        return $Arguments
+    }
+    if (@("low", "medium", "high", "xhigh") -notcontains $effort) {
+        return $Arguments
+    }
+
+    $tail = @()
+    if ($Arguments.Count -gt 2) {
+        $tail = $Arguments[2..($Arguments.Count - 1)]
+    }
+    return @("review", "-c", "model_reasoning_effort=`"$effort`"") + $tail
 }
 
 function Set-MemoryEnvironment {
@@ -462,4 +494,4 @@ if (-not $SkipBootstrap) {
     }
 }
 
-Invoke-RealCodex -Arguments $CodexArgs
+Invoke-RealCodex -Arguments (Resolve-CodexReviewAlias -Arguments $CodexArgs)

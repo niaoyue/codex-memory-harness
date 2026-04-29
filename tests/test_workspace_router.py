@@ -37,6 +37,8 @@ class WorkspaceRouterTests(unittest.TestCase):
         self.assertEqual(plan["affected_projects"], ["unity-client"])
         self.assertEqual(plan["routes"][0]["domain"], "game_client")
         self.assertIn("client/Assets/Scripts/UI/LoginPanel.cs", plan["routes"][0]["assigned_scope"])
+        self.assertIn("game_client/unity", plan["routes"][0]["rules"])
+        self.assertIn("game_client/ui", plan["routes"][0]["rules"])
 
     def test_route_planner_marks_client_server_api_task_as_contract(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -74,6 +76,16 @@ class WorkspaceRouterTests(unittest.TestCase):
         self.assertEqual(plan["affected_projects"], ["configured-admin"])
         self.assertEqual(plan["routes"][0]["verification_profile_ids"], ["admin_lint"])
         self.assertNotIn("read_scopes", plan["routes"][0]["memory_binding"])
+
+    def test_configured_game_client_rules_get_task_rule_enrichment(self) -> None:
+        rules = workspace_router.route_rules(
+            {"domain": "game_client", "engine": "unity", "rules": ["workspace/base", "custom/client"]},
+            "ui",
+        )
+
+        self.assertIn("custom/client", rules)
+        self.assertIn("game_client/unity", rules)
+        self.assertIn("game_client/ui", rules)
 
     def test_route_planner_honors_configured_diagnostic_logging_policy(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -7,6 +7,7 @@
 - 编码前先做 `Sequential-Thinking 分析`，并坚持最小必要改动边界。
 - 读写文件统一使用 UTF-8（无 BOM）。
 - 禁止危险命令、泄露密钥、上传敏感信息。
+- 代码审核优先使用 `codex xhigh review --uncommitted` 作为最终 review gate；SubAgent reviewer 只做窄范围专题/旁路审查，不替代最终代码审核。
 - 涉及任务编排、待办、里程碑和状态跟踪时优先使用 `shrimp-task-manager`；当前环境不可用时，明确降级到本地 Markdown。
 - 代码文件理想 200-300 行，硬上限 500 行；超过上限必须拆分。
 - 默认正确性优先于兼容性。必要时直接替换旧接口，但必须在文档中说明迁移方式。

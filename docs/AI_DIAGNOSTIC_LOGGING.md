@@ -162,7 +162,14 @@ Release profile 至少检查：
 - 新增代码没有绕过统一门面的裸日志。
 - 敏感字段没有被记录到诊断日志。
 
-当前 Codex Memory Harness 只定义文档策略。自动扫描裸日志、构建宏和 release gate 的运行时能力尚未实现。
+当前 Codex Memory Harness 已提供基础 release gate runtime：`codex workspace verify` 在 route plan 标记为 `release_blocking` 时，会调用 workspace verifier 的 `diagnostic_logging_disabled` gate，扫描 route scope 内常见客户端代码文件，阻断以下情况：
+
+- `ai_diagnostics.enabled = true`、`diagnostic_logging.enabled = true` 或等价启用标记。
+- `ENABLE_AI_DIAGNOSTICS`、`AI_DIAGNOSTICS_ENABLED` 等基础调试宏。
+- diagnostic sink 指向 console、file 或 http。
+- 新增代码里出现裸 `Debug.Log`、`console.log`、`cc.log`、`print` 等绕过统一门面的调用。
+
+这个 gate 是基础静态检查，不是完整发布平台。它不替代业务项目自己的构建脚本、渠道包配置检查、Unity Player Settings、Laya/Cocos 平台构建配置和真机验证。业务项目仍应在 `client_release` 或自己的 release profile 中补足平台级检查。
 
 ## 11. Memory 与 Artifact 边界
 

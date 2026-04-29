@@ -58,10 +58,11 @@ Workspace Scanner
 - verification aggregation 需要支持每个子项目自己的执行目录；当前 `verification_runner.py` 已支持 command `cwd`，`workspace_verifier.py` 会按 route plan 聚合执行。
 - memory 需要区分 workspace 级事实和子项目级事实，避免把服务器、后台、客户端结论混成一个不可检索的大摘要。
 - SubAgent 的 artifact 必须带 route binding，否则后续无法判断它是否越权改了其他项目。
+- 代码审核的最终 gate 优先使用 `codex xhigh review --uncommitted`；SubAgent reviewer 只做 route-bound 或专题辅助审查。
 
 ## 2.2 Schema 契约与字段命名
 
-当前阶段已经把文档设计收束为可验证 schema，并实现 scanner、route planner、verification aggregator、SubAgent binding/scope guard/coordinator summary 与 memory lifecycle 软集成。仍未实现真实 SubAgent 自动调度和发布级完整验证平台。
+当前阶段已经把文档设计收束为可验证 schema，并实现 scanner、route planner、verification aggregator、SubAgent binding/scope guard/coordinator summary、dispatch plan、游戏客户端 profile 模板、基础诊断 release gate 与 memory lifecycle 软集成。仍未实现真实 SubAgent 自动执行器和发布级完整验证平台。
 
 Schema 文件：
 
@@ -555,8 +556,10 @@ codex workspace route --task-file task.json
 codex workspace route --changed
 codex workspace verify --route-file route.json
 codex workspace bind --route-file route.json
+codex workspace schedule --route-file route.json
 codex workspace scope-check --binding-file binding.json --touched-path client/Assets/App.cs
 codex workspace summarize --bindings-file bindings.json --artifact-file agent-result.json
+codex workspace game-client init --engine unity --project-cwd client
 ```
 
 命令定位：
@@ -568,10 +571,12 @@ codex workspace summarize --bindings-file bindings.json --artifact-file agent-re
 | `route` | 已实现。给定任务、working set 或 diff，输出 route plan，不执行修改 |
 | `verify` | 已实现最小版。按 route plan 聚合验证 profile，支持缺失 profile 记录 gap |
 | `bind` | 已实现。把 route plan 转换成 SubAgent route bindings，不自动启动 SubAgent |
+| `schedule` | 已实现。根据 route plan/bindings 生成 coordinator/specialist dispatch plan，不启动真实 agent |
 | `scope-check` | 已实现。检查 touched paths 是否越过 assigned/denied scope |
 | `summarize` | 已实现。汇总 SubAgent artifact、同文件冲突、scope 违规和 verification gap |
+| `game-client` | 已实现。生成 Unity、LayaBox/LayaAir、Cocos Creator verification profile 模板 |
 
-这比 `codex game-client ...` 更适合多项目 workspace。`game-client` 可以作为 workspace routing 的一个 domain，而不是顶层唯一入口。
+这比顶层 `codex game-client ...` 更适合多项目 workspace。`game-client` 是 workspace routing 的一个 domain 和模板子命令，而不是顶层唯一入口。
 
 ## 12. 实现阶段建议
 
@@ -582,7 +587,7 @@ codex workspace summarize --bindings-file bindings.json --artifact-file agent-re
 - 定义 `.codex/harness/workspace-routing.json` schema。
 - 定义 route plan、SubAgent route binding 和 verification aggregation schema。
 
-当前状态：文档设计、schema 文件和项目配置模板已完成；scanner、route planner、verification aggregator、SubAgent binding/scope guard/coordinator summary 和 lifecycle 软集成已完成最小 runtime。
+当前状态：文档设计、schema 文件和项目配置模板已完成；scanner、route planner、verification aggregator、SubAgent binding/scope guard/coordinator summary、dispatch plan、游戏客户端 profile 模板和 lifecycle 软集成已完成最小 runtime。
 
 ### 阶段 B：只读扫描器
 
@@ -613,7 +618,14 @@ codex workspace summarize --bindings-file bindings.json --artifact-file agent-re
 - checkpoint 带 `project_id`、`domain`、`scope`、`verification_profile_ids`。
 - coordinator 汇总结果。
 
-当前状态：已完成 route binding 生成、scope guard 和 coordinator summary 的最小运行时；`before_task` 会写入 route plan/bindings，`after_tool` 会按 touched paths 重算 route 并执行 scope guard，`before_response` 会输出 routing review。尚未实现自动启动/调度真实 SubAgent。
+当前状态：已完成 route binding 生成、scope guard、coordinator summary 和 dispatch plan 生成的最小运行时；`before_task` 会写入 route plan/bindings，`after_tool` 会按 touched paths 重算 route 并执行 scope guard，`before_response` 会输出 routing review。尚未实现自动启动/调度真实 SubAgent。
+
+### 阶段 F：游戏客户端 profile 模板与诊断 release gate
+
+- 为 Unity、LayaBox/LayaAir、Cocos Creator 生成推荐 verification profile。
+- release route 检查 AI 诊断日志关闭、临时 sink 和裸日志绕过。
+
+当前状态：已完成 `codex workspace game-client init/template` 基础模板生成器，以及 workspace verifier 的基础 AI 诊断日志 release gate。仍未覆盖所有平台构建配置、渠道包配置和完整发布流水线。
 
 ## 13. 与现有文档关系
 

@@ -21,3 +21,4 @@ Replace this file with a reviewed release or rollback workflow.
 ## Verification
 
 - `primary`
+- `codex xhigh review --uncommitted`

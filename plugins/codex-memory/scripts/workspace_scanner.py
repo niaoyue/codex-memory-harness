@@ -10,6 +10,7 @@ from typing import Any
 
 
 WORKSPACE_CONFIG = ".codex/harness/workspace-routing.json"
+GAME_CLIENT_CONFIG = ".codex/harness/game-client.json"
 SKIP_DIRS = {
     ".git",
     ".codex",
@@ -104,6 +105,7 @@ def configured_projects(root: Path, config: dict[str, Any]) -> list[ProjectCandi
         domain = str(item.get("domain") or "unknown").strip()
         if not project_id or not cwd:
             continue
+        profiles = configured_verification_profiles(root, cwd, domain, item)
         projects.append(
             ProjectCandidate(
                 id=project_id,
@@ -117,11 +119,20 @@ def configured_projects(root: Path, config: dict[str, Any]) -> list[ProjectCandi
                 language=_optional_str(item.get("language")),
                 framework=_optional_str(item.get("framework")),
                 rules=string_list(item.get("rules")),
-                verification_profiles=dict_value(item.get("verification_profiles")),
+                verification_profiles=profiles,
                 memory_binding=runtime_memory_binding(item.get("memory_binding"), project_id),
             )
         )
     return projects
+
+
+def configured_verification_profiles(root: Path, cwd: str, domain: str, item: dict[str, Any]) -> dict[str, str]:
+    profiles: dict[str, str] = {}
+    if domain == "game_client":
+        path = (root / cwd).resolve(strict=False) if cwd != "." else root.resolve(strict=False)
+        profiles.update(game_client_profiles(root, path, cwd, include_local=path == root.resolve(strict=False)))
+    profiles.update({str(key): str(value) for key, value in dict_value(item.get("verification_profiles")).items()})
+    return {key: value for key, value in profiles.items() if value.strip()}
 
 
 def runtime_memory_binding(value: Any, project_id: str) -> dict[str, Any]:
@@ -308,6 +319,7 @@ def candidate(
 ) -> ProjectCandidate:
     cwd = relative(root, path) or "."
     project_id = make_project_id(domain, path.name if cwd != "." else root.name, engine)
+    profiles = game_client_profiles(root, path, cwd, include_local=path.resolve() == root.resolve()) if domain == "game_client" else {}
     return ProjectCandidate(
         id=project_id,
         path=cwd,
@@ -318,7 +330,40 @@ def candidate(
         engine=engine,
         language=language,
         framework=framework,
+        verification_profiles=profiles,
     )
+
+
+def game_client_profiles(root: Path, path: Path, cwd: str, *, include_local: bool) -> dict[str, str]:
+    local_config = path / GAME_CLIENT_CONFIG
+    candidates = ([local_config] if include_local else []) + [root / GAME_CLIENT_CONFIG]
+    seen: set[str] = set()
+    for config_path in candidates:
+        key = config_path.resolve(strict=False).as_posix().lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        payload = read_json_object(config_path)
+        if not payload:
+            continue
+        project_cwd = normalize_config_path(root, str(payload.get("project_cwd") or ""))
+        is_local = include_local and config_path.resolve(strict=False) == local_config.resolve(strict=False)
+        if not (project_cwd == cwd or is_local and project_cwd in {"", "."}):
+            continue
+        profiles = dict_value(payload.get("verification_profiles"))
+        if profiles:
+            return {str(key): str(value) for key, value in profiles.items() if str(value).strip()}
+    return {}
+
+
+def read_json_object(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return value if isinstance(value, dict) else {}
 
 
 def existing(root: Path, base: Path, names: list[str]) -> list[str]:

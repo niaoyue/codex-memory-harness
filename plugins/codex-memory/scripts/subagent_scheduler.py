@@ -1,0 +1,144 @@
+from __future__ import annotations
+
+import argparse
+import json
+import os
+from pathlib import Path
+from typing import Any
+
+import workspace_subagents
+from harness_controller import checkpoint_task
+
+
+def build_dispatch_plan(route_plan: dict[str, Any], bindings: list[dict[str, Any]]) -> dict[str, Any]:
+    coordinator = next((item for item in bindings if item.get("binding_mode") == "coordinator"), None)
+    coordinator_prepare_id = f"dispatch-{coordinator.get('binding_id')}-prepare" if coordinator else None
+    specialist_items = [
+        dispatch_item(binding, coordinator_prepare_id)
+        for binding in bindings
+        if binding.get("binding_mode") == "specialist"
+    ]
+    items = list(specialist_items)
+    if coordinator:
+        items.insert(0, coordinator_item(route_plan, coordinator, "prepare", []))
+        items.append(coordinator_item(route_plan, coordinator, "summarize", [item["dispatch_id"] for item in specialist_items]))
+    return {
+        "version": 1,
+        "task_id": str(route_plan.get("task_id") or "workspace-route"),
+        "route_plan_id": str(route_plan.get("route_plan_id") or ""),
+        "status": "ready",
+        "execution_model": "host_subagent_or_manual",
+        "autostart": False,
+        "items": items,
+        "completion_gate": {
+            "requires_checkpoint": True,
+            "requires_scope_guard": True,
+            "requires_verification": bool(route_plan.get("verification_plan")),
+        },
+    }
+
+
+def dispatch_item(binding: dict[str, Any], coordinator_prepare_id: str | None) -> dict[str, Any]:
+    return {
+        "dispatch_id": f"dispatch-{binding.get('binding_id')}",
+        "binding_id": binding.get("binding_id"),
+        "subagent_id": binding.get("subagent_id"),
+        "role": binding.get("role"),
+        "binding_mode": binding.get("binding_mode"),
+        "project_id": binding.get("project_id"),
+        "domain": binding.get("domain"),
+        "cwd": binding.get("cwd"),
+        "assigned_scope": binding.get("assigned_scope") or [],
+        "rules": binding.get("rules") or [],
+        "verification_profile_ids": binding.get("verification_profile_ids") or [],
+        "status": "queued",
+        "dependencies": [coordinator_prepare_id] if coordinator_prepare_id else [],
+        "prompt": specialist_prompt(binding),
+    }
+
+
+def coordinator_item(route_plan: dict[str, Any], binding: dict[str, Any], phase: str, dependencies: list[str]) -> dict[str, Any]:
+    return {
+        "dispatch_id": f"dispatch-{binding.get('binding_id')}-{phase}",
+        "binding_id": binding.get("binding_id"),
+        "subagent_id": binding.get("subagent_id"),
+        "role": binding.get("role"),
+        "binding_mode": "coordinator",
+        "phase": phase,
+        "coordinates_projects": binding.get("coordinates_projects") or [],
+        "status": "queued",
+        "dependencies": dependencies,
+        "prompt": coordinator_prompt(route_plan, phase),
+    }
+
+
+def specialist_prompt(binding: dict[str, Any]) -> str:
+    return (
+        f"Role: {binding.get('role')}\n"
+        f"Project: {binding.get('project_id')} ({binding.get('domain')})\n"
+        f"CWD: {binding.get('cwd')}\n"
+        f"Scope: {', '.join(workspace_subagents.string_list(binding.get('assigned_scope')))}\n"
+        "Do not edit outside assigned_scope. Record a checkpoint with binding_id, project_id, "
+        "domain, assigned_scope, touched_paths, verification_profile_ids, findings, and next_step."
+    )
+
+
+def coordinator_prompt(route_plan: dict[str, Any], phase: str) -> str:
+    mode = route_plan.get("mode")
+    if phase == "prepare":
+        return f"Prepare {mode} coordination: confirm contracts, dispatch order, release gates, and rollback needs."
+    return "Summarize specialist checkpoints, conflicts, scope guard results, verification gaps, publish order, and rollback needs."
+
+
+def checkpoint_dispatch(project_root: Path, task_id: str, dispatch_plan: dict[str, Any]) -> dict[str, Any]:
+    payload = {
+        "tool_name": "subagent_scheduler",
+        "phase": "subagent_dispatch",
+        "summary": f"Generated SubAgent dispatch plan with {len(dispatch_plan['items'])} item(s).",
+        "touched_paths": [],
+        "exit_code": 0,
+        "signals": {"subagent_dispatch_plan": dispatch_plan},
+        "next_step": "按 dispatch plan 启动宿主 SubAgent 或手工执行对应角色任务。",
+    }
+    args = argparse.Namespace(
+        project_root=str(project_root),
+        task_id=task_id,
+        result_file=None,
+        payload_json=json.dumps(payload, ensure_ascii=False),
+    )
+    return checkpoint_task(args)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Build SubAgent dispatch plans from workspace routes.")
+    parser.add_argument("--project-root", default=os.environ.get("CODEX_MEMORY_CWD") or os.getcwd())
+    parser.add_argument("--route-file")
+    parser.add_argument("--task-file")
+    parser.add_argument("--task-id")
+    parser.add_argument("--objective")
+    parser.add_argument("--working-set", action="append", default=[])
+    parser.add_argument("--changed", action="store_true")
+    parser.add_argument("--checkpoint", action="store_true")
+    args = parser.parse_args()
+
+    project_root = Path(args.project_root).resolve()
+    route_plan = workspace_subagents.load_or_build_route_plan(project_root, args)
+    bindings = workspace_subagents.create_bindings(route_plan)
+    dispatch_plan = build_dispatch_plan(route_plan, bindings)
+    checkpoint = None
+    if args.checkpoint:
+        checkpoint = checkpoint_dispatch(project_root, str(route_plan["task_id"]), dispatch_plan)
+    result = {
+        "ok": True,
+        "mode": "schedule",
+        "route_plan": route_plan,
+        "bindings": bindings,
+        "dispatch_plan": dispatch_plan,
+        "checkpoint": checkpoint,
+    }
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

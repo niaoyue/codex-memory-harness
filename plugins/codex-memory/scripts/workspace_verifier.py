@@ -9,6 +9,7 @@ from typing import Any
 
 import verification_runner
 import workspace_router
+import diagnostic_gate
 from harness_controller import checkpoint_task
 from task_spec import task_spec_path
 
@@ -67,7 +68,7 @@ def aggregate_verification(
                     )
                 )
 
-    gates = release_gates(route_plan)
+    gates = release_gates(project_root, route_plan)
     overall_status = status(results, gaps, gates)
     return {
         "version": 1,
@@ -169,16 +170,9 @@ def status(results: list[dict[str, Any]], gaps: list[dict[str, Any]], gates: dic
     return "passed"
 
 
-def release_gates(route_plan: dict[str, Any]) -> dict[str, Any]:
-    release_required = route_plan.get("risk_level") == "release_blocking"
-    status_value = "manual_required" if release_required else "skipped"
-    blocking = bool(release_required)
+def release_gates(project_root: Path, route_plan: dict[str, Any]) -> dict[str, Any]:
     return {
-        "diagnostic_logging_disabled": {
-            "status": status_value,
-            "blocking": blocking,
-            "summary": "Release routes require diagnostic logging gate evidence.",
-        }
+        "diagnostic_logging_disabled": diagnostic_gate.evaluate_release_gate(project_root, route_plan)
     }
 
 

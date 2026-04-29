@@ -307,8 +307,11 @@ class HookRunner:
                 if adaptive_routing.get("degraded"):
                     workspace_routing["adaptive_degraded"] = adaptive_routing
             signals = payload.get("signals") if isinstance(payload.get("signals"), dict) else {}
+            explicit_scope = any(_string(payload.get(key)) for key in ("binding_id", "subagent_id", "project_id"))
             scope_source_bindings = previous_bindings or workspace_routing.get("bindings")
-            if not scope_source_bindings and isinstance(adaptive_routing.get("bindings"), list):
+            if not explicit_scope and isinstance(adaptive_routing.get("bindings"), list):
+                scope_source_bindings = adaptive_routing["bindings"]
+            elif not scope_source_bindings and isinstance(adaptive_routing.get("bindings"), list):
                 scope_source_bindings = adaptive_routing["bindings"]
             if isinstance(signals.get("route_plan"), dict):
                 workspace_routing["route_plan"] = signals["route_plan"]

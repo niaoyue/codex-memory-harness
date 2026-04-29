@@ -484,7 +484,7 @@ def validate_single_binding(binding: dict[str, Any]) -> None:
 def load_or_build_route_plan(project_root: Path, args: argparse.Namespace) -> dict[str, Any]:
     route_plan = read_json(args.route_file)
     if route_plan:
-        return route_plan
+        return route_plan["route_plan"] if isinstance(route_plan.get("route_plan"), dict) else route_plan
     task = workspace_router.load_task(args.task_file)
     if args.task_id:
         task["task_id"] = args.task_id

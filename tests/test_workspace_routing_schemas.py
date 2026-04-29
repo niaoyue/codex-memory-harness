@@ -49,6 +49,10 @@ class WorkspaceRoutingSchemaTests(unittest.TestCase):
         self.assertIn("artifact_policy", binding["required"])
         self.assertIn("overall_status", aggregation["required"])
         self.assertIn("verification_plan", aggregation["required"])
+        gate_properties = aggregation["$defs"]["gate_result"]["properties"]
+        self.assertIn("scanned_files", gate_properties)
+        self.assertIn("findings", gate_properties)
+        self.assertIn("truncated", gate_properties)
         self.assertIn("memory_binding", inventory["$defs"])
         self.assertIn("memory_binding", route_plan["$defs"])
         self.assertIn("memory_binding", binding["$defs"])

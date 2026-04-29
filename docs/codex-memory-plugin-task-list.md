@@ -9,7 +9,7 @@
 - `done`：已完成
 - `blocked`：受阻
 
-当前实现策略：一次只推进一个主里程碑，避免并行改动过多导致上下文污染。未来 workspace routing 允许 coordinator 分配多个 SubAgent 并行处理不同子项目，但当前项目尚未实现并发 SubAgent 调度器。
+当前实现策略：一次只推进一个主里程碑，避免并行改动过多导致上下文污染。workspace routing 已能生成 SubAgent dispatch plan，允许 coordinator 按计划分配多个 specialist；但当前项目尚未实现宿主级真实 SubAgent 自动执行器。
 
 ## 2. 主任务清单
 
@@ -50,7 +50,7 @@
 | T32 | 14 | 实现 SubAgent artifact schema | roles、subagents artifact、冲突检测和汇总规则 | T30 | done |
 | T33 | 14 | 实现可选语义检索 provider | embedding 索引、rebuild、降级和删除策略 | T29,T31 | todo |
 | T34 | 15 | 补齐游戏客户端专项工作流文档 | `docs/GAME_CLIENT_WORKFLOW.md` | T28,T30 | done |
-| T35 | 15 | 评估 `codex game-client` 独立命令 | Unity/Laya/Cocos profile 生成、doctor、verify、release-check | T34 | todo |
+| T35 | 15 | 评估 `codex game-client` 独立命令 | 结论：不新增顶层入口，改用 `codex workspace game-client init/template` 生成 Unity/Laya/Cocos profile | T34 | done |
 | T36 | 16 | 补齐 Workspace 自适应路由设计 | `docs/WORKSPACE_ADAPTIVE_ROUTING.md` | T30,T34 | done |
 | T37 | 16 | 实现 workspace scanner | project inventory、子项目识别、置信度和信号输出 | T36 | done |
 | T38 | 16 | 实现 route plan schema | task route、subagent route binding、verification aggregation | T36 | done |
@@ -65,9 +65,12 @@
 | T47 | 19 | 实现项目共享 memory 模板 | `.codex/shared` 目录模板、schema、示例和 `.gitignore` 精细放行 | T46 | done |
 | T48 | 19 | 实现 memory promote 命令 | 从本地 summary/decision 提升为共享 Markdown，执行脱敏和校验 | T46,T31 | done |
 | T49 | 17 | 设计 AI 诊断日志策略 | `docs/AI_DIAGNOSTIC_LOGGING.md`、README、用户指南、游戏客户端和 workspace 文档入口 | T39,T34 | done |
-| T50 | 18 | 实现 AI 诊断日志 release gate | profile/schema 检查诊断开关、调试宏、临时 sink 和裸日志绕过 | T49,T24,T31 | todo |
+| T50 | 18 | 实现 AI 诊断日志 release gate | release route 基础扫描诊断开关、调试宏、临时 sink 和裸日志绕过 | T49,T24,T31 | done |
 | T51 | 17 | 落地完整开发流程图 | `docs/FULL_DEVELOPMENT_WORKFLOW.md`、README、用户指南、系统总结和 workspace 入口 | T36,T39,T49 | done |
 | T52 | 18 | 实现 workspace lifecycle 软集成 | hook lifecycle 写入 route plan/bindings、scope guard 和 routing review | T37,T41,T42 | done |
+| T53 | 18 | 实现 SubAgent dispatch plan | `subagent_scheduler.py` 与 `codex workspace schedule` | T42,T52 | done |
+| T54 | 18 | 实现游戏客户端 profile 模板生成器 | `game_client_profiles.py` 与 `codex workspace game-client init/template` | T34,T52 | done |
+| T55 | 19 | 实现发布级完整验证平台 | 渠道包、热更、构建产物、平台配置和回滚材料 gate | T50,T54 | todo |
 
 ## 3. 当前推荐执行步
 
@@ -219,11 +222,11 @@
 
 - 目标：对照 Harness Engineering 外部资料，补齐当前能力、缺口和路线说明。
 - 范围：T28、T29、T30。
-- 不做：实现真实 SubAgent 调度器、向量数据库、embedding 索引、eval replay 平台。
+- 不做：实现真实 SubAgent 自动执行器、向量数据库、embedding 索引、eval replay 平台。
 - 验收：
   - `docs/EXTERNAL_BENCHMARK.md` 说明外部资料读取状态、当前实现对标和缺口。
   - `docs/MEMORY_RETRIEVAL_STRATEGY.md` 说明为什么当前不依赖向量数据库，以及后续可选接入路线。
-  - `docs/SUBAGENT_WORKFLOW.md` 说明当前是角色协作协议，不是内建 SubAgent 调度器。
+  - `docs/SUBAGENT_WORKFLOW.md` 说明当前是角色协作协议，不是内建真实 SubAgent 自动执行器。
   - README、用户指南和系统总结有对应入口。
 
 ### Step 15（已完成）
@@ -240,7 +243,7 @@
 
 - 目标：补齐多项目 workspace 下的自动路由设计。
 - 范围：T36。
-- 不做：实现 workspace scanner、route plan 运行时、SubAgent 调度器。
+- 不做：实现 workspace scanner、route plan 运行时、真实 SubAgent 自动执行器。
 - 验收：
   - `docs/WORKSPACE_ADAPTIVE_ROUTING.md` 说明 workspace 子项目发现、任务路由、SubAgent route binding、综合事务 coordinator、验证聚合和冲突处理。
   - `docs/GAME_CLIENT_WORKFLOW.md` 明确游戏客户端只是 workspace routing 的 `game_client` domain。
@@ -394,6 +397,39 @@
   - scanner 能识别 `workspace_meta` 根工具工程，router 会避免根项目吞掉已有子项目路径。
   - 单测覆盖 hook lifecycle、routing 降级 review、多项目 scope guard 分发和 workspace meta 路由。
 
+### Step 26（已完成）
+
+- 目标：补齐 SubAgent dispatch plan，给宿主 SubAgent 或人工编排提供统一派发计划。
+- 范围：T53、WR-31。
+- 不做：启动真实 agent 进程、远程执行、超时取消状态机。
+- 验收：
+  - 新增 `subagent_scheduler.py`，根据 route plan 和 bindings 生成 coordinator prepare、specialist dispatch、coordinator summarize 计划。
+  - `codex workspace schedule --route-file route.json` 可输出 dispatch plan。
+  - `--checkpoint` 可把 `subagent_dispatch_plan` 写入 harness artifact。
+  - 单测覆盖 coordinator/specialist prompt、依赖和 scope 信息。
+
+### Step 27（已完成）
+
+- 目标：补齐游戏客户端 Unity/Laya/Cocos profile 模板生成器。
+- 范围：T35、T54、WR-25。
+- 不做：新增顶层 `codex game-client ...`、写死本机引擎路径、替业务项目实现 Editor 脚本。
+- 验收：
+  - 新增 `game_client_profiles.py`，支持 `template` 和 `init`。
+  - `codex workspace game-client init --engine unity|laya|cocos` 会合并写入 `.codex/harness/commands.json`、`project_profile.json` 和 `game-client.json`。
+  - 生成 `client_quick`、`client_diagnostic`、`client_release` profile 模板。
+  - 单测覆盖不覆盖已有命令和 Cocos/Unity 模板内容。
+
+### Step 28（已完成）
+
+- 目标：补齐基础 AI 诊断日志 release gate runtime。
+- 范围：T50、WR-32。
+- 不做：完整发布平台、所有引擎平台配置扫描、渠道包和热更流水线检查。
+- 验收：
+  - 新增 `diagnostic_gate.py`，扫描 release route scope 内的常见客户端代码文件。
+  - `workspace_verifier.py` 在 `release_blocking` route 中把诊断 gate 纳入总体阻断状态。
+  - 基础检查覆盖诊断开启标记、调试宏、临时 sink 和裸日志绕过统一门面。
+  - 单测覆盖裸日志阻断、统一门面放行和 clean route 通过。
+
 ## 4. 每步完成后的固定动作
 
 每完成一个主步，都执行以下动作：
@@ -416,11 +452,10 @@
 - 自动启动/调度真实 SubAgent
 - 发布级完整 workspace 验证平台
 - workspace memory 自动分层写入
-- AI 诊断日志 release gate runtime
 
 ## 6. 当前状态与下一步
 
-当前已完成至 Step 25，状态如下：
+当前已完成至 Step 28，状态如下：
 
 - Step 6 已完成
 - Step 7 已完成
@@ -445,4 +480,7 @@
 - Step 23 已完成
 - Step 24 已完成
 - Step 25 已完成
-- 如需继续增强，下一轮优先进入 AI 诊断日志 release gate、游戏客户端/服务器/后台/文档/美术业务模板、发布与迁移说明、eval suite、workspace memory 自动分层写入、语义检索 provider、记忆迁移或更强的上下文编排
+- Step 26 已完成：SubAgent dispatch plan 与 `codex workspace schedule`
+- Step 27 已完成：游戏客户端 Unity/Laya/Cocos profile 模板生成器
+- Step 28 已完成：基础 AI 诊断日志 release gate runtime
+- 如需继续增强，下一轮优先进入服务器/后台/文档/美术业务模板、发布级完整验证平台、发布与迁移说明、eval suite、workspace memory 自动分层写入、语义检索 provider、记忆迁移或更强的上下文编排

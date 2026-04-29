@@ -98,19 +98,53 @@ class WorkspaceVerifierTests(unittest.TestCase):
 
         self.assertTrue(aggregation["verification_plan"][0]["blocking"])
 
-    def test_release_blocking_gate_blocks_overall_status(self) -> None:
+    def test_release_blocking_gate_blocks_bare_logs(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             _write_harness_config(root)
+            _write_text(root / "client" / "Assets" / "Login.cs", "Debug.Log(\"release leak\");\n")
             route_plan = _route_plan("client", ["client_quick"])
             route_plan["risk_level"] = "release_blocking"
+            route_plan["routes"] = [
+                {
+                    "route_id": "client-release",
+                    "project_id": "client",
+                    "domain": "game_client",
+                    "cwd": "client",
+                    "assigned_scope": ["client/Assets"],
+                }
+            ]
 
             aggregation = workspace_verifier.aggregate_verification(root, route_plan, no_run=True)
 
         self.assertEqual(aggregation["overall_status"], "blocked")
         gate = aggregation["release_gates"]["diagnostic_logging_disabled"]
         self.assertTrue(gate["blocking"])
-        self.assertEqual(gate["status"], "manual_required")
+        self.assertEqual(gate["status"], "failed")
+        self.assertEqual(gate["findings"][0]["type"], "bare_log")
+
+    def test_release_blocking_gate_passes_clean_scoped_code(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            _write_harness_config(root)
+            _write_text(root / "client" / "Assets" / "Login.cs", "DiagnosticLog.Flow(\"ok\");\n")
+            route_plan = _route_plan("client", ["client_quick"])
+            route_plan["risk_level"] = "release_blocking"
+            route_plan["routes"] = [
+                {
+                    "route_id": "client-release",
+                    "project_id": "client",
+                    "domain": "game_client",
+                    "cwd": "client",
+                    "assigned_scope": ["client/Assets"],
+                }
+            ]
+
+            aggregation = workspace_verifier.aggregate_verification(root, route_plan, no_run=True)
+
+        gate = aggregation["release_gates"]["diagnostic_logging_disabled"]
+        self.assertEqual(gate["status"], "passed")
+        self.assertEqual(aggregation["overall_status"], "not_run")
 
     def test_main_skips_checkpoint_when_route_task_spec_is_missing(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -232,6 +266,11 @@ def _mkdir(path: Path) -> None:
 def _write_json(path: Path, payload: dict[str, object]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload), encoding="utf-8")
+
+
+def _write_text(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
 
 
 if __name__ == "__main__":

@@ -180,9 +180,36 @@ docs/AI_DIAGNOSTIC_LOGGING.md
 
 `client_release` 应检查 AI 诊断日志开关、调试宏和临时 sink 均已关闭。`client_diagnostic` 只能用于开发或 CI diagnostic profile，不能作为发布通过条件。
 
-## 10. 建议新增的项目配置
+## 10. 项目配置生成器
 
-如果未来要正式支持单一游戏客户端仓库的专项能力，可以在业务项目里增加：
+当前已经提供 workspace 子命令来生成游戏客户端 verification profile 模板：
+
+```powershell
+codex workspace game-client template --engine unity
+codex workspace game-client init --engine unity --project-cwd client
+codex workspace game-client init --engine laya --project-cwd client
+codex workspace game-client init --engine cocos --project-cwd client
+```
+
+`template` 只输出 JSON 模板，不写文件。`init` 会合并写入业务项目：
+
+```text
+.codex/harness/commands.json
+.codex/harness/project_profile.json
+.codex/harness/game-client.json
+```
+
+命令不会写死本机引擎路径。业务项目需要按本机环境设置：
+
+| 引擎 | 环境变量 |
+|---|---|
+| Unity | `UNITY_EXE` |
+| LayaBox / LayaAir | `LAYA_IDE_EXE` |
+| Cocos Creator | `COCOS_CREATOR_EXE` |
+
+生成器会提供 `client_quick`、`client_diagnostic` 和 `client_release` profile 的基础模板。真正的编译、构建、冒烟和 release 检查仍应由业务项目自己的 Editor 脚本、构建脚本或 CI 配置实现。
+
+业务项目里可以保留：
 
 ```text
 .codex/harness/game-client.json
@@ -242,9 +269,28 @@ workspace 级方案见：
 docs/WORKSPACE_ADAPTIVE_ROUTING.md
 ```
 
+### 11.1 当前运行时覆盖
+
+当前已经落地的游戏客户端专项处理：
+
+- `workspace_scanner.py` 可识别 Unity、LayaBox/LayaAir 和 Cocos Creator 的常见工程信号。
+- `workspace_router.py` 会把这些工程归入 `game_client` domain，并在自动扫描路由时补上 `game_client/<engine>` 和任务类型规则，例如 `game_client/unity`、`game_client/ui`、`game_client/assets`。
+- `route plan` 会携带 `diagnostic_logging` 策略，release 任务默认不允许开启诊断日志，并要求发布前关闭。
+- `workspace bind/scope-check/summarize` 可把客户端 specialist 限定在自己的 assigned scope，并由 coordinator 汇总跨项目影响。
+- `codex workspace game-client init/template` 可生成 Unity、LayaBox/LayaAir、Cocos Creator 的基础 verification profile 模板。
+- `workspace verifier` 的 release gate 会对 release route 执行基础 AI 诊断日志静态扫描，阻断已开启诊断、临时 sink 和绕过统一门面的裸日志。
+
+当前仍未落地或只做基础版的专项处理：
+
+- 没有内建 `codex game-client ...` 独立命令。
+- 没有直接调用 Unity Editor、LayaAirIDE 或 Cocos Creator 的内置运行时；业务项目仍需在 `.codex/harness/commands.json` 配置自己的编译、构建、冒烟和 release profile。
+- AI 诊断日志 release gate 是基础静态扫描，不是完整平台构建宏、渠道包配置和所有引擎 release setting 的全量检查。
+
 ## 12. 可选命令路线
 
-如果项目明确是单一游戏客户端仓库，可以考虑新增独立入口：
+如果项目明确是单一游戏客户端仓库，当前仍不建议把游戏客户端作为顶层唯一入口；优先使用 `codex workspace game-client ...` 生成模板，再用 workspace routing 管理验证和 release gate。
+
+未来如果需要单项目快捷入口，可以再评估：
 
 ```powershell
 codex game-client doctor
@@ -264,7 +310,7 @@ codex game-client release-check
 | `verify` | 映射到 `.codex/harness/commands.json` 里的项目命令 |
 | `release-check` | 聚合构建、包体、热更、版本号、渠道配置、诊断日志关闭和回滚策略检查 |
 
-但在多项目 workspace 下，更推荐使用 `codex workspace doctor/scan/route/verify/bind/scope-check/summarize` 做识别、路由、验证聚合和 SubAgent binding。当前已完成 lifecycle 软集成：hook 会自动准备 route plan/bindings、按 touched paths 执行 scope guard，并在回复前输出 routing review；真实 SubAgent 自动调度和发布级 release gate 仍在路线中。
+但在多项目 workspace 下，更推荐使用 `codex workspace doctor/scan/route/verify/bind/scope-check/summarize/schedule/game-client` 做识别、路由、验证聚合、SubAgent binding、dispatch plan 和客户端模板。当前已完成 lifecycle 软集成：hook 会自动准备 route plan/bindings、按 touched paths 执行 scope guard，并在回复前输出 routing review；真实 SubAgent 自动执行器和发布级完整验证平台仍在路线中。
 
 ## 13. 推荐任务流程
 
@@ -303,6 +349,6 @@ codex game-client release-check
 
 1. 文档层：保留本文作为游戏客户端专项策略入口。
 2. 配置层：业务项目按引擎维护 `.codex/harness/commands.json`，不要在本仓库写死 Unity/Laya/Cocos 路径。
-3. 运行层：继续使用 `codex harness verify run --profile <profile>`；多项目 workspace 先用 `codex workspace doctor/scan` 识别项目，后续优先实现 `codex workspace route/verify` 自动路由，再决定是否保留单项目 `codex game-client ...` 调试入口。
+3. 运行层：继续使用 `codex harness verify run --profile <profile>` 或 `codex workspace verify --route-file route.json`；多项目 workspace 先用 `codex workspace doctor/scan/route` 识别项目和任务范围，再用 `codex workspace schedule` 生成 SubAgent dispatch plan，必要时用 `codex workspace game-client init` 初始化客户端 profile。
 
 这能保持本仓库通用、低耦合，同时给游戏客户端项目足够明确的增强路线。

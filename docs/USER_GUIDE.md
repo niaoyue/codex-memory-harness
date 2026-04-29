@@ -119,7 +119,7 @@ docs/MEMORY_RETRIEVAL_STRATEGY.md
 
 ## Harness Engineering 对标
 
-本项目已经具备本地 memory、harness 生命周期和验证回写的 MVP，但还没有内建 SubAgent 调度器、向量数据库或 eval replay 平台。
+本项目已经具备本地 memory、harness 生命周期、验证回写、workspace routing、SubAgent binding/dispatch plan 和基础 release gate 的 MVP，但还没有内建真实 SubAgent 自动执行器、向量数据库或 eval replay 平台。
 
 如果需要确认当前能力边界：
 
@@ -127,11 +127,19 @@ docs/MEMORY_RETRIEVAL_STRATEGY.md
 docs/EXTERNAL_BENCHMARK.md
 ```
 
-如果需要按多角色方式执行复杂任务，当前应按文档里的角色协议记录 artifact，而不是假设项目会自动启动多个 SubAgent：
+如果需要按多角色方式执行复杂任务，当前应按文档里的角色协议记录 artifact，并可用 `codex workspace schedule` 生成 dispatch plan；不要假设项目会自动启动多个真实 SubAgent：
 
 ```text
 docs/SUBAGENT_WORKFLOW.md
 ```
+
+代码变更的审核优先使用 Codex CLI 的专用 review 入口，而不是让通用 SubAgent 承担最终审核：
+
+```powershell
+codex xhigh review --uncommitted
+```
+
+SubAgent Reviewer 适合做窄范围专题审查，例如只看某个 route binding、某类安全风险或某组测试覆盖。最终提交或发布前，仍应以 `codex xhigh review --uncommitted` 作为代码审核 gate。
 
 如果需要理解完整实现后的日常开发流程、自动路由、SubAgent、诊断日志、验证聚合和 memory 沉淀闭环，可先看完整流程图：
 
@@ -168,7 +176,7 @@ schemas/verification_aggregation.schema.json
 templates/project/.codex/harness/workspace-routing.json
 ```
 
-这些文件是 SubAgent binding runtime、scope guard、coordinator 汇总和生命周期软集成的契约基础；scanner、route planner、最小 verification aggregation、binding/scope-check/summarize 都已有本地入口。
+这些文件是 SubAgent binding runtime、scope guard、coordinator 汇总、dispatch plan 和生命周期软集成的契约基础；scanner、route planner、最小 verification aggregation、binding/scope-check/summarize/schedule 都已有本地入口。
 
 当前也已经提供只读 workspace scanner：
 
@@ -180,11 +188,13 @@ codex workspace route --changed
 codex workspace verify --route-file route.json
 codex workspace verify --task-file task.json --no-run
 codex workspace bind --route-file route.json
+codex workspace schedule --route-file route.json
 codex workspace scope-check --binding-file binding.json --touched-path client/Assets/App.cs
 codex workspace summarize --bindings-file bindings.json --artifact-file agent-result.json
+codex workspace game-client init --engine unity --project-cwd client
 ```
 
-`doctor/scan` 会读取 `.codex/harness/workspace-routing.json`，再扫描当前 workspace 中常见的 Unity、LayaBox/LayaAir、Cocos Creator、服务器、后台、文档、美术和发布工程信号，输出 project inventory。`route` 会根据任务文件、working set、cwd 或 `--changed` 的 Git diff 生成 route plan。`verify` 会按 route plan 聚合多项目 verification profile，缺失 profile 或 command 会记录 gap。`bind/scope-check/summarize` 用于生成 SubAgent route binding、检查 touched paths 是否越权，并汇总冲突。它们都不会创建或修改业务项目文件。
+`doctor/scan` 会读取 `.codex/harness/workspace-routing.json`，再扫描当前 workspace 中常见的 Unity、LayaBox/LayaAir、Cocos Creator、服务器、后台、文档、美术和发布工程信号，输出 project inventory。`route` 会根据任务文件、working set、cwd 或 `--changed` 的 Git diff 生成 route plan。`verify` 会按 route plan 聚合多项目 verification profile，缺失 profile 或 command 会记录 gap，release route 会执行基础 AI 诊断日志 gate。`bind/scope-check/summarize` 用于生成 SubAgent route binding、检查 touched paths 是否越权，并汇总冲突。`schedule` 用于生成 coordinator/specialist dispatch plan。`game-client init/template` 会写入或输出 Unity/Laya/Cocos verification profile 模板，是少数会按用户命令修改业务项目 `.codex/harness` 配置的 workspace 子命令。
 
 在 memory 生命周期中，workspace routing 已做软集成：
 
@@ -192,7 +202,7 @@ codex workspace summarize --bindings-file bindings.json --artifact-file agent-re
 - `after_tool` 根据 touched paths 重算 route/bindings，并执行 scope guard；多项目时会按 specialist assigned scope 分发路径，避免误报未触达 specialist。
 - `before_response` 输出 `workspace_routing_review`，报告低置信路由、routing 降级、verification gap 和 scope gap。
 
-这仍不是自动 SubAgent 调度器。当前系统只准备 binding、scope guard 和 review，是否实际启动多个 SubAgent 仍由 Codex 宿主能力或人工编排决定。
+这仍不是真实 SubAgent 自动执行器。当前系统只准备 binding、scope guard、dispatch plan 和 review，是否实际启动多个 SubAgent 仍由 Codex 宿主能力或人工编排决定。
 
 Workspace routing 的实现拆分和当前进度见：
 
