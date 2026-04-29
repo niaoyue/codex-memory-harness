@@ -1,0 +1,224 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "local://codex-memory-harness/schemas/verification_aggregation.schema.json",
+  "title": "Workspace Verification Aggregation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "task_id",
+    "overall_status",
+    "verification_plan",
+    "results"
+  ],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "task_id": {
+      "type": "string"
+    },
+    "route_plan_id": {
+      "type": "string"
+    },
+    "overall_status": {
+      "type": "string",
+      "enum": [
+        "passed",
+        "failed",
+        "blocked",
+        "gap",
+        "not_run"
+      ]
+    },
+    "verification_plan": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/verification_target"
+      }
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/verification_result"
+      }
+    },
+    "release_gates": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "diagnostic_logging_disabled": {
+          "$ref": "#/$defs/gate_result"
+        },
+        "sensitive_scan_passed": {
+          "$ref": "#/$defs/gate_result"
+        },
+        "scope_guard_passed": {
+          "$ref": "#/$defs/gate_result"
+        },
+        "debug_macro_disabled": {
+          "$ref": "#/$defs/gate_result"
+        }
+      }
+    },
+    "gaps": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/verification_gap"
+      }
+    }
+  },
+  "$defs": {
+    "verification_target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "project_id",
+        "cwd",
+        "verification_profile_ids",
+        "blocking"
+      ],
+      "properties": {
+        "project_id": {
+          "type": "string"
+        },
+        "domain": {
+          "type": "string"
+        },
+        "cwd": {
+          "type": "string"
+        },
+        "verification_profile_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "blocking": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    },
+    "verification_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "project_id",
+        "profile_id",
+        "cwd",
+        "status",
+        "blocking"
+      ],
+      "properties": {
+        "project_id": {
+          "type": "string"
+        },
+        "domain": {
+          "type": "string"
+        },
+        "profile_id": {
+          "type": "string"
+        },
+        "command_id": {
+          "type": "string"
+        },
+        "cwd": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "passed",
+            "failed",
+            "skipped",
+            "blocked",
+            "manual_required"
+          ]
+        },
+        "blocking": {
+          "type": "boolean"
+        },
+        "exit_code": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "command": {
+          "type": "string"
+        },
+        "duration_seconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "stdout_excerpt": {
+          "type": "string"
+        },
+        "stderr_excerpt": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "artifact_path": {
+          "type": "string"
+        },
+        "skip_reason": {
+          "type": "string"
+        }
+      }
+    },
+    "gate_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "blocking"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "passed",
+            "failed",
+            "skipped",
+            "manual_required"
+          ]
+        },
+        "blocking": {
+          "type": "boolean"
+        },
+        "summary": {
+          "type": "string"
+        }
+      }
+    },
+    "verification_gap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "project_id",
+        "reason",
+        "blocking"
+      ],
+      "properties": {
+        "project_id": {
+          "type": "string"
+        },
+        "profile_id": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "blocking": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

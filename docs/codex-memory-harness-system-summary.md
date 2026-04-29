@@ -515,7 +515,33 @@ workspace routing 会先形成 project inventory，再为当前任务生成 rout
 docs/WORKSPACE_ROUTING_TASK_LIST.md
 ```
 
-## 20. 当前限制
+## 20. 完整开发流程图
+
+如果所有规划能力都实现，日常开发流程会从用户输入任务开始，自动经过 bootstrap、memory 装载、workspace scanner、task router、SubAgent route binding、实现循环、AI 诊断日志、验证聚合、release gate 和 memory 沉淀。
+
+完整目标流程和 Mermaid 图见：
+
+```text
+docs/FULL_DEVELOPMENT_WORKFLOW.md
+```
+
+该文档描述目标完整态，不代表当前 runtime 已全部具备。
+
+## 21. AI 诊断日志策略
+
+AI 写代码时需要运行反馈，因此项目允许在开发和 AI 调试阶段临时打开诊断日志。诊断日志必须通过统一门面和统一开关控制，不能散落裸 `print`、`console.log`、`Debug.Log` 或等价调用。
+
+发布、生产、渠道包和正式热更构建必须关闭 AI 诊断日志。Release profile 应检查诊断开关、调试宏和临时 sink 均已关闭。
+
+诊断日志不应写入 memory 原文。Harness artifact 只保存脱敏摘要、验证结论和下一步。
+
+完整策略见：
+
+```text
+docs/AI_DIAGNOSTIC_LOGGING.md
+```
+
+## 22. 当前限制
 
 - 不能修改模型内部记忆。
 - 不能保证非 PowerShell 启动方式自动经过 wrapper。
@@ -523,29 +549,29 @@ docs/WORKSPACE_ROUTING_TASK_LIST.md
 - 当前检索是本地 MVP，尚未接入 embedding。
 - 当前没有内建 SubAgent 调度器，只提供角色协作协议和 artifact 记录方式。
 - 当前没有内建游戏客户端专项命令，只提供文档路线和项目级 verification profile 建议。
-- 当前没有内建 workspace 自适应路由，只提供 route plan、SubAgent route binding 和验证聚合设计。
-- 当前没有内建项目共享 memory 提升流程，只实现用户全局层和项目私有层。
-- 当前 verification runner 尚不支持每个子项目独立 cwd 的自动聚合执行。
+- 当前没有内建真实 SubAgent 自动调度或发布级 workspace 平台；已提供只读 workspace scanner、只读 route planner、最小 workspace verification aggregation、SubAgent route binding、scope guard、coordinator summary、memory lifecycle 软集成、project inventory、routing config、route plan 和验证聚合 schema，以及 `.codex/harness/workspace-routing.json` 模板。
+- 当前已内建基础敏感信息扫描器；AI 诊断日志 release gate 自动检查仍未实现。
+- 当前已实现项目共享 memory 初始化模板、promote、validate 和索引重建的最小 runtime；严格 JSON Schema 校验和多人冲突自动处理尚未实现。
+- 当前 workspace verifier 已支持每个 route 使用自己的 cwd/profile 聚合执行；发布级完整验证平台仍未实现。
 - 当前 eval 回放体系尚未平台化。
 - 全局 AGENTS 的旧未标记规则不会被强行改写。
 
-## 21. 后续增强
+## 23. 后续增强
 
 优先级建议：
 
-1. 敏感信息扫描器：写入 memory、artifact、索引前强制脱敏。
+1. 敏感信息扫描器扩展：补 shared validate、索引重建和 release gate 专项检查。
 2. `.codex/evals`：把失败任务和高价值任务转为可回放评测。
 3. memory archive/cleanup：避免长期膨胀。
-4. 项目共享 memory：`.codex/shared` 模板、schema 校验、promote 命令和冲突策略。
-5. Workspace scanner：生成 project inventory。
-6. Route plan schema：记录任务路由、SubAgent route binding 和验证聚合。
-7. SubAgent artifact schema：记录角色计划、角色输出、冲突文件和结果汇总。
-8. 游戏客户端 profile 模板：按 Unity/Laya/Cocos 生成推荐 verification profile。
-9. `codex workspace ...`：在业务项目需求稳定后提供 workspace 自动路由入口。
-10. 多项目模板生成器：快速给项目接入 `.codex/harness`。
-11. 可选本地语义检索：在不开启网络的前提下增强召回。
-12. 安装器 dry-run：让用户安装前预览所有写入。
+4. 项目共享 memory：严格 schema 校验、冲突策略和 review 辅助。
+5. 自动 SubAgent 调度：在宿主支持时按 binding 启动 specialist/coordinator。
+6. 游戏客户端 profile 模板：按 Unity/Laya/Cocos 生成推荐 verification profile。
+7. AI 诊断日志 release gate：检查诊断开关、调试宏、临时 sink 和裸日志绕过。
+8. Workspace memory 自动分层写入：把 workspace summary 与子项目事实按 semantic scope 分别沉淀。
+9. 多项目模板生成器：快速给项目接入 `.codex/harness`。
+10. 可选本地语义检索：在不开启网络的前提下增强召回。
+11. 安装器 dry-run：让用户安装前预览所有写入。
 
-## 22. 一句话总结
+## 24. 一句话总结
 
 Codex Memory Harness 是一套本地、可控、可打包安装的 Codex 外部记忆与任务运行时系统。它不改变模型内部能力，但通过 memory、context、harness、verification、distillation 和 PowerShell wrapper，把 Codex 的跨任务连续协作能力从“会话内临时上下文”提升为“本机可维护的工程化闭环”。

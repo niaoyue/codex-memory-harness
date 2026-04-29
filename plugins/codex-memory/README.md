@@ -10,6 +10,12 @@
 - `scripts/hook_runner.py`：任务生命周期 hook。
 - `scripts/harness_controller.py`：`start` / `checkpoint` / `complete` 任务运行时。
 - `scripts/verification_runner.py`：配置化验证 runner。
+- `scripts/shared_memory.py`：项目共享 memory promote、validate 和 index rebuild。
+- `scripts/workspace_scanner.py`：只读 workspace scanner，输出 project inventory。
+- `scripts/workspace_router.py`：只读 workspace route planner，输出 route plan。
+- `scripts/workspace_verifier.py`：按 route plan 聚合多项目 verification profile。
+- `scripts/workspace_subagents.py`：生成 SubAgent bindings、执行 scope-check 和 coordinator summary。
+- `scripts/workspace_lifecycle.py`：把 workspace routing 接入 memory hook 生命周期。
 - `mcp/memory_server.py`：最小 MCP stdio 服务入口。
 
 ## 安装
@@ -73,7 +79,7 @@ docs/MEMORY_RETRIEVAL_STRATEGY.md
 docs/SUBAGENT_WORKFLOW.md
 ```
 
-当前插件不内建 SubAgent 调度器，也不默认依赖向量数据库。
+当前插件不内建 SubAgent 调度器，也不默认依赖向量数据库。Workspace routing 已接入 hook 生命周期软集成：`before_task` 写 route plan/bindings，`after_tool` 执行 scope guard，`before_response` 输出 routing review。
 
 ## Bootstrap / Doctor
 
@@ -82,7 +88,15 @@ codex memory doctor
 codex memory init
 ```
 
-`doctor` 只检查状态，`init` 只创建缺失的 `.codex/memories` 和 `.codex/harness` 配置，不覆盖已有配置。
+`doctor` 只检查状态，`init` 只创建缺失的 `.codex/memories`、`.codex/harness` 和 `.codex/shared` 配置，不覆盖已有配置。
+
+项目共享 memory：
+
+```powershell
+codex memory promote --task-id <task-id> --kind fact
+codex memory shared validate
+codex memory shared index rebuild
+```
 
 ## PowerShell Launcher
 
@@ -94,6 +108,13 @@ codexm
 codex memory doctor
 codex memory init
 codex harness verify run --profile primary
+codex workspace doctor
+codex workspace scan
+codex workspace route --task-file task.json
+codex workspace verify --route-file route.json
+codex workspace bind --route-file route.json
+codex workspace scope-check --binding-file binding.json --touched-path client/Assets/App.cs
+codex workspace summarize --bindings-file bindings.json --artifact-file agent-result.json
 codex package verify
 codex-memory-doctor
 codex-raw

@@ -1,0 +1,200 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "local://codex-memory-harness/schemas/workspace_routing_config.schema.json",
+  "title": "Workspace Routing Config",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "workspace",
+    "projects",
+    "fallback"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "workspace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "root": {
+          "type": "string"
+        }
+      }
+    },
+    "projects": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/project_config"
+      }
+    },
+    "fallback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rules",
+        "verification_profiles"
+      ],
+      "properties": {
+        "rules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "verification_profiles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "routing_priority": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "user_explicit",
+          "subagent_explicit",
+          "explicit_config",
+          "scanner",
+          "fallback"
+        ]
+      }
+    },
+    "diagnostic_logging": {
+      "$ref": "#/$defs/diagnostic_logging_policy"
+    }
+  },
+  "$defs": {
+    "project_config": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "path",
+        "cwd",
+        "domain",
+        "rules",
+        "verification_profiles"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]*$"
+        },
+        "path": {
+          "type": "string"
+        },
+        "cwd": {
+          "type": "string"
+        },
+        "domain": {
+          "type": "string"
+        },
+        "engine": {
+          "type": "string"
+        },
+        "language": {
+          "type": "string"
+        },
+        "framework": {
+          "type": "string"
+        },
+        "rules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "verification_profiles": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "diagnostic_logging": {
+          "$ref": "#/$defs/diagnostic_logging_policy"
+        },
+        "memory_binding": {
+          "$ref": "#/$defs/memory_binding"
+        },
+        "config_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "diagnostic_logging_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "default_allowed": {
+          "type": "boolean"
+        },
+        "release_must_be_disabled": {
+          "type": "boolean"
+        },
+        "allowed_scopes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "memory_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "storage_scope",
+        "semantic_scope"
+      ],
+      "properties": {
+        "storage_scope": {
+          "type": "string",
+          "enum": [
+            "project",
+            "global",
+            "auto"
+          ]
+        },
+        "semantic_scope": {
+          "type": "string",
+          "enum": [
+            "workspace",
+            "project",
+            "module",
+            "workflow"
+          ]
+        },
+        "project_id": {
+          "type": "string"
+        },
+        "read_scopes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "shared_memory_allowed": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

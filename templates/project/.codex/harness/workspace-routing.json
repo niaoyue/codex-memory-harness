@@ -1,0 +1,192 @@
+{
+  "$schema": "local://codex-memory-harness/schemas/workspace_routing_config.schema.json",
+  "version": 1,
+  "workspace": {
+    "name": "<WORKSPACE_NAME>"
+  },
+  "routing_priority": [
+    "user_explicit",
+    "subagent_explicit",
+    "explicit_config",
+    "scanner",
+    "fallback"
+  ],
+  "diagnostic_logging": {
+    "default_allowed": false,
+    "release_must_be_disabled": true,
+    "allowed_scopes": [
+      "flow",
+      "state",
+      "validation"
+    ]
+  },
+  "projects": [
+    {
+      "id": "client-unity",
+      "path": "client",
+      "cwd": "client",
+      "domain": "game_client",
+      "engine": "unity",
+      "rules": [
+        "workspace/base",
+        "game_client/base",
+        "game_client/unity"
+      ],
+      "verification_profiles": {
+        "quick": "client_quick",
+        "release": "client_release"
+      },
+      "diagnostic_logging": {
+        "default_allowed": true,
+        "release_must_be_disabled": true,
+        "allowed_scopes": [
+          "flow",
+          "state",
+          "validation"
+        ]
+      },
+      "memory_binding": {
+        "storage_scope": "project",
+        "semantic_scope": "project",
+        "project_id": "client-unity",
+        "shared_memory_allowed": true
+      }
+    },
+    {
+      "id": "client-laya",
+      "path": "client-laya",
+      "cwd": "client-laya",
+      "domain": "game_client",
+      "engine": "laya",
+      "rules": [
+        "workspace/base",
+        "game_client/base",
+        "game_client/laya"
+      ],
+      "verification_profiles": {
+        "quick": "laya_quick",
+        "release": "laya_release"
+      },
+      "memory_binding": {
+        "storage_scope": "project",
+        "semantic_scope": "project",
+        "project_id": "client-laya",
+        "shared_memory_allowed": true
+      }
+    },
+    {
+      "id": "client-cocos",
+      "path": "client-cocos",
+      "cwd": "client-cocos",
+      "domain": "game_client",
+      "engine": "cocos",
+      "rules": [
+        "workspace/base",
+        "game_client/base",
+        "game_client/cocos"
+      ],
+      "verification_profiles": {
+        "quick": "cocos_quick",
+        "release": "cocos_release"
+      },
+      "memory_binding": {
+        "storage_scope": "project",
+        "semantic_scope": "project",
+        "project_id": "client-cocos",
+        "shared_memory_allowed": true
+      }
+    },
+    {
+      "id": "server-game",
+      "path": "server",
+      "cwd": "server",
+      "domain": "game_server",
+      "language": "go",
+      "rules": [
+        "workspace/base",
+        "game_server/base",
+        "server/go"
+      ],
+      "verification_profiles": {
+        "quick": "server_unit",
+        "integration": "server_integration"
+      },
+      "memory_binding": {
+        "storage_scope": "project",
+        "semantic_scope": "project",
+        "project_id": "server-game",
+        "shared_memory_allowed": true
+      }
+    },
+    {
+      "id": "admin-web",
+      "path": "admin",
+      "cwd": "admin",
+      "domain": "backoffice_web",
+      "framework": "vue",
+      "rules": [
+        "workspace/base",
+        "backoffice/base",
+        "web/vue"
+      ],
+      "verification_profiles": {
+        "quick": "admin_lint_test",
+        "release": "admin_build"
+      },
+      "memory_binding": {
+        "storage_scope": "project",
+        "semantic_scope": "project",
+        "project_id": "admin-web",
+        "shared_memory_allowed": true
+      }
+    },
+    {
+      "id": "design-docs",
+      "path": "docs",
+      "cwd": "docs",
+      "domain": "design_docs",
+      "rules": [
+        "workspace/base",
+        "docs/design"
+      ],
+      "verification_profiles": {
+        "quick": "docs_link_check"
+      },
+      "memory_binding": {
+        "storage_scope": "project",
+        "semantic_scope": "workspace",
+        "project_id": "design-docs",
+        "shared_memory_allowed": true
+      }
+    },
+    {
+      "id": "art-pipeline",
+      "path": "art",
+      "cwd": "art",
+      "domain": "art_pipeline",
+      "rules": [
+        "workspace/base",
+        "art_pipeline/base",
+        "game_client/assets"
+      ],
+      "verification_profiles": {
+        "quick": "asset_manifest_check",
+        "release": "asset_release_check"
+      },
+      "memory_binding": {
+        "storage_scope": "project",
+        "semantic_scope": "project",
+        "project_id": "art-pipeline",
+        "shared_memory_allowed": true
+      }
+    }
+  ],
+  "fallback": {
+    "rules": [
+      "workspace/generic"
+    ],
+    "verification_profiles": [
+      "primary"
+    ]
+  }
+}

@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Iterator
 
 import init_storage
+from sensitive_scan import sanitized_payload
 
 
 TASK_STATE_SCHEMA = {
@@ -59,6 +60,12 @@ def _object(value: Any) -> dict[str, Any]:
 def _safe_filename(task_id: str) -> str:
     normalized = re.sub(r"[^A-Za-z0-9._-]+", "_", task_id).strip("._")
     return normalized or "task"
+
+
+def _safe_task_id(task_id: str | None) -> str | None:
+    if task_id is None:
+        return None
+    return str(sanitized_payload(task_id, context="task_id")).strip() or "task"
 
 
 @dataclass
@@ -113,10 +120,11 @@ class MemoryStore:
             conn.close()
 
     def _append_event(self, event_type: str, payload: dict[str, Any]) -> None:
+        safe_payload = sanitized_payload(payload, context=f"event:{event_type}")
         record = {
             "timestamp": _utc_now(),
             "event_type": event_type,
-            "payload": payload,
+            "payload": safe_payload,
         }
         with init_storage.resolve_storage_paths().event_log_path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(record, ensure_ascii=False) + "\n")
@@ -159,9 +167,11 @@ class MemoryStore:
         *,
         set_current: bool = True,
     ) -> dict[str, Any]:
-        state = TaskState.from_payload(task_id, payload)
+        safe_task_id = _safe_task_id(task_id) or "task"
+        state = TaskState.from_payload(safe_task_id, payload)
         updated_at = _utc_now()
-        payload_json = json.dumps(state.to_dict(), ensure_ascii=False)
+        safe_state = sanitized_payload(state.to_dict(), context="task_state")
+        payload_json = json.dumps(safe_state, ensure_ascii=False)
         with self._connect() as conn:
             conn.execute(
                 """
@@ -171,16 +181,16 @@ class MemoryStore:
                     payload_json = excluded.payload_json,
                     updated_at = excluded.updated_at
                 """,
-                (task_id, payload_json, updated_at),
+                (safe_task_id, payload_json, updated_at),
             )
         if set_current:
-            self._set_meta("current_task_id", task_id)
-        result = state.to_dict() | {"updated_at": updated_at}
+            self._set_meta("current_task_id", safe_task_id)
+        result = safe_state | {"updated_at": updated_at}
         self._append_event("task_state.upserted", result)
         return result
 
     def get_task_state(self, task_id: str | None = None) -> dict[str, Any] | None:
-        resolved_task_id = task_id or self.get_current_task_id()
+        resolved_task_id = _safe_task_id(task_id) if task_id is not None else self.get_current_task_id()
         if not resolved_task_id:
             return None
         with self._connect() as conn:
@@ -201,6 +211,11 @@ class MemoryStore:
         *,
         task_id: str | None = None,
     ) -> dict[str, Any]:
+        safe_task_id = _safe_task_id(task_id)
+        safe_decision = sanitized_payload(
+            {"title": _string(title), "details": _string(details)},
+            context="repo_decision",
+        )
         created_at = _utc_now()
         with self._connect() as conn:
             cursor = conn.execute(
@@ -208,14 +223,14 @@ class MemoryStore:
                 INSERT INTO repo_decision (task_id, title, details, created_at)
                 VALUES (?, ?, ?, ?)
                 """,
-                (task_id, _string(title), _string(details), created_at),
+                (safe_task_id, safe_decision["title"], safe_decision["details"], created_at),
             )
             decision_id = int(cursor.lastrowid)
         result = {
             "id": decision_id,
-            "task_id": task_id,
-            "title": _string(title),
-            "details": _string(details),
+            "task_id": safe_task_id,
+            "title": safe_decision["title"],
+            "details": safe_decision["details"],
             "created_at": created_at,
         }
         self._append_event("repo_decision.created", result)
@@ -235,7 +250,7 @@ class MemoryStore:
         params: tuple[Any, ...]
         if task_id:
             query += " WHERE task_id = ?"
-            params = (task_id, limit)
+            params = (_safe_task_id(task_id), limit)
             query += " ORDER BY id DESC LIMIT ?"
         else:
             params = (limit,)
@@ -254,7 +269,10 @@ class MemoryStore:
         ]
 
     def write_task_summary(self, task_id: str, summary_markdown: str) -> dict[str, Any]:
-        normalized_summary = summary_markdown.strip()
+        safe_task_id = _safe_task_id(task_id) or "task"
+        normalized_summary = str(
+            sanitized_payload(summary_markdown.strip(), context="task_summary")
+        )
         timestamp = _utc_now()
         with self._connect() as conn:
             conn.execute(
@@ -265,12 +283,12 @@ class MemoryStore:
                     summary_markdown = excluded.summary_markdown,
                     updated_at = excluded.updated_at
                 """,
-                (task_id, normalized_summary, timestamp, timestamp),
+                (safe_task_id, normalized_summary, timestamp, timestamp),
             )
-        file_path = init_storage.resolve_storage_paths().summary_dir / f"{_safe_filename(task_id)}.md"
+        file_path = init_storage.resolve_storage_paths().summary_dir / f"{_safe_filename(safe_task_id)}.md"
         file_path.write_text(normalized_summary + "\n", encoding="utf-8")
         result = {
-            "task_id": task_id,
+            "task_id": safe_task_id,
             "summary_markdown": normalized_summary,
             "updated_at": timestamp,
             "file_path": str(file_path),
@@ -279,7 +297,7 @@ class MemoryStore:
         return result
 
     def get_task_summary(self, task_id: str | None = None) -> dict[str, Any] | None:
-        resolved_task_id = task_id or self.get_current_task_id()
+        resolved_task_id = _safe_task_id(task_id) if task_id is not None else self.get_current_task_id()
         if not resolved_task_id:
             return None
         with self._connect() as conn:

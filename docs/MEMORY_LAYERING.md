@@ -211,13 +211,15 @@ codex memory shared index rebuild
 - 用户全局层：`~/.codex/memories`。
 - 项目私有层：`<项目根目录>/.codex/memories`。
 - 全局/项目 memory scope 隔离。
+- `.codex/shared` 初始化模板：`README.md`、`index.json`、`decisions/`、`facts/`、`workflows/`、`routes/`。
+- `.gitignore` 对 `.codex/shared` 做精细放行，同时继续忽略 raw memory、runtime task、数据库和事件流。
+- `codex memory promote --task-id <task-id> --kind fact`。
+- `codex memory shared validate`。
+- `codex memory shared index rebuild`。
 
 当前尚未实现：
 
-- `.codex/shared` 的初始化模板。
-- `codex memory promote`。
-- `codex memory shared validate`。
-- 共享记忆 schema 校验和索引重建。
-- `.gitignore` 对 `.codex/shared` 的精细放行。
+- 严格 JSON Schema front matter 校验。
+- 自动 PR review 或多人冲突解决。
 
-因此当前默认策略仍是保守的：不提交 raw `.codex` 运行态。项目共享层是下一步应落地的团队协作能力。
+因此当前默认策略仍是保守的：不提交 raw `.codex` 运行态。项目共享层已经具备最小 promote/validate/index 能力，下一步是更严格的 schema 校验和协作冲突处理。

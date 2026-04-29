@@ -16,6 +16,11 @@ $HarnessScript = Join-Path $ScriptRoot "harness_controller.py"
 $HookScript = Join-Path $ScriptRoot "hook_runner.py"
 $InstallScript = Join-Path $ScriptRoot "install_codex_memory.py"
 $VerificationScript = Join-Path $ScriptRoot "verification_runner.py"
+$SharedMemoryScript = Join-Path $ScriptRoot "shared_memory.py"
+$WorkspaceScript = Join-Path $ScriptRoot "workspace_scanner.py"
+$WorkspaceRouterScript = Join-Path $ScriptRoot "workspace_router.py"
+$WorkspaceVerifierScript = Join-Path $ScriptRoot "workspace_verifier.py"
+$WorkspaceSubagentsScript = Join-Path $ScriptRoot "workspace_subagents.py"
 
 function Invoke-PythonScriptAndExit {
     param(
@@ -53,16 +58,20 @@ function Write-MemoryHelp {
     @"
 Codex Memory 命令：
   codex memory doctor              诊断当前项目 memory/harness 接入状态。
-  codex memory init                初始化缺失的 .codex memory/harness 文件。
+  codex memory init                初始化缺失的 .codex memory/harness/shared 文件。
   codex memory install [...]        安装或修复当前插件接入；已安装当前版本时只提示已安装。
   codex memory update [...]         将已有旧安装更新到当前插件版本。
   codex memory check-install       检查全局插件、profile 和 marketplace 接入。
   codex memory uninstall [...]      移除 marketplace/profile/全局规则接入。
   codex memory hook <event> [...]   执行 memory 生命周期 hook 事件。
+  codex memory promote --task-id <task-id> [--kind fact]
+  codex memory shared validate
+  codex memory shared index rebuild
 
 兼容别名：
   codex harness ...                执行 harness 生命周期与验证命令。
   codex package ...                执行本仓库打包与健康检查。
+  codex workspace ...              执行只读 workspace 扫描与诊断。
   codex memory verify ...          兼容旧入口，等同于 codex harness verify ...
   codex memory harness ...         兼容旧入口，等同于 codex harness ...
   codex-memory-doctor              等同于 codex memory doctor。
@@ -87,6 +96,19 @@ function Write-PackageHelp {
 Codex Package 命令：
   codex package build              生成可分发 zip。
   codex package verify             运行项目健康检查、编译、行为测试和发布包边界检查。
+"@
+}
+
+function Write-WorkspaceHelp {
+    @"
+Codex Workspace 命令：
+  codex workspace doctor           只读扫描 workspace，输出 project inventory 和建议。
+  codex workspace scan             只读输出 workspace project inventory。
+  codex workspace route [...]      只读生成 route plan，不执行修改或验证。
+  codex workspace verify [...]     按 route plan 聚合验证结果。
+  codex workspace bind [...]       生成 SubAgent route binding，不启动 SubAgent。
+  codex workspace scope-check [...] 检查 touched paths 是否越过 binding scope。
+  codex workspace summarize [...]  汇总 SubAgent artifact、冲突和验证 gap。
 "@
 }
 
@@ -150,6 +172,12 @@ function Invoke-MemoryCommand {
                 $scriptArgs = @("--event", $remaining[0]) + $hookRest
             }
             Invoke-PythonScriptAndExit -ScriptPath $HookScript -Arguments $scriptArgs
+        }
+        "promote" {
+            Invoke-PythonScriptAndExit -ScriptPath $SharedMemoryScript -Arguments (@("--project-root", $cwd, "promote") + $remaining)
+        }
+        "shared" {
+            Invoke-PythonScriptAndExit -ScriptPath $SharedMemoryScript -Arguments (@("--project-root", $cwd, "shared") + $remaining)
         }
         "verify" {
             Invoke-HarnessCommand -Arguments (@("verify") + $remaining)
@@ -238,6 +266,52 @@ function Invoke-PackageCommand {
     }
 }
 
+function Invoke-WorkspaceCommand {
+    param(
+        [string[]]$Arguments = @()
+    )
+
+    $cwd = (Get-Location).ProviderPath
+    if ($Arguments.Count -eq 0 -or $Arguments[0] -in @("help", "-h", "--help")) {
+        Write-WorkspaceHelp
+        exit 0
+    }
+
+    $command = $Arguments[0].ToLowerInvariant()
+    $remaining = @()
+    if ($Arguments.Count -gt 1) {
+        $remaining = $Arguments[1..($Arguments.Count - 1)]
+    }
+
+    switch ($command) {
+        "doctor" {
+            Invoke-PythonScriptAndExit -ScriptPath $WorkspaceScript -Arguments (@("--workspace-root", $cwd, "doctor") + $remaining)
+        }
+        "scan" {
+            Invoke-PythonScriptAndExit -ScriptPath $WorkspaceScript -Arguments (@("--workspace-root", $cwd, "scan") + $remaining)
+        }
+        "route" {
+            Invoke-PythonScriptAndExit -ScriptPath $WorkspaceRouterScript -Arguments (@("--workspace-root", $cwd) + $remaining)
+        }
+        "verify" {
+            Invoke-PythonScriptAndExit -ScriptPath $WorkspaceVerifierScript -Arguments (@("--project-root", $cwd) + $remaining)
+        }
+        "bind" {
+            Invoke-PythonScriptAndExit -ScriptPath $WorkspaceSubagentsScript -Arguments (@("--project-root", $cwd, "bind") + $remaining)
+        }
+        "scope-check" {
+            Invoke-PythonScriptAndExit -ScriptPath $WorkspaceSubagentsScript -Arguments (@("--project-root", $cwd, "scope-check") + $remaining)
+        }
+        "summarize" {
+            Invoke-PythonScriptAndExit -ScriptPath $WorkspaceSubagentsScript -Arguments (@("--project-root", $cwd, "summarize") + $remaining)
+        }
+        default {
+            Write-Error "未知 Codex Workspace 命令：$($Arguments[0])。运行 'codex workspace help' 查看可用命令。"
+            exit 64
+        }
+    }
+}
+
 function Invoke-Bootstrap {
     param(
         [Parameter(Mandatory = $true)]
@@ -317,7 +391,9 @@ function Should-InitProject {
     }
     return (-not [bool]$Doctor.checks.project_memory_exists) -or
         (-not [bool]$Doctor.checks.project_commands_exists) -or
-        (-not [bool]$Doctor.checks.project_profile_exists)
+        (-not [bool]$Doctor.checks.project_profile_exists) -or
+        (-not [bool]$Doctor.checks.project_shared_exists) -or
+        (-not [bool]$Doctor.checks.project_shared_index_exists)
 }
 
 $cwd = (Get-Location).ProviderPath
@@ -349,6 +425,14 @@ if ($CodexArgs.Count -gt 0 -and $CodexArgs[0].ToLowerInvariant() -eq "package") 
         $packageArgs = $CodexArgs[1..($CodexArgs.Count - 1)]
     }
     Invoke-PackageCommand -Arguments $packageArgs
+}
+
+if ($CodexArgs.Count -gt 0 -and $CodexArgs[0].ToLowerInvariant() -eq "workspace") {
+    $workspaceArgs = @()
+    if ($CodexArgs.Count -gt 1) {
+        $workspaceArgs = $CodexArgs[1..($CodexArgs.Count - 1)]
+    }
+    Invoke-WorkspaceCommand -Arguments $workspaceArgs
 }
 
 if (-not $SkipBootstrap) {

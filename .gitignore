@@ -6,8 +6,13 @@ __pycache__/
 dist/
 build/
 *.egg-info/
-/.codex/
-.codex/memories/
-.codex/harness/tasks/
+/.codex/*
+!/.codex/shared/
+!/.codex/shared/**
+/.codex/memories/
+/.codex/harness/tasks/
+/.codex/shared/**/*.db
+/.codex/shared/**/*.sqlite
+/.codex/shared/**/*.jsonl
 plugins/codex-memory/storage/*.db
 plugins/codex-memory/storage/*.jsonl

@@ -46,24 +46,28 @@
 | T28 | 13 | 补齐 Harness Engineering 外部对标文档 | `docs/EXTERNAL_BENCHMARK.md` | T27 | done |
 | T29 | 13 | 补齐记忆检索与向量库策略 | `docs/MEMORY_RETRIEVAL_STRATEGY.md` | T28 | done |
 | T30 | 13 | 补齐 SubAgent 角色分工协议 | `docs/SUBAGENT_WORKFLOW.md` | T28 | done |
-| T31 | 14 | 实现写入前敏感信息扫描器 | memory/artifact/index 写入前脱敏与拒绝策略 | T28,T29,T30 | todo |
-| T32 | 14 | 实现 SubAgent artifact schema | roles、subagents artifact、冲突检测和汇总规则 | T30 | todo |
+| T31 | 14 | 实现写入前敏感信息扫描器 | memory/artifact/index 写入前脱敏与拒绝策略 | T28,T29,T30 | done |
+| T32 | 14 | 实现 SubAgent artifact schema | roles、subagents artifact、冲突检测和汇总规则 | T30 | done |
 | T33 | 14 | 实现可选语义检索 provider | embedding 索引、rebuild、降级和删除策略 | T29,T31 | todo |
 | T34 | 15 | 补齐游戏客户端专项工作流文档 | `docs/GAME_CLIENT_WORKFLOW.md` | T28,T30 | done |
 | T35 | 15 | 评估 `codex game-client` 独立命令 | Unity/Laya/Cocos profile 生成、doctor、verify、release-check | T34 | todo |
 | T36 | 16 | 补齐 Workspace 自适应路由设计 | `docs/WORKSPACE_ADAPTIVE_ROUTING.md` | T30,T34 | done |
-| T37 | 16 | 实现 workspace scanner | project inventory、子项目识别、置信度和信号输出 | T36 | todo |
-| T38 | 16 | 实现 route plan schema | task route、subagent route binding、verification aggregation | T36 | todo |
+| T37 | 16 | 实现 workspace scanner | project inventory、子项目识别、置信度和信号输出 | T36 | done |
+| T38 | 16 | 实现 route plan schema | task route、subagent route binding、verification aggregation | T36 | done |
 | T39 | 17 | 审查并修正 Workspace 路由文档设计 | 文档一致性修正、runtime 差距说明、memory/cwd 策略 | T36 | done |
 | T40 | 17 | 拆分 Workspace 路由实现任务 | `docs/WORKSPACE_ROUTING_TASK_LIST.md` | T39 | done |
 | T44 | 17 | 同步 workspace 隐私与检索设计边界 | `docs/PRIVACY.md`、`docs/MEMORY_RETRIEVAL_STRATEGY.md` | T39 | done |
 | T45 | 17 | 修复 working set glob 触发检索降级 | fulltext 检索按 literal 处理 `*.md` 等模式 | T39 | done |
-| T41 | 18 | 实现 verification command cwd | 支持每个子项目独立 cwd/profile 聚合执行 | T38 | todo |
-| T42 | 18 | 实现 SubAgent scope guard | 检测 SubAgent touched paths 是否越过 assigned scope | T38 | todo |
+| T41 | 18 | 实现 verification command cwd | 支持每个子项目独立 cwd/profile 聚合执行 | T38 | done |
+| T42 | 18 | 实现 SubAgent scope guard | 检测 SubAgent touched paths 是否越过 assigned scope | T38 | done |
 | T43 | 18 | 实现 workspace memory 分层 | workspace summary 与子项目 facts 分层写入 | T38 | todo |
 | T46 | 17 | 设计项目共享 memory 层 | `.codex/shared` 分层说明、冲突策略、提升流程文档 | T44 | done |
-| T47 | 19 | 实现项目共享 memory 模板 | `.codex/shared` 目录模板、schema、示例和 `.gitignore` 精细放行 | T46 | todo |
-| T48 | 19 | 实现 memory promote 命令 | 从本地 summary/decision 提升为共享 Markdown，执行脱敏和校验 | T46,T31 | todo |
+| T47 | 19 | 实现项目共享 memory 模板 | `.codex/shared` 目录模板、schema、示例和 `.gitignore` 精细放行 | T46 | done |
+| T48 | 19 | 实现 memory promote 命令 | 从本地 summary/decision 提升为共享 Markdown，执行脱敏和校验 | T46,T31 | done |
+| T49 | 17 | 设计 AI 诊断日志策略 | `docs/AI_DIAGNOSTIC_LOGGING.md`、README、用户指南、游戏客户端和 workspace 文档入口 | T39,T34 | done |
+| T50 | 18 | 实现 AI 诊断日志 release gate | profile/schema 检查诊断开关、调试宏、临时 sink 和裸日志绕过 | T49,T24,T31 | todo |
+| T51 | 17 | 落地完整开发流程图 | `docs/FULL_DEVELOPMENT_WORKFLOW.md`、README、用户指南、系统总结和 workspace 入口 | T36,T39,T49 | done |
+| T52 | 18 | 实现 workspace lifecycle 软集成 | hook lifecycle 写入 route plan/bindings、scope guard 和 routing review | T37,T41,T42 | done |
 
 ## 3. 当前推荐执行步
 
@@ -259,6 +263,137 @@
   - `docs/WORKSPACE_ROUTING_TASK_LIST.md` 拆分 workspace routing 实现任务并同步当前进度。
   - README、用户指南、系统总结和本任务清单有对应入口。
 
+### Step 17A（已完成）
+
+- 目标：补齐 AI 诊断 Debug 日志统一开关和发布关闭策略。
+- 范围：T49。
+- 不做：实现裸日志扫描器、构建宏检查器或 release gate runtime。
+- 验收：
+  - `docs/AI_DIAGNOSTIC_LOGGING.md` 明确诊断日志定义、统一开关、敏感边界和 release 关闭要求。
+  - `docs/GAME_CLIENT_WORKFLOW.md` 补齐 Unity、LayaBox/LayaAir、Cocos Creator 的诊断日志策略。
+  - `docs/WORKSPACE_ADAPTIVE_ROUTING.md` 说明 route plan、SubAgent 和 release_train 如何处理 diagnostic scope。
+  - README、用户指南、隐私说明、系统总结和本任务清单有对应入口。
+
+### Step 17B（已完成）
+
+- 目标：说明完整实现后的实际开发流程，并落地流程图。
+- 范围：T51。
+- 不做：实现 workspace scanner、SubAgent runtime、verification aggregation 或 release gate runtime。
+- 验收：
+  - `docs/FULL_DEVELOPMENT_WORKFLOW.md` 给出用户体感流程、内部自动编排流程和 Mermaid 总流程图。
+  - 文档覆盖 bootstrap、memory 装载、workspace scanner、task router、SubAgent route binding、AI 诊断日志、验证聚合、release gate 和 memory 沉淀。
+  - README、用户指南、workspace 路由文档、系统总结和本任务清单有对应入口。
+
+### Step 18（已完成）
+
+- 目标：开始把团队共享 memory 从设计推进到可初始化模板。
+- 范围：T47。
+- 不做：promote 命令、shared validate 命令、自动索引重建。
+- 验收：
+  - `codex memory init` 会创建 `.codex/shared/README.md`、`index.json` 和 `decisions/`、`facts/`、`workflows/`、`routes/` 目录。
+  - `templates/project/.codex/shared` 提供 README、index 和示例 Markdown。
+  - `schemas/shared_memory.schema.json` 定义共享记忆 front matter 的字段约束。
+  - `.gitignore` 放行 `.codex/shared/**`，继续忽略 `.codex/memories/`、`.codex/harness/tasks/`、数据库和 JSONL。
+
+### Step 18A（已完成）
+
+- 目标：补齐写入前敏感信息扫描器，给 promote 和 release gate 提供基础能力。
+- 范围：T31。
+- 不做：完整 secret detection 产品、远程扫描、release gate 专项规则。
+- 验收：
+  - 新增 `sensitive_scan.py`，支持敏感 key、authorization、token assignment、JWT、AK 和私钥块识别。
+  - memory 写入、harness checkpoint 和 distillation 写入前会先调用扫描器。
+  - 可脱敏内容写入 `[REDACTED]` 摘要；私钥块阻断持久化。
+  - 单测覆盖敏感 key/token 脱敏和 task summary 写入前脱敏。
+
+### Step 19（已完成）
+
+- 目标：实现项目私有 memory 到项目共享层的最小提升命令。
+- 范围：T48。
+- 不做：严格 JSON Schema 校验、PR 自动 review、多人冲突自动解决。
+- 验收：
+  - 新增 `shared_memory.py`，支持 promote、shared validate 和 shared index rebuild。
+  - `codex memory promote --task-id <task-id> --kind fact` 可从本地 summary/decision 生成 `.codex/shared` Markdown。
+  - `codex memory shared validate` 可检查 front matter、状态枚举和敏感内容。
+  - `codex memory shared index rebuild` 可重建 `.codex/shared/index.json`。
+  - 单测覆盖 summary promote 和 shared validate。
+
+### Step 20（已完成）
+
+- 目标：把 workspace routing 设计收束为可验证 schema 和项目配置模板。
+- 范围：T38、WR-05、WR-06、WR-07、WR-08。
+- 不做：scanner/route planner 的生命周期自动集成、SubAgent route binding runtime、完整验证聚合平台。
+- 验收：
+  - 新增 `schemas/workspace_project_inventory.schema.json`，定义 workspace scanner 的 project inventory 输出。
+  - 新增 `schemas/workspace_routing_config.schema.json`，定义 `.codex/harness/workspace-routing.json` 显式配置。
+  - 新增 `schemas/workspace_route_plan.schema.json`，统一 `routes[]`、`verification_profile_ids`、memory plan 和 coordinator 契约字段。
+  - 新增 `schemas/subagent_route_binding.schema.json`，定义 SubAgent 的 project/domain/cwd/scope/rules/profile/artifact policy 绑定。
+  - 新增 `schemas/verification_aggregation.schema.json`，定义多项目验证计划、结果、gap 和 release gate 摘要。
+  - 新增 `templates/project/.codex/harness/workspace-routing.json`，覆盖 Unity、Laya、Cocos 客户端、服务器、后台、文档和美术工程示例。
+  - 单测覆盖 schema JSON、模板字段、release package 收录边界。
+
+### Step 21（已完成）
+
+- 目标：实现 workspace routing 的最小只读发现运行时。
+- 范围：T37、WR-09、WR-10。
+- 不做：route plan artifact 写回、自动 SubAgent 派发、完整验证聚合平台、业务项目文件写入。
+- 验收：
+  - 新增 `workspace_scanner.py`，输出 project inventory JSON。
+  - 支持显式 `.codex/harness/workspace-routing.json` 优先，并与扫描候选合并。
+  - 支持 Unity、LayaBox/LayaAir、Cocos Creator、游戏服务器、后台 Web、设计文档、美术工程和发布工程常见信号。
+  - 新增 `codex workspace doctor` 与 `codex workspace scan` 入口。
+  - 单测覆盖扫描识别、显式配置优先和 launcher dispatcher。
+
+### Step 22（已完成）
+
+- 目标：实现 workspace routing 的最小只读 route planner。
+- 范围：WR-11、WR-12、WR-13。
+- 不做：自动 SubAgent 派发、scope guard、后续 lifecycle 软集成、业务项目文件写入。
+- 验收：
+  - 新增 `workspace_router.py`，根据 inventory、任务文件、working set、cwd 和 changed paths 生成 route plan。
+  - `codex workspace route --task-file task.json` 可输出单项目、多项目和低置信度 route plan。
+  - 支持显式 project id 优先、路径/cwd/text 匹配和 fallback 降级。
+  - route plan 使用 `routes[]`、`verification_profile_ids`、memory plan、coordination 和 diagnostic logging 字段。
+  - 单测覆盖单项目路由、客户端/服务器契约路由和显式配置项目路由。
+
+### Step 23（已完成）
+
+- 目标：实现 workspace verification aggregation 的最小运行时。
+- 范围：WR-14、WR-15、WR-16。
+- 不做：SubAgent route binding runtime、scope guard、后续 lifecycle 软集成。
+- 验收：
+  - `verification_runner.py` 的 command spec 支持相对 `cwd`，并阻止逃出 project root。
+  - 新增 `workspace_verifier.py`，可根据 route plan 聚合多项目 verification profile。
+  - `codex workspace verify` 支持 route file、task file、changed paths 和 `--no-run`。
+  - 缺失 profile 或 command 写入 `gaps[]`，不伪装为通过。
+  - `codex workspace route --checkpoint` 可把 route plan 写入 harness checkpoint。
+  - 单测覆盖 command cwd、cwd 越界拒绝、workspace verify 聚合和 gap。
+
+### Step 24（已完成）
+
+- 目标：实现 SubAgent route binding、scope guard、coordinator summary 和冲突检测的最小运行时。
+- 范围：T32、T42、WR-17、WR-18、WR-19、WR-20。
+- 不做：自动启动真实 SubAgent、后续 lifecycle 软集成、跨进程调度。
+- 验收：
+  - 新增 `workspace_subagents.py`，支持 bind、scope-check 和 summarize。
+  - `codex workspace bind --route-file route.json` 可把 route plan 转换为 coordinator/specialist bindings。
+  - `codex workspace scope-check` 可检查 touched paths 是否越过 assigned/denied scope，并输出 cross_project_dependencies。
+  - `codex workspace summarize` 可汇总同文件多 owner 冲突、scope guard 结果、verification gaps 和发布顺序。
+  - 单测覆盖 coordinator binding、scope 越权和同文件冲突检测。
+
+### Step 25（已完成）
+
+- 目标：把 workspace routing 结果接入 memory hook 生命周期，并修正当前仓库根工具工程路由。
+- 范围：WR-21、WR-22、WR-23、WR-24、T52。
+- 不做：自动启动真实 SubAgent、发布级完整验证平台、业务项目文件写入、workspace memory 自动分层写入。
+- 验收：
+  - 新增 `workspace_lifecycle.py`，避免 `hook_runner.py` 聚合过多 routing 逻辑并保持单文件行数上限。
+  - `before_task` 自动生成 route plan 和 SubAgent bindings，并写入 task metadata。
+  - `after_tool` 根据 touched paths 重算 route/bindings，并执行 lifecycle scope guard。
+  - `before_response` 输出 `workspace_routing_review`，报告低置信、routing 降级、verification gap 和 scope gap。
+  - scanner 能识别 `workspace_meta` 根工具工程，router 会避免根项目吞掉已有子项目路径。
+  - 单测覆盖 hook lifecycle、routing 降级 review、多项目 scope guard 分发和 workspace meta 路由。
+
 ## 4. 每步完成后的固定动作
 
 每完成一个主步，都执行以下动作：
@@ -277,15 +412,15 @@
 - 副模型训练
 - 高级 rerank
 - 云端同步
-- workspace scanner runtime
-- route planner runtime
-- verification aggregation runtime
-- SubAgent route binding runtime
-- `.codex/shared` 初始化模板与 promote 命令
+- 严格 JSON Schema 校验 shared memory front matter
+- 自动启动/调度真实 SubAgent
+- 发布级完整 workspace 验证平台
+- workspace memory 自动分层写入
+- AI 诊断日志 release gate runtime
 
 ## 6. 当前状态与下一步
 
-当前已完成至 Step 17，状态如下：
+当前已完成至 Step 25，状态如下：
 
 - Step 6 已完成
 - Step 7 已完成
@@ -299,4 +434,15 @@
 - Step 15 已完成
 - Step 16 已完成
 - Step 17 已完成
-- 如需继续增强，下一轮优先进入项目共享 memory 模板、memory promote 命令、workspace routing schema、workspace scanner、route planner、verification command cwd、SubAgent scope guard、workspace memory 分层、写入前敏感信息扫描器、eval suite、游戏客户端 profile 模板、语义检索 provider、记忆迁移或更强的上下文编排
+- Step 17A 已完成
+- Step 17B 已完成
+- Step 18 已完成
+- Step 18A 已完成
+- Step 19 已完成
+- Step 20 已完成
+- Step 21 已完成
+- Step 22 已完成
+- Step 23 已完成
+- Step 24 已完成
+- Step 25 已完成
+- 如需继续增强，下一轮优先进入 AI 诊断日志 release gate、游戏客户端/服务器/后台/文档/美术业务模板、发布与迁移说明、eval suite、workspace memory 自动分层写入、语义检索 provider、记忆迁移或更强的上下文编排

@@ -25,8 +25,10 @@ import codex_bootstrap
 import init_storage
 import install_support
 import install_codex_memory
+import memory_store
 import retrieval_store
 import run_demo_flow
+import shared_memory
 import verification_runner
 
 
@@ -46,6 +48,7 @@ class BuildReleaseTests(unittest.TestCase):
         self.assertFalse(any(name.endswith("memory.db") for name in names))
         self.assertFalse(any(name.endswith("events.jsonl") for name in names))
         self.assertIn("templates/project/.codex/harness/commands.json", names)
+        self.assertIn("templates/project/.codex/shared/README.md", names)
 
 
 class InstallerTests(unittest.TestCase):
@@ -157,6 +160,8 @@ class LauncherEntrypointTests(unittest.TestCase):
         disable_check = 'if ($env:CODEX_MEMORY_DISABLE_WRAPPER -eq "1")'
         memory_dispatch = 'if ($CodexArgs.Count -gt 0 -and $CodexArgs[0].ToLowerInvariant() -eq "memory")'
         self.assertLess(launcher.index(disable_check), launcher.index(memory_dispatch))
+        self.assertIn("project_shared_exists", launcher)
+        self.assertIn("project_shared_index_exists", launcher)
 
 
 class DemoCleanupTests(unittest.TestCase):
@@ -222,6 +227,32 @@ class RetrievalStoreTests(unittest.TestCase):
         self.assertIn("*.md", calls[0])
 
 
+class SharedMemoryTests(unittest.TestCase):
+    def test_promote_task_summary_writes_reviewable_shared_entry(self) -> None:
+        old_scope = os.environ.get("CODEX_MEMORY_SCOPE")
+        old_cwd = os.environ.get("CODEX_MEMORY_CWD")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            project_root = Path(temp_dir)
+            try:
+                os.environ["CODEX_MEMORY_SCOPE"] = "project"
+                os.environ["CODEX_MEMORY_CWD"] = str(project_root)
+                store = memory_store.MemoryStore()
+                store.write_task_summary("task-one", "# Stable Fact\n\nNo secrets.")
+
+                promoted = shared_memory.promote_task(
+                    project_root,
+                    "task-one",
+                    kind="fact",
+                    title="Stable Fact",
+                )
+                validation = shared_memory.validate_shared(project_root)
+                self.assertTrue(Path(promoted["path"]).exists())
+                self.assertTrue(validation["ok"])
+                self.assertEqual(len(validation["entries"]), 1)
+            finally:
+                _restore_env("CODEX_MEMORY_SCOPE", old_scope)
+                _restore_env("CODEX_MEMORY_CWD", old_cwd)
+
 class VerificationRunnerTests(unittest.TestCase):
     def test_safe_command_checks_actual_argv_even_with_display_command(self) -> None:
         spec = verification_runner.CommandSpec(
@@ -251,6 +282,39 @@ class VerificationRunnerTests(unittest.TestCase):
         self.assertEqual(calls[0]["shell"], False)
         self.assertEqual(calls[0]["command"], ["py", "-X", "utf8", "-c", "print(123)"])
 
+    def test_run_command_uses_configured_relative_cwd_inside_project(self) -> None:
+        calls: list[dict[str, object]] = []
+
+        def fake_run(command: object, **kwargs: object) -> object:
+            calls.append({"command": command, **kwargs})
+            return _Completed()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            project_root = Path(temp_dir)
+            work_dir = project_root / "client"
+            work_dir.mkdir()
+            spec = verification_runner.CommandSpec(
+                name="sample",
+                command='py -X utf8 -c "print(123)"',
+                cwd="client",
+            )
+            with mock.patch.object(verification_runner.subprocess, "run", side_effect=fake_run):
+                result = verification_runner.run_command(spec, project_root, 100)
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(Path(str(calls[0]["cwd"])).name, "client")
+
+    def test_run_command_rejects_cwd_outside_project(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            spec = verification_runner.CommandSpec(
+                name="sample",
+                command='py -X utf8 -c "print(123)"',
+                cwd="..",
+            )
+
+            with self.assertRaises(ValueError):
+                verification_runner.run_command(spec, Path(temp_dir), 100)
+
 
 class BootstrapTests(unittest.TestCase):
     def test_project_command_config_uses_codex_style_entrypoints(self) -> None:
@@ -265,6 +329,21 @@ class BootstrapTests(unittest.TestCase):
         for spec in commands.values():
             self.assertNotIn("py -X utf8", spec["command"])
             self.assertIn("codexm.ps1", " ".join(spec["argv"]))
+
+    def test_init_project_creates_shared_memory_template(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            project_root = Path(temp_dir)
+            actions = codex_bootstrap.init_project(
+                project_root,
+                PROJECT_ROOT / "plugins" / "codex-memory",
+            )
+
+            shared_dir = project_root / ".codex" / "shared"
+            self.assertTrue((shared_dir / "README.md").exists())
+            self.assertTrue((shared_dir / "index.json").exists())
+            for name in ("decisions", "facts", "workflows", "routes"):
+                self.assertTrue((shared_dir / name / ".gitkeep").exists())
+            self.assertTrue(any(item["path"] == str(shared_dir) for item in actions))
 
     def test_doctor_is_not_ready_when_home_plugin_points_elsewhere(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

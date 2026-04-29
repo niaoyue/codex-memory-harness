@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "description": "Reviewable project shared memory index. Rebuild when promote tooling is available.",
+  "entries": [
+    {
+      "id": "example-project-boundary",
+      "path": "facts/example-project-boundary.md",
+      "status": "proposed",
+      "confidence": "medium"
+    },
+    {
+      "id": "example-release-workflow",
+      "path": "workflows/example-release-workflow.md",
+      "status": "proposed",
+      "confidence": "medium"
+    }
+  ]
+}

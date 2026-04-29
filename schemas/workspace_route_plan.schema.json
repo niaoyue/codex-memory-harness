@@ -1,0 +1,347 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "local://codex-memory-harness/schemas/workspace_route_plan.schema.json",
+  "title": "Workspace Route Plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "task_id",
+    "mode",
+    "affected_projects",
+    "routes",
+    "risk_level",
+    "confidence",
+    "reasons"
+  ],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "task_id": {
+      "type": "string"
+    },
+    "route_plan_id": {
+      "type": "string"
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "single_project",
+        "multi_project_parallel",
+        "cross_project_contract",
+        "workspace_meta",
+        "release_train",
+        "unknown_low_confidence"
+      ]
+    },
+    "primary_project": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "affected_projects": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "routes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/route"
+      }
+    },
+    "task_type": {
+      "type": "string"
+    },
+    "risk_level": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "release_blocking"
+      ]
+    },
+    "coordinator_required": {
+      "type": "boolean"
+    },
+    "verification_profile_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "contracts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/contract"
+      }
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "reasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "verification_plan": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/verification_target"
+      }
+    },
+    "memory_plan": {
+      "$ref": "#/$defs/memory_plan"
+    },
+    "coordination": {
+      "$ref": "#/$defs/coordination"
+    },
+    "fallback_action": {
+      "type": "string",
+      "enum": [
+        "none",
+        "readonly_analysis",
+        "ask_user",
+        "use_workspace_fallback"
+      ]
+    }
+  },
+  "$defs": {
+    "route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "route_id",
+        "project_id",
+        "domain",
+        "cwd",
+        "assigned_scope",
+        "rules",
+        "verification_profile_ids",
+        "confidence"
+      ],
+      "properties": {
+        "route_id": {
+          "type": "string"
+        },
+        "project_id": {
+          "type": "string"
+        },
+        "domain": {
+          "type": "string"
+        },
+        "cwd": {
+          "type": "string"
+        },
+        "engine": {
+          "type": "string"
+        },
+        "task_type": {
+          "type": "string"
+        },
+        "assigned_scope": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "verification_profile_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "diagnostic_logging": {
+          "$ref": "#/$defs/diagnostic_logging"
+        },
+        "memory_binding": {
+          "$ref": "#/$defs/memory_binding"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "diagnostic_logging": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allowed",
+        "release_must_be_disabled"
+      ],
+      "properties": {
+        "allowed": {
+          "type": "boolean"
+        },
+        "requested_scopes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "required_scopes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "release_must_be_disabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "verification_target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "project_id",
+        "cwd",
+        "verification_profile_ids"
+      ],
+      "properties": {
+        "project_id": {
+          "type": "string"
+        },
+        "cwd": {
+          "type": "string"
+        },
+        "domain": {
+          "type": "string"
+        },
+        "verification_profile_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "blocking": {
+          "type": "boolean"
+        }
+      }
+    },
+    "contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_id",
+        "owner",
+        "affected_projects",
+        "summary"
+      ],
+      "properties": {
+        "contract_id": {
+          "type": "string"
+        },
+        "owner": {
+          "type": "string"
+        },
+        "affected_projects": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "source_paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "summary": {
+          "type": "string"
+        }
+      }
+    },
+    "memory_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "storage_scope",
+        "semantic_scope"
+      ],
+      "properties": {
+        "storage_scope": {
+          "type": "string",
+          "enum": [
+            "project",
+            "global",
+            "auto"
+          ]
+        },
+        "semantic_scope": {
+          "type": "string",
+          "enum": [
+            "workspace",
+            "project",
+            "module",
+            "workflow"
+          ]
+        },
+        "project_id": {
+          "type": "string"
+        },
+        "shared_memory_allowed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "memory_plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "workspace_summary": {
+          "$ref": "#/$defs/memory_binding"
+        },
+        "project_summaries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/memory_binding"
+          }
+        }
+      }
+    },
+    "coordination": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "contract_owner": {
+          "type": "string"
+        },
+        "coordinator_role": {
+          "type": "string"
+        },
+        "publish_order": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rollback_plan_required": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

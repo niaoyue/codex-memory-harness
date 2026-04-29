@@ -220,8 +220,9 @@ class ContextBuilder:
         rendered_context = "\n\n".join(rendered_parts).strip()
 
         used_chars = sum(section.chars_used for section in sections)
+        canonical_task_id = task_state.get("task_id") if isinstance(task_state, dict) else resolved_task_id
         return {
-            "task_id": resolved_task_id,
+            "task_id": canonical_task_id,
             "budget": budget | {"used_chars": used_chars},
             "sections": [section.to_dict() for section in sections],
             "evidence_queries": evidence_queries,

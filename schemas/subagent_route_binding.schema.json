@@ -1,0 +1,243 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "local://codex-memory-harness/schemas/subagent_route_binding.schema.json",
+  "title": "SubAgent Route Binding",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "task_id",
+    "subagent_id",
+    "role",
+    "binding_mode",
+    "assigned_scope",
+    "rules",
+    "verification_profile_ids",
+    "artifact_policy"
+  ],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "task_id": {
+      "type": "string"
+    },
+    "route_plan_id": {
+      "type": "string"
+    },
+    "subagent_id": {
+      "type": "string"
+    },
+    "role": {
+      "type": "string"
+    },
+    "binding_mode": {
+      "type": "string",
+      "enum": [
+        "specialist",
+        "coordinator",
+        "reviewer",
+        "workspace"
+      ]
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "domain": {
+      "type": "string"
+    },
+    "cwd": {
+      "type": "string"
+    },
+    "assigned_scope": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "denied_scope": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "verification_profile_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "route_id": {
+      "type": "string"
+    },
+    "binding_id": {
+      "type": "string"
+    },
+    "diagnostic_logging": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allowed",
+        "release_must_be_disabled"
+      ],
+      "properties": {
+        "allowed": {
+          "type": "boolean"
+        },
+        "required_scopes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "release_must_be_disabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "memory_binding": {
+      "$ref": "#/$defs/memory_binding"
+    },
+    "artifact_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required_fields",
+        "forbid_raw_sensitive_output"
+      ],
+      "properties": {
+        "required_fields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "forbid_raw_sensitive_output": {
+          "type": "boolean"
+        },
+        "checkpoint_required": {
+          "type": "boolean"
+        }
+      }
+    },
+    "permissions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "may_write": {
+          "type": "boolean"
+        },
+        "allowed_paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "forbidden_paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "coordinates_projects": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "scope_guard": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "on_violation": {
+          "type": "string",
+          "enum": [
+            "block",
+            "report_cross_project_dependency",
+            "warn"
+          ]
+        }
+      }
+    },
+    "handoff_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cross_project_dependency_required": {
+          "type": "boolean"
+        },
+        "coordinator_review_required": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "memory_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "storage_scope",
+        "semantic_scope"
+      ],
+      "properties": {
+        "storage_scope": {
+          "type": "string",
+          "enum": [
+            "project",
+            "global",
+            "auto"
+          ]
+        },
+        "semantic_scope": {
+          "type": "string",
+          "enum": [
+            "workspace",
+            "project",
+            "module",
+            "workflow"
+          ]
+        },
+        "project_id": {
+          "type": "string"
+        },
+        "write_summary": {
+          "type": "boolean"
+        },
+        "shared_memory_allowed": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "binding_mode": {
+            "const": "specialist"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "project_id",
+          "domain",
+          "cwd"
+        ]
+      }
+    }
+  ]
+}

@@ -40,6 +40,7 @@ class CommandSpec:
     command: str = ""
     argv: list[str] = field(default_factory=list)
     description: str = ""
+    cwd: str = ""
     timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS
     touched_paths: list[str] = field(default_factory=list)
     allow_shell: bool = False
@@ -104,6 +105,7 @@ def load_commands(project_root: Path) -> tuple[dict[str, CommandSpec], dict[str,
                 command=command,
                 argv=argv,
                 description=str(value.get("description") or ""),
+                cwd=str(value.get("cwd") or ""),
                 timeout_seconds=_as_int(value.get("timeout_seconds"), default_timeout),
                 touched_paths=_string_list(value.get("touched_paths")),
                 allow_shell=bool(value.get("allow_shell", False)),
@@ -170,8 +172,25 @@ def _excerpt(text: Any, limit: int) -> str:
     return clean[:limit] + "\n...[truncated]"
 
 
+def resolve_command_cwd(project_root: Path, spec: CommandSpec) -> Path:
+    if not spec.cwd:
+        return project_root
+    if Path(spec.cwd).is_absolute():
+        candidate = Path(spec.cwd).resolve()
+    else:
+        candidate = (project_root / spec.cwd).resolve()
+    try:
+        candidate.relative_to(project_root.resolve())
+    except ValueError as exc:
+        raise ValueError(f"Command {spec.name!r} cwd escapes project root: {spec.cwd}") from exc
+    if not candidate.exists() or not candidate.is_dir():
+        raise ValueError(f"Command {spec.name!r} cwd does not exist: {spec.cwd}")
+    return candidate
+
+
 def run_command(spec: CommandSpec, project_root: Path, max_output_chars: int) -> dict[str, Any]:
     assert_safe_command(spec)
+    command_cwd = resolve_command_cwd(project_root, spec)
     start = time.perf_counter()
     timed_out = False
     command: str | list[str]
@@ -184,7 +203,7 @@ def run_command(spec: CommandSpec, project_root: Path, max_output_chars: int) ->
     try:
         completed = subprocess.run(
             command,
-            cwd=str(project_root),
+            cwd=str(command_cwd),
             shell=spec.allow_shell,
             capture_output=True,
             text=True,
@@ -211,6 +230,7 @@ def run_command(spec: CommandSpec, project_root: Path, max_output_chars: int) ->
         "timed_out": timed_out,
         "duration_seconds": duration,
         "timeout_seconds": spec.timeout_seconds,
+        "cwd": str(command_cwd),
         "stdout_excerpt": _excerpt(stdout, max_output_chars),
         "stderr_excerpt": _excerpt(stderr, max_output_chars),
         "touched_paths": spec.touched_paths,

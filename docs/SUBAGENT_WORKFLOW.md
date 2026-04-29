@@ -9,9 +9,12 @@
 - 为主任务创建 harness task。
 - 为不同角色的工作结果记录 checkpoint artifact。
 - 把验证结果写回同一个任务闭环。
+- 从 workspace route plan 生成 SubAgent route binding。
+- 对 SubAgent touched paths 执行 scope guard。
+- 汇总多 SubAgent artifact 的冲突、verification gap、发布顺序和回滚要求。
 - 在 memory 中沉淀角色产出的决策、发现和总结。
 
-因此本文件定义的是“角色协作协议”和“未来运行时路线”，不是声明当前已经具备自动 SubAgent 编排能力。
+因此本文件定义的是“角色协作协议”和“最小 binding runtime”，不是声明当前已经具备自动 SubAgent 编排能力。
 
 ## 2. 为什么需要 SubAgent 分工
 
@@ -145,16 +148,17 @@ codex harness complete --task-id <task-id> --summary-file summary.md
 
 ## 8. 当前项目的落地方式
 
-当前没有内建 SubAgent runtime，所以落地方式是：
+当前没有内建 SubAgent 自动调度器，所以落地方式是：
 
 - 主 agent 使用宿主环境提供的 SubAgent 能力时，按本文件定义角色和 artifact。
 - 如果宿主环境没有 SubAgent，主 agent 仍按角色清单自我检查。
 - 所有角色结论通过 `codex harness checkpoint` 或最终 summary 沉淀。
+- workspace 多项目任务可用 `codex workspace bind/scope-check/summarize` 生成 binding、检查越权并汇总冲突。
 - 文档必须明确哪些是“已实现运行时能力”，哪些是“推荐协作协议”。
 
 ## 9. 未来运行时路线
 
-后续可以增加这些文件和命令：
+后续可以在现有 workspace binding runtime 之上增加这些角色文件和命令：
 
 ```text
 .codex/harness/roles.json
@@ -169,7 +173,7 @@ codex harness roles plan --task-id <task-id>
 codex harness roles record --task-id <task-id> --role Reviewer --result-file result.json
 ```
 
-第一阶段不需要自动启动子进程，只需要标准化角色计划和 artifact 记录。等角色协议稳定后，再考虑并发调度、超时控制、冲突检测和结果合并。
+当前第一阶段已经具备 route binding、scope guard 和 coordinator summary。下一阶段应补角色计划与 artifact 查询，再考虑并发调度、超时控制和更完整的结果合并。
 
 ## 10. Workspace 路由绑定
 
@@ -179,14 +183,36 @@ codex harness roles record --task-id <task-id> --role Reviewer --result-file res
 
 ```json
 {
+  "version": 1,
+  "task_id": "fix-login-flow",
+  "route_plan_id": "route-fix-login-flow",
+  "binding_id": "binding-client-ui-review",
   "subagent_id": "agent-client-ui-review",
   "role": "Reviewer",
+  "binding_mode": "specialist",
+  "route_id": "client-unity-ui",
   "project_id": "client-unity",
   "domain": "game_client",
   "cwd": "client",
   "assigned_scope": ["client/Assets/Scripts/UI"],
+  "denied_scope": ["server", "admin"],
   "rules": ["workspace/base", "game_client/unity", "game_client/ui"],
-  "verification_profiles": ["client_quick", "client_ui_smoke"]
+  "verification_profile_ids": ["client_quick", "client_ui_smoke"],
+  "memory_binding": {
+    "storage_scope": "project",
+    "semantic_scope": "project",
+    "project_id": "client-unity",
+    "write_summary": true
+  },
+  "artifact_policy": {
+    "required_fields": ["project_id", "domain", "assigned_scope", "touched_paths"],
+    "forbid_raw_sensitive_output": true,
+    "checkpoint_required": true
+  },
+  "scope_guard": {
+    "enabled": true,
+    "on_violation": "report_cross_project_dependency"
+  }
 }
 ```
 
@@ -198,7 +224,7 @@ docs/WORKSPACE_ADAPTIVE_ROUTING.md
 
 ## 11. 验收标准
 
-当未来声明“已支持 SubAgent 分工”时，至少要满足：
+当未来声明“已支持 SubAgent 自动调度”时，至少要满足：
 
 - 有角色配置 schema。
 - 有每个角色的输入、输出和责任边界。
@@ -208,4 +234,4 @@ docs/WORKSPACE_ADAPTIVE_ROUTING.md
 - 有最终汇总规则。
 - 有验证结果和安全检查结果汇聚。
 
-在这些能力完成前，本项目只能说“支持按 SubAgent 角色协议记录协作结果”，不能说“已经实现 SubAgent 调度器”。
+在这些能力完成前，本项目只能说“支持按 SubAgent 角色协议记录协作结果，并支持 workspace route binding/scope guard/coordinator summary”，不能说“已经实现 SubAgent 调度器”。

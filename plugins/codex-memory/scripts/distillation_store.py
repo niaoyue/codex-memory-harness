@@ -12,6 +12,7 @@ from typing import Any, Iterator
 from context_builder import ContextBuilder
 import init_storage
 from memory_store import MemoryStore
+from sensitive_scan import sanitized_payload
 
 
 DISTILLED_ASSET_SCHEMA = {
@@ -60,6 +61,21 @@ def _string_list(value: Any) -> list[str]:
         items = [str(item).strip() for item in value]
         return [item for item in items if item]
     return [str(value).strip()]
+
+
+def _safe_text(value: Any, *, context: str) -> str:
+    return str(sanitized_payload("" if value is None else str(value), context=context)).strip()
+
+
+def _safe_optional_text(value: Any, *, context: str) -> str | None:
+    if value is None:
+        return None
+    return _safe_text(value, context=context)
+
+
+def _safe_text_list(values: list[str], *, context: str) -> list[str]:
+    sanitized = sanitized_payload(values, context=context)
+    return _string_list(sanitized)
 
 
 @dataclass
@@ -152,9 +168,14 @@ class DistillationStore:
             limit=decision_limit,
         )
 
-        title = self._build_title(task_state, resolved_task_id)
-        summary_text = self._build_summary_text(task_state, task_summary, repo_decisions)
-        tags = self._build_tags(task_state, context_pack)
+        title = _safe_text(self._build_title(task_state, resolved_task_id), context="distilled_asset_title")
+        summary_text = _safe_text(
+            self._build_summary_text(task_state, task_summary, repo_decisions),
+            context="distilled_asset_summary",
+        )
+        tags = _safe_text_list(self._build_tags(task_state, context_pack), context="distilled_asset_tags")
+        safe_task_id = _safe_optional_text(resolved_task_id, context="distilled_asset_task_id")
+        safe_asset_type = _safe_text(asset_type, context="distilled_asset_type")
         payload = {
             "task_state": task_state,
             "task_summary": task_summary,
@@ -162,11 +183,13 @@ class DistillationStore:
             "context_pack": context_pack,
             "suggested_skill_draft": self._build_skill_draft(task_state, context_pack),
         }
+        payload = sanitized_payload(payload, context="distilled_asset")
         markdown = self._render_asset_markdown(title, summary_text, payload)
+        markdown = str(sanitized_payload(markdown, context="distilled_asset_markdown"))
 
         created_at = _utc_now()
         file_path = self._write_asset_file(
-            task_id=resolved_task_id,
+            task_id=safe_task_id,
             title=title,
             created_at=created_at,
             markdown=markdown,
@@ -174,6 +197,7 @@ class DistillationStore:
 
         payload_json = json.dumps(payload, ensure_ascii=False)
         tags_json = json.dumps(tags, ensure_ascii=False)
+        safe_context_pack = payload.get("context_pack") if isinstance(payload, dict) else {}
         with self._connect() as conn:
             cursor = conn.execute(
                 """
@@ -190,8 +214,8 @@ class DistillationStore:
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    resolved_task_id,
-                    asset_type,
+                    safe_task_id,
+                    safe_asset_type,
                     title,
                     summary_text,
                     str(file_path),
@@ -204,8 +228,8 @@ class DistillationStore:
 
         asset = DistilledAsset(
             id=asset_id,
-            task_id=resolved_task_id,
-            asset_type=asset_type,
+            task_id=safe_task_id,
+            asset_type=safe_asset_type,
             title=title,
             summary_text=summary_text,
             file_path=str(file_path),
@@ -216,7 +240,7 @@ class DistillationStore:
         self._append_event("distilled_asset.created", asset.to_dict())
         return {
             "asset": asset.to_dict(),
-            "context_pack": context_pack,
+            "context_pack": safe_context_pack if isinstance(safe_context_pack, dict) else {},
         }
 
     def list_distilled_assets(
@@ -233,7 +257,7 @@ class DistillationStore:
         params: tuple[Any, ...]
         if task_id:
             query += " WHERE task_id = ? ORDER BY id DESC LIMIT ?"
-            params = (task_id, limit)
+            params = (_safe_optional_text(task_id, context="distilled_asset_task_id"), limit)
         else:
             query += " ORDER BY id DESC LIMIT ?"
             params = (limit,)
@@ -258,7 +282,7 @@ class DistillationStore:
             params = (int(asset_id),)
         elif task_id is not None:
             query += " WHERE task_id = ? ORDER BY id DESC LIMIT 1"
-            params = (task_id,)
+            params = (_safe_optional_text(task_id, context="distilled_asset_task_id"),)
         else:
             raise ValueError("Either asset_id or task_id is required.")
 
@@ -330,7 +354,10 @@ class DistillationStore:
         task_state: dict[str, Any] | None,
         context_pack: dict[str, Any],
     ) -> dict[str, Any]:
-        objective = (task_state or {}).get("objective") or "Task distillation placeholder"
+        objective = _safe_text(
+            (task_state or {}).get("objective") or "Task distillation placeholder",
+            context="distilled_skill_draft_name",
+        )
         evidence_queries = context_pack.get("evidence_queries", [])
         return {
             "name": f"{_safe_filename(str(objective))}-draft",

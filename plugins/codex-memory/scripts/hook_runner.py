@@ -14,6 +14,9 @@ from distillation_store import DistillationStore
 import init_storage
 from memory_store import MemoryStore
 from retrieval_store import RetrievalEngine
+from sensitive_scan import sanitized_payload
+from workspace_artifact_filters import is_subagent_artifact
+import workspace_lifecycle
 
 
 HOOK_EVENTS = [
@@ -60,8 +63,51 @@ def _merge_lists(base: list[str], extra: list[str]) -> list[str]:
     return merged
 
 
+def _merge_dicts(base: Any, extra: Any) -> dict[str, Any]:
+    merged = base if isinstance(base, dict) else {}
+    merged = dict(merged)
+    if isinstance(extra, dict):
+        merged.update(extra)
+    return merged
+
+
+def _select_scope_bindings(bindings: Any, payload: dict[str, Any]) -> Any:
+    if not isinstance(bindings, list):
+        return bindings
+    specialists = [
+        item for item in bindings if isinstance(item, dict) and item.get("binding_mode") == "specialist"
+    ]
+    for key in ("binding_id", "subagent_id"):
+        value = _string(payload.get(key))
+        if value:
+            matched = [item for item in specialists if _string(item.get(key)) == value]
+            if matched:
+                return matched
+    project_id = _string(payload.get("project_id"))
+    if project_id:
+        matched = [item for item in specialists if _string(item.get("project_id")) == project_id]
+        if matched:
+            return matched
+    return bindings
+
+
 def _default_task_id() -> str:
     return f"task-{_utc_stamp()}"
+
+
+def _safe_task_id(value: str | None) -> str | None:
+    if not value:
+        return value
+    try:
+        return str(sanitized_payload(value, context="task_id")).strip() or "task"
+    except Exception:
+        return "task"
+
+
+def _result_task_id(result: dict[str, Any], fallback: str | None) -> str | None:
+    state = result.get("task_state") if isinstance(result.get("task_state"), dict) else {}
+    context = result.get("context_pack") if isinstance(result.get("context_pack"), dict) else {}
+    return _string(state.get("task_id")) or _string(context.get("task_id")) or _safe_task_id(fallback)
 
 
 def _load_payload(payload_json: str | None, payload_file: str | None) -> dict[str, Any]:
@@ -158,7 +204,7 @@ class HookRunner:
                 "ok": True,
                 "degraded": False,
                 "event": event,
-                "task_id": task_id,
+                "task_id": _result_task_id(result, task_id),
                 "result": result,
             }
         except Exception as exc:
@@ -181,6 +227,20 @@ class HookRunner:
             or _string(payload.get("prompt"))
             or _string(current_state.get("objective"))
         )
+        metadata = _merge_dicts(current_state.get("metadata"), payload.get("metadata"))
+        workspace_routing = workspace_lifecycle.safe_workspace_routing(
+            task_id,
+            {
+                "objective": objective,
+                "working_set": _merge_lists(
+                    _string_list(current_state.get("working_set")),
+                    _string_list(payload.get("working_set")),
+                ),
+                "cwd": payload.get("cwd"),
+            },
+        )
+        if workspace_routing:
+            metadata["workspace_routing"] = workspace_routing
         merged_payload = {
             "objective": objective,
             "status": _string(payload.get("status")) or _string(current_state.get("status")) or "open",
@@ -199,11 +259,12 @@ class HookRunner:
             ),
             "recent_findings": _string_list(current_state.get("recent_findings")),
             "next_step": _string(payload.get("next_step")) or _string(current_state.get("next_step")),
-            "metadata": current_state.get("metadata") or {},
+            "metadata": metadata,
         }
         task_state = self.memory_store.upsert_task_state(task_id, merged_payload, set_current=True)
+        canonical_task_id = _string(task_state.get("task_id")) or task_id
         context_pack = self.context_builder.build_context_pack(
-            task_id=task_id,
+            task_id=canonical_task_id,
             queries=payload.get("queries"),
             retrieval_mode=_string(payload.get("retrieval_mode")) or "auto",
             max_total_chars=payload.get("max_total_chars"),
@@ -224,6 +285,47 @@ class HookRunner:
             or "Tool executed."
         )
         touched_paths = _string_list(payload.get("touched_paths")) or _string_list(payload.get("files"))
+        metadata = _merge_dicts(current_state.get("metadata"), payload.get("metadata"))
+        previous_routing = metadata.get("workspace_routing") if isinstance(metadata.get("workspace_routing"), dict) else {}
+        previous_bindings = previous_routing.get("bindings") if isinstance(previous_routing, dict) else None
+        adaptive_routing = workspace_lifecycle.safe_workspace_routing(
+            resolved_task_id,
+            {
+                "objective": current_state.get("objective"),
+                "working_set": _merge_lists(_string_list(current_state.get("working_set")), touched_paths),
+                "touched_paths": touched_paths,
+                "cwd": payload.get("cwd"),
+            },
+        )
+        workspace_routing = dict(previous_routing) if previous_routing else adaptive_routing
+        if workspace_routing:
+            if previous_routing and adaptive_routing:
+                if isinstance(adaptive_routing.get("route_plan"), dict):
+                    workspace_routing["adaptive_route_plan"] = adaptive_routing["route_plan"]
+                if isinstance(adaptive_routing.get("bindings"), list):
+                    workspace_routing["adaptive_bindings"] = adaptive_routing["bindings"]
+                if adaptive_routing.get("degraded"):
+                    workspace_routing["adaptive_degraded"] = adaptive_routing
+            signals = payload.get("signals") if isinstance(payload.get("signals"), dict) else {}
+            scope_source_bindings = previous_bindings or workspace_routing.get("bindings")
+            if not scope_source_bindings and isinstance(adaptive_routing.get("bindings"), list):
+                scope_source_bindings = adaptive_routing["bindings"]
+            if isinstance(signals.get("route_plan"), dict):
+                workspace_routing["route_plan"] = signals["route_plan"]
+                workspace_routing["bindings"] = workspace_lifecycle.create_bindings(signals["route_plan"])
+                scope_source_bindings = workspace_routing["bindings"]
+            if isinstance(signals.get("verification_aggregation"), dict):
+                workspace_routing["verification_aggregation"] = signals["verification_aggregation"]
+            scope_bindings = _select_scope_bindings(scope_source_bindings, payload)
+            if is_subagent_artifact(payload):
+                next_scope_guard = workspace_lifecycle.safe_scope_guard(
+                    scope_bindings,
+                    touched_paths,
+                )
+                workspace_routing["scope_guard"] = workspace_lifecycle.merge_scope_guard_history(
+                    workspace_routing.get("scope_guard"), next_scope_guard
+                )
+            metadata["workspace_routing"] = workspace_routing
         finding = f"{tool_name}: {summary}"
         merged_payload = {
             "objective": _string(current_state.get("objective")),
@@ -237,7 +339,7 @@ class HookRunner:
                 [finding],
             ),
             "next_step": _string(payload.get("next_step")) or _string(current_state.get("next_step")),
-            "metadata": current_state.get("metadata") or {},
+            "metadata": metadata,
         }
         task_state = self.memory_store.upsert_task_state(resolved_task_id, merged_payload, set_current=True)
         return {"task_state": task_state}
@@ -250,7 +352,11 @@ class HookRunner:
             retrieval_mode=_string(payload.get("retrieval_mode")) or "auto",
             max_total_chars=payload.get("max_total_chars"),
         )
-        return {"context_pack": context_pack}
+        task_state = self.memory_store.get_task_state(resolved_task_id)
+        return {
+            "context_pack": context_pack,
+            "workspace_routing_review": workspace_lifecycle.routing_review(task_state),
+        }
 
     def _on_task_complete(self, task_id: str | None, payload: dict[str, Any]) -> dict[str, Any]:
         resolved_task_id = task_id or self.memory_store.get_current_task_id() or _default_task_id()
@@ -301,13 +407,14 @@ class HookRunner:
         exc: Exception,
     ) -> dict[str, Any]:
         reason = f"{type(exc).__name__}: {exc}"
+        safe_task_id = _safe_task_id(task_id)
         fallback: dict[str, Any]
         if event in ("before_task", "before_response"):
-            fallback = {"context_pack": _build_fallback_context(task_id, reason)}
+            fallback = {"context_pack": _build_fallback_context(safe_task_id, reason)}
         elif event == "on_task_complete":
             fallback = {
                 "summary": {
-                    "task_id": task_id,
+                    "task_id": safe_task_id,
                     "summary_markdown": f"Task completed in degraded mode.\n\nReason: {reason}",
                 }
             }
@@ -318,7 +425,7 @@ class HookRunner:
             "ok": False,
             "degraded": True,
             "event": event,
-            "task_id": task_id,
+            "task_id": safe_task_id,
             "reason": reason,
             "fallback": fallback,
         }

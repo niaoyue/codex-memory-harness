@@ -18,6 +18,28 @@ HOME_MARKETPLACE = HOME / ".agents" / "plugins" / "marketplace.json"
 GLOBAL_MEMORY = HOME / ".codex" / "memories"
 DEFAULT_TIMEOUT_SECONDS = 120
 DEFAULT_MAX_OUTPUT_CHARS = 1200
+SHARED_MEMORY_DIRS = ("decisions", "facts", "workflows", "routes")
+SHARED_MEMORY_README = """# Codex Shared Memory
+
+This directory is the reviewable project shared memory layer.
+
+Use it for stable, non-sensitive project facts, decisions, workflows, and routing summaries.
+Do not put raw task state, logs, credentials, production endpoints, private repository URLs, or generated databases here.
+
+Suggested folders:
+
+- `decisions/`: accepted or deprecated architecture and product decisions.
+- `facts/`: stable module boundaries, ownership, and implementation facts.
+- `workflows/`: verification, release, rollback, and operational workflows.
+- `routes/`: workspace routing summaries and project/domain scope notes.
+
+Each shared memory entry should be a small Markdown file with front matter matching `schemas/shared_memory.schema.json` in the Codex Memory Harness package.
+"""
+SHARED_MEMORY_INDEX = {
+    "version": 1,
+    "description": "Reviewable project shared memory index. Rebuild when promote tooling is available.",
+    "entries": [],
+}
 
 
 def _plugin_root() -> Path:
@@ -36,6 +58,11 @@ def _read_json(path: Path) -> dict[str, Any]:
 def _write_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def _write_text(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
 
 
 def _contains(path: Path, needle: str) -> bool:
@@ -156,6 +183,27 @@ def _ensure_file(path: Path, payload: dict[str, Any], actions: list[dict[str, An
     actions.append({"action": "create_file", "path": str(path)})
 
 
+def _ensure_text_file(path: Path, content: str, actions: list[dict[str, Any]]) -> None:
+    if path.exists():
+        actions.append({"action": "keep_existing", "path": str(path)})
+        return
+    _write_text(path, content)
+    actions.append({"action": "create_file", "path": str(path)})
+
+
+def _ensure_shared_memory_template(project_root: Path, actions: list[dict[str, Any]]) -> None:
+    shared_dir = project_root / ".codex" / "shared"
+    shared_dir.mkdir(parents=True, exist_ok=True)
+    actions.append({"action": "ensure_directory", "path": str(shared_dir)})
+    _ensure_text_file(shared_dir / "README.md", SHARED_MEMORY_README, actions)
+    _ensure_file(shared_dir / "index.json", SHARED_MEMORY_INDEX, actions)
+    for name in SHARED_MEMORY_DIRS:
+        directory = shared_dir / name
+        directory.mkdir(parents=True, exist_ok=True)
+        actions.append({"action": "ensure_directory", "path": str(directory)})
+        _ensure_text_file(directory / ".gitkeep", "", actions)
+
+
 def init_project(project_root: Path, plugin_root: Path) -> list[dict[str, Any]]:
     actions: list[dict[str, Any]] = []
     layout = ensure_storage_layout(scope="project", cwd=project_root)
@@ -166,6 +214,7 @@ def init_project(project_root: Path, plugin_root: Path) -> list[dict[str, Any]]:
     actions.append({"action": "ensure_directory", "path": str(harness_dir)})
     _ensure_file(harness_dir / "commands.json", _command_config(plugin_root, project_root), actions)
     _ensure_file(harness_dir / "project_profile.json", _profile_config(plugin_root, project_root), actions)
+    _ensure_shared_memory_template(project_root, actions)
     return actions
 
 
@@ -183,6 +232,7 @@ def inspect_state(cwd: Path, *, init: bool) -> dict[str, Any]:
         cwd=selected_project or start,
     )
     project_memory = selected_project / ".codex" / "memories" if selected_project else None
+    project_shared = selected_project / ".codex" / "shared" if selected_project else None
     harness_dir = selected_project / ".codex" / "harness" if selected_project else None
 
     checks = {
@@ -202,6 +252,8 @@ def inspect_state(cwd: Path, *, init: bool) -> dict[str, Any]:
         "verification_runner_exists": (plugin_root / "scripts" / "verification_runner.py").exists(),
         "global_memory_exists": GLOBAL_MEMORY.exists(),
         "project_memory_exists": project_memory.exists() if project_memory else False,
+        "project_shared_exists": project_shared.exists() if project_shared else False,
+        "project_shared_index_exists": (project_shared / "index.json").exists() if project_shared else False,
         "project_commands_exists": (harness_dir / "commands.json").exists() if harness_dir else False,
         "project_profile_exists": (harness_dir / "project_profile.json").exists() if harness_dir else False,
     }
@@ -229,6 +281,8 @@ def inspect_state(cwd: Path, *, init: bool) -> dict[str, Any]:
         recommendations.append("当前目录未识别为项目；如需项目级记忆，请在项目根目录运行 codex memory init。")
     elif not checks["project_commands_exists"] or not checks["project_profile_exists"]:
         recommendations.append("运行 codex memory init 生成缺失的 .codex/harness 配置。")
+    if selected_project and not checks["project_shared_exists"]:
+        recommendations.append("运行 codex memory init 生成缺失的 .codex/shared 项目共享记忆模板。")
 
     return {
         "ok": ok,

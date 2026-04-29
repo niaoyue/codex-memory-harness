@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from hook_runner import HookRunner
+from sensitive_scan import sanitized_payload
 from task_spec import (
     TaskSpec,
     harness_dir,
@@ -17,6 +18,9 @@ from task_spec import (
     task_spec_path,
     utc_now,
 )
+
+
+ARTIFACT_CONTEXT_FIELDS = ("binding_id", "subagent_id", "project_id", "domain", "assigned_scope")
 
 
 def _project_root(value: str | None) -> Path:
@@ -65,6 +69,7 @@ def _task_payload(spec: TaskSpec, *, next_step: str = "") -> dict[str, Any]:
 def start_task(args: argparse.Namespace) -> dict[str, Any]:
     project_root = _project_root(args.project_root)
     payload = load_payload(args.task_file, args.payload_json)
+    payload = sanitized_payload(payload, context="harness_task_spec")
     spec = TaskSpec.from_payload(payload, project_root)
     spec.update_status("scoped")
     _configure_memory(spec.memory_scope, project_root)
@@ -97,6 +102,8 @@ def checkpoint_task(args: argparse.Namespace) -> dict[str, Any]:
     spec = _load_spec(project_root, args.task_id)
     _configure_memory(spec.memory_scope, project_root)
     payload = load_payload(args.result_file, args.payload_json)
+    payload = sanitized_payload(payload, context="harness_checkpoint")
+    phase = str(payload.get("phase") or "").strip().lower()
 
     artifact = {
         "recorded_at": utc_now(),
@@ -104,13 +111,18 @@ def checkpoint_task(args: argparse.Namespace) -> dict[str, Any]:
         "summary": payload.get("summary") or payload.get("output") or "Tool checkpoint recorded.",
         "touched_paths": payload.get("touched_paths") or payload.get("files") or [],
         "exit_code": payload.get("exit_code"),
+        "phase": phase,
         "signals": payload.get("signals") if isinstance(payload.get("signals"), dict) else {},
     }
+    if isinstance(payload.get("_sensitive_scan"), dict):
+        artifact["_sensitive_scan"] = payload["_sensitive_scan"]
+    for field in ARTIFACT_CONTEXT_FIELDS:
+        if field in payload:
+            artifact[field] = payload[field]
     artifact_path = task_dir(project_root, spec.task_id) / "artifacts.jsonl"
     _append_jsonl(artifact_path, artifact)
 
-    phase = str(payload.get("phase") or "").strip().lower()
-    spec.update_status("verifying" if phase == "verification" else "executing")
+    spec.update_status("verifying" if phase in {"verification", "workspace_verification"} else "executing")
     spec.save(task_spec_path(project_root, spec.task_id))
     state = _load_state(project_root, spec.task_id)
     state["status"] = spec.status
@@ -118,16 +130,19 @@ def checkpoint_task(args: argparse.Namespace) -> dict[str, Any]:
     state.setdefault("artifacts", []).append(artifact)
     _write_json(run_state_path(project_root, spec.task_id), state)
 
-    hook_result = HookRunner().run_event(
-        "after_tool",
-        {
-            "task_id": spec.task_id,
-            "tool_name": artifact["tool_name"],
-            "summary": artifact["summary"],
-            "touched_paths": artifact["touched_paths"],
-            "next_step": payload.get("next_step") or "继续执行或进入验证",
-        },
-    )
+    hook_payload = {
+        "task_id": spec.task_id,
+        "tool_name": artifact["tool_name"],
+        "summary": artifact["summary"],
+        "touched_paths": artifact["touched_paths"],
+        "phase": artifact["phase"],
+        "signals": artifact["signals"],
+        "next_step": payload.get("next_step") or "继续执行或进入验证",
+    }
+    for field in ARTIFACT_CONTEXT_FIELDS:
+        if field in artifact:
+            hook_payload[field] = artifact[field]
+    hook_result = HookRunner().run_event("after_tool", hook_payload)
     return {"task_spec": spec.to_dict(), "artifact": artifact, "hook_result": hook_result}
 
 
@@ -135,7 +150,7 @@ def complete_task(args: argparse.Namespace) -> dict[str, Any]:
     project_root = _project_root(args.project_root)
     spec = _load_spec(project_root, args.task_id)
     _configure_memory(spec.memory_scope, project_root)
-    summary = _load_summary(args.summary_file, args.summary)
+    summary = str(sanitized_payload(_load_summary(args.summary_file, args.summary), context="harness_summary"))
     state = _load_state(project_root, spec.task_id)
     checklist = _complete_checklist(spec, state, bool(summary.strip()))
 
