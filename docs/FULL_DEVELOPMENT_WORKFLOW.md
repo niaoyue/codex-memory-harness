@@ -16,6 +16,7 @@
 - 为不同 SubAgent 绑定 project、domain、cwd、scope、rules 和 verification profile ids。
 - 支持 coordinator 汇总跨项目契约、验证结果、冲突和发布顺序。
 - 支持 AI 诊断日志统一开关，开发期可临时开启，release 必须关闭。
+- 支持把 Codex CLI xhigh review gate 委托给 SubAgent 并行执行，但最终审核语义仍来自 `codex xhigh review --uncommitted`。
 - 支持多项目 verification aggregation，每个子项目可使用自己的 cwd 和 profile。
 - 支持 scope guard、敏感信息扫描、裸日志检查和 release gate。
 - 支持项目私有 memory、用户全局 memory、项目共享 memory 的分层写入。
@@ -30,7 +31,7 @@
 | Harness 任务生命周期 | `codex harness start` 触发 `before_task` | 已实现运行时能力 | wrapper 只负责窗口启动，不能单独理解每条用户任务；任务开始仍需要 agent、hook 或自动化调用 harness/controller |
 | Workspace 路由 | `before_task` 生成 route plan 和 SubAgent bindings | 已做 lifecycle 软集成 | route plan/bindings 写入 task metadata；低置信度会降级为只读分析或提示确认 |
 | SubAgent 执行 | 按 binding 绑定 project/domain/cwd/scope/rules/profile | 已实现 binding 和 dispatch plan，不自动执行 | 当前不会自动创建真实 SubAgent；`codex workspace schedule` 只生成可执行计划，宿主或主 agent 使用 SubAgent 时必须带上对应 binding |
-| 发布/提交前 gate | 聚合验证、scope guard、敏感扫描、诊断日志 release gate、`codex xhigh review --uncommitted` | 部分实现 | 验证聚合、scope guard、敏感扫描、基础诊断 release gate 和 review 入口已有；仍不是完整发布平台 |
+| 发布/提交前 gate | 聚合验证、scope guard、敏感扫描、诊断日志 release gate、`codex xhigh review --uncommitted` | 部分实现 | 验证聚合、scope guard、敏感扫描、基础诊断 release gate 和 review 入口已有；在支持 SubAgent 的宿主中可并行派发 xhigh review runner；仍不是完整发布平台 |
 
 因此，当前“第一步”已经覆盖启动自检和任务路由软集成，但还没有做到只靠 wrapper 自动捕获并编排所有用户任务。
 
@@ -54,7 +55,7 @@
 4. 各 SubAgent 只处理自己的项目和 scope。
 5. 需要运行反馈时，临时开启对应 scope 的 AI 诊断日志。
 6. 修改完成后自动聚合验证。
-7. 代码变更优先通过 `codex xhigh review --uncommitted` 做最终审核。
+7. 代码变更优先通过 `codex xhigh review --uncommitted` 做最终审核；大 diff 可由 SubAgent 作为命令执行器并行运行该 gate。
 8. Release gate 检查诊断日志关闭、敏感信息、scope 越权和构建边界。
 9. Codex 给出最终 summary、验证证据、发布顺序和回滚说明。
 10. 稳定结论写入项目私有 memory；可共享事实经 review 后提升到项目共享层。
@@ -115,7 +116,11 @@ flowchart TD
   AE --> AF["敏感信息扫描"]
   AF --> AG["AI 诊断日志 release gate"]
   AG --> AG1["代码审核 gate: codex xhigh review --uncommitted"]
-  AG1 --> AH{"是否发布/提交就绪?"}
+  AG1 --> AG2{"是否需要并行 SubAgent runner?"}
+  AG2 -- "是" --> AG3["SubAgent 执行 xhigh review 命令"]
+  AG2 -- "否" --> AH
+  AG3 --> AH
+  AH{"是否发布/提交就绪?"}
 
   AH -- "否" --> AI["输出未完成项和风险"]
   AH -- "是" --> AJ["生成 summary / release notes / 回滚说明"]
@@ -142,13 +147,15 @@ flowchart TD
 5. 把失败证据、日志摘要、touched paths 写入 checkpoint。
 6. 如果 touched paths 扩大到其他项目，回到 Task Router 重新路由。
 7. 如果验证通过，进入聚合验证和 gate。
-8. 对代码变更运行 `codex xhigh review --uncommitted`；SubAgent review 只作为专题辅助，不替代最终 gate。
+8. 对代码变更运行 `codex xhigh review --uncommitted`；大 diff 时可派发 SubAgent 执行该命令。SubAgent 自行审查只作为专题辅助，不替代 Codex CLI xhigh review gate。
 
 ## 6. SubAgent 分工
 
 Specialist SubAgent 只处理单个 route binding。例如 Unity UI、Go 服务器协议、后台配置页或文档更新。
 
 Coordinator SubAgent 管跨项目事务。它不应吞掉所有实现，而应负责契约、分工、验证聚合、冲突处理、发布顺序和最终总结。
+
+XHigh Review Runner SubAgent 只负责运行 `codex xhigh review --uncommitted` 或明确的降级命令，不修改文件、不提交，也不替代专题 Reviewer。
 
 每个 SubAgent 的输出必须包含：
 

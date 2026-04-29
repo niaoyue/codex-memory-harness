@@ -133,13 +133,15 @@ docs/EXTERNAL_BENCHMARK.md
 docs/SUBAGENT_WORKFLOW.md
 ```
 
-代码变更的审核优先使用 Codex CLI 的专用 review 入口，而不是让通用 SubAgent 承担最终审核：
+代码变更的审核优先使用 Codex CLI 的专用 review 入口，而不是让通用 SubAgent 自行承担最终审核：
 
 ```powershell
 codex xhigh review --uncommitted
 ```
 
 SubAgent Reviewer 适合做窄范围专题审查，例如只看某个 route binding、某类安全风险或某组测试覆盖。最终提交或发布前，仍应以 `codex xhigh review --uncommitted` 作为代码审核 gate。
+
+如果当前宿主支持 SubAgent，大 diff 或长耗时审查可以派发一个专门的 XHigh Review Runner。它只负责执行 `codex xhigh review --uncommitted`，必要时降级到 `codex-raw xhigh review --uncommitted`，并回传退出状态和 findings；它不是让通用 SubAgent 自己重新审查。
 
 如果需要理解完整实现后的日常开发流程、自动路由、SubAgent、诊断日志、验证聚合和 memory 沉淀闭环，可先看完整流程图：
 

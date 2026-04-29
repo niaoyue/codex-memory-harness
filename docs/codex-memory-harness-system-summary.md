@@ -292,7 +292,8 @@ codex harness verify run --task-id <TASK_ID> --profile primary
 | Task Planner | 明确目标、验收标准、工作集和风险 |
 | Architect | 判断模块边界、接口方向和迁移策略 |
 | Implementer | 执行最小必要代码或文档修改 |
-| Reviewer | 做限定 scope 的专题审查；最终代码审核优先使用 `codex xhigh review --uncommitted` |
+| Reviewer | 做限定 scope 的专题审查；不替代 Codex CLI xhigh review |
+| XHigh Review Runner | 并行执行 `codex xhigh review --uncommitted`，必要时降级到 `codex-raw xhigh review --uncommitted`，回传退出状态和 findings |
 | Verifier | 运行配置化验证并解释失败 |
 | Documentation Maintainer | 更新 README、用户指南和迁移说明 |
 | Security Reviewer | 检查敏感信息、网络边界和危险命令 |
