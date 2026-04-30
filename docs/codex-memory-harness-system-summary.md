@@ -121,6 +121,12 @@ Windows PowerShell profile 可选：
 用户全局层：
 
 ```text
+<USER_HOME>/.codex/codex-memory-harness/memories
+```
+
+官方 Codex Memories：
+
+```text
 <USER_HOME>/.codex/memories
 ```
 
@@ -134,6 +140,7 @@ Windows PowerShell profile 可选：
 
 | 层级 | 是否提交 | 内容 |
 |---|---|---|
+| 官方 Codex Memories | 不提交 | 官方自动生成的个人长期记忆 |
 | 用户全局层 | 不提交 | 跨项目偏好、通用工作流、长期个人规则 |
 | 项目私有层 | 不提交 | 本地任务状态、事件、summary、distilled 草稿 |
 | 项目共享层 | 可提交，需审查 | 团队确认的项目事实、架构决策、流程、路由摘要 |
@@ -429,7 +436,7 @@ codexm memory doctor
 
 ## 16. 记忆检索策略
 
-当前系统不依赖向量数据库。基础检索使用：
+当前系统不依赖向量数据库。官方 Codex Memories 作为个人自动记忆兼容层存在，不替代 Harness 项目状态、验证 artifact 或团队共享层。基础检索使用：
 
 - SQLite task state、repo decision、task summary。
 - JSONL event log。

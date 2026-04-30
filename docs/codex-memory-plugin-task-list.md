@@ -36,7 +36,7 @@
 | T18 | 6 | 对齐 Codex 插件市场接入 | repo/home marketplace 与本机插件入口 | T15 | done |
 | T19 | 6 | 对齐官方 hooks 入口格式 | `hooks.json` 与 `hook_bridge.py` | T15 | done |
 | T20 | 6 | 落地无感使用默认工作流 | 安装脚本、仓库 AGENTS 与自动兜底 | T18,T19 | done |
-| T21 | 7 | 实现用户全局层/项目私有层隔离 | 用户全局 `~/.codex/memories` 与项目私有 `.codex/memories` | T20 | done |
+| T21 | 7 | 实现用户全局层/项目私有层隔离 | 用户全局 `$CODEX_HOME/codex-memory-harness/memories` 与项目私有 `.codex/memories` | T20 | done |
 | T22 | 8 | 实现最小 Harness Controller | start/checkpoint/complete 三段式控制器 | T21 | done |
 | T23 | 8 | 增加项目 harness 配置 | `.codex/harness` 配置与命令注册 | T22 | done |
 | T24 | 9 | 增加 Harness Verification Runner | 配置化验证执行、危险命令拦截、checkpoint 回写 | T23 | done |
@@ -157,7 +157,7 @@
 - 不做：远程同步、多用户权限系统、向量库。
 - 验收：
   - 默认项目私有记忆写入 `<项目根目录>/.codex/memories/`。
-  - 显式用户全局记忆写入 `C:/Users/<USER>/.codex/memories/`。
+  - 显式用户全局记忆写入 `C:/Users/<USER>/.codex/codex-memory-harness/memories/`，官方 Codex Memories 目录 `C:/Users/<USER>/.codex/memories/` 保留给官方自动记忆。
   - `hook_runner.py` 与 `memory_server.py` 均支持 `--memory-scope`。
   - `.codex/memories/` 不进入检索证据包。
 

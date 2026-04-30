@@ -1,0 +1,217 @@
+from __future__ import annotations
+
+import os
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+from unittest import mock
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PLUGIN_SCRIPTS_DIR = PROJECT_ROOT / "plugins" / "codex-memory" / "scripts"
+
+if str(PLUGIN_SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(PLUGIN_SCRIPTS_DIR))
+
+import init_storage
+import install_support
+import codex_bootstrap
+import official_memory_status
+
+
+class OfficialMemoryCompatibilityTests(unittest.TestCase):
+    def test_harness_global_memory_uses_dedicated_codex_home_subdirectory(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            old_codex_home = os.environ.get("CODEX_HOME")
+            try:
+                os.environ.pop("CODEX_HOME", None)
+                status = official_memory_status.inspect_official_memory(Path(temp_dir))
+            finally:
+                _restore_env("CODEX_HOME", old_codex_home)
+
+        official_dir = status["official_memories_dir"].replace("\\", "/")
+        self.assertTrue(official_dir.endswith(".codex/memories"))
+        self.assertIn("codex-memory-harness", status["harness_global_memory_dir"])
+        self.assertNotEqual(status["official_memories_dir"], status["harness_global_memory_dir"])
+        self.assertTrue(status["official_dir_reserved_for_codex"])
+        self.assertFalse(status["chronicle"]["content_read"])
+
+    def test_official_memory_status_reads_feature_flag_without_reading_memories(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            old_codex_home = os.environ.get("CODEX_HOME")
+            codex_home = Path(temp_dir) / "codex-home"
+            codex_home.mkdir()
+            (codex_home / "config.toml").write_text(
+                "[features]\nmemories = true\n\n[memories]\ngenerate_memories = true\n",
+                encoding="utf-8",
+            )
+            official_dir = codex_home / "memories"
+            official_dir.mkdir()
+            (official_dir / "memory.db").write_text("", encoding="utf-8")
+            try:
+                os.environ["CODEX_HOME"] = str(codex_home)
+                status = official_memory_status.inspect_official_memory()
+            finally:
+                _restore_env("CODEX_HOME", old_codex_home)
+
+        self.assertTrue(status["config_parse_ok"])
+        self.assertTrue(status["features_memories"])
+        self.assertTrue(status["memories_generate_memories"])
+        self.assertTrue(status["official_feature_enabled"])
+        self.assertEqual(status["legacy_harness_markers_in_official_dir"], ["memory.db"])
+
+    def test_official_memory_status_defaults_omitted_generation_flag_to_enabled(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            old_codex_home = os.environ.get("CODEX_HOME")
+            codex_home = Path(temp_dir) / "codex-home"
+            codex_home.mkdir()
+            (codex_home / "config.toml").write_text(
+                "[features]\nmemories = true\n",
+                encoding="utf-8",
+            )
+            try:
+                os.environ["CODEX_HOME"] = str(codex_home)
+                status = official_memory_status.inspect_official_memory()
+            finally:
+                _restore_env("CODEX_HOME", old_codex_home)
+
+        self.assertTrue(status["features_memories"])
+        self.assertIsNone(status["memories_generate_memories"])
+        self.assertTrue(status["official_feature_enabled"])
+
+    def test_official_memory_status_reports_feature_disable(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            old_codex_home = os.environ.get("CODEX_HOME")
+            codex_home = Path(temp_dir) / "codex-home"
+            codex_home.mkdir()
+            (codex_home / "config.toml").write_text(
+                "[features]\nmemories = false\n",
+                encoding="utf-8",
+            )
+            try:
+                os.environ["CODEX_HOME"] = str(codex_home)
+                status = official_memory_status.inspect_official_memory()
+            finally:
+                _restore_env("CODEX_HOME", old_codex_home)
+
+        self.assertFalse(status["features_memories"])
+        self.assertIsNone(status["memories_generate_memories"])
+        self.assertFalse(status["official_feature_enabled"])
+
+    def test_official_memory_status_reports_explicit_generation_disable(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            old_codex_home = os.environ.get("CODEX_HOME")
+            codex_home = Path(temp_dir) / "codex-home"
+            codex_home.mkdir()
+            (codex_home / "config.toml").write_text(
+                "[features]\nmemories = true\n\n[memories]\ngenerate_memories = false\n",
+                encoding="utf-8",
+            )
+            try:
+                os.environ["CODEX_HOME"] = str(codex_home)
+                status = official_memory_status.inspect_official_memory()
+            finally:
+                _restore_env("CODEX_HOME", old_codex_home)
+
+        self.assertTrue(status["features_memories"])
+        self.assertFalse(status["memories_generate_memories"])
+        self.assertFalse(status["official_feature_enabled"])
+
+    def test_official_memory_status_reports_explicit_use_disable(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            old_codex_home = os.environ.get("CODEX_HOME")
+            codex_home = Path(temp_dir) / "codex-home"
+            codex_home.mkdir()
+            (codex_home / "config.toml").write_text(
+                "[features]\nmemories = true\n\n[memories]\nuse_memories = false\n",
+                encoding="utf-8",
+            )
+            try:
+                os.environ["CODEX_HOME"] = str(codex_home)
+                status = official_memory_status.inspect_official_memory()
+            finally:
+                _restore_env("CODEX_HOME", old_codex_home)
+
+        self.assertTrue(status["features_memories"])
+        self.assertFalse(status["memories_use_memories"])
+        self.assertFalse(status["official_feature_enabled"])
+
+    def test_global_storage_respects_codex_home(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            old_codex_home = os.environ.get("CODEX_HOME")
+            codex_home = Path(temp_dir) / "custom-codex"
+            try:
+                os.environ["CODEX_HOME"] = str(codex_home)
+                with mock.patch.object(init_storage, "GLOBAL_STORAGE_DIR", None):
+                    paths = init_storage.resolve_storage_paths(scope="global", cwd=temp_dir)
+            finally:
+                _restore_env("CODEX_HOME", old_codex_home)
+
+        self.assertEqual(paths.storage_dir, codex_home / "codex-memory-harness" / "memories")
+
+    def test_installed_guidance_respects_codex_home(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            old_codex_home = os.environ.get("CODEX_HOME")
+            codex_home = Path(temp_dir) / "custom-codex"
+            try:
+                os.environ["CODEX_HOME"] = str(codex_home)
+                block = install_support.agents_block(Path("C:/Users/Test/plugins/codex-memory"))
+                agents_path = install_support.home_agents_path()
+            finally:
+                _restore_env("CODEX_HOME", old_codex_home)
+
+        self.assertIn(str(codex_home / "memories"), block)
+        self.assertIn(str(codex_home / "codex-memory-harness" / "memories"), block)
+        self.assertEqual(agents_path, codex_home / "AGENTS.md")
+
+    def test_bootstrap_doctor_reads_agents_from_codex_home(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            old_codex_home = os.environ.get("CODEX_HOME")
+            temp_root = Path(temp_dir)
+            codex_home = temp_root / "custom-codex"
+            codex_home.mkdir()
+            (codex_home / "AGENTS.md").write_text(
+                "Codex Memory\ncodex memory doctor\n",
+                encoding="utf-8",
+            )
+            project_root = temp_root / "project"
+            (project_root / ".codex" / "memories").mkdir(parents=True)
+            harness_dir = project_root / ".codex" / "harness"
+            harness_dir.mkdir(parents=True)
+            (harness_dir / "commands.json").write_text("{}", encoding="utf-8")
+            (harness_dir / "project_profile.json").write_text("{}", encoding="utf-8")
+            home_marketplace = temp_root / "marketplace.json"
+            home_marketplace.write_text(
+                '{"plugins": [{"name": "codex-memory"}]}',
+                encoding="utf-8",
+            )
+            stale_default_agents = temp_root / "missing-default" / "AGENTS.md"
+            try:
+                os.environ["CODEX_HOME"] = str(codex_home)
+                with (
+                    mock.patch.object(codex_bootstrap, "HOME_AGENTS", stale_default_agents),
+                    mock.patch.object(codex_bootstrap, "HOME_PLUGIN", codex_bootstrap._plugin_root()),
+                    mock.patch.object(codex_bootstrap, "HOME_MARKETPLACE", home_marketplace),
+                ):
+                    result = codex_bootstrap.inspect_state(project_root, init=False)
+            finally:
+                _restore_env("CODEX_HOME", old_codex_home)
+
+        self.assertEqual(result["memory"]["official_codex"]["codex_home"], str(codex_home))
+        self.assertTrue(result["checks"]["home_agents_exists"])
+        self.assertTrue(result["checks"]["home_agents_mentions_cli_entrypoints"])
+        self.assertFalse(
+            any("codex memory doctor/init" in item for item in result["recommendations"])
+        )
+
+
+def _restore_env(name: str, value: str | None) -> None:
+    if value is None:
+        os.environ.pop(name, None)
+    else:
+        os.environ[name] = value
+
+
+if __name__ == "__main__":
+    unittest.main()

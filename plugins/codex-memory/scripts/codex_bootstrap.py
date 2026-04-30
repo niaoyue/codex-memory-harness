@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from init_storage import PROJECT_MARKERS, ensure_storage_layout, resolve_storage_paths
+from official_memory_status import codex_home, inspect_official_memory
 
 
 PLUGIN_NAME = "codex-memory"
@@ -15,7 +16,7 @@ HOME = Path.home()
 HOME_PLUGIN = HOME / "plugins" / PLUGIN_NAME
 HOME_AGENTS = HOME / ".codex" / "AGENTS.md"
 HOME_MARKETPLACE = HOME / ".agents" / "plugins" / "marketplace.json"
-GLOBAL_MEMORY = HOME / ".codex" / "memories"
+GLOBAL_MEMORY = HOME / ".codex" / "codex-memory-harness" / "memories"
 DEFAULT_TIMEOUT_SECONDS = 120
 DEFAULT_MAX_OUTPUT_CHARS = 1200
 SHARED_MEMORY_DIRS = ("decisions", "facts", "workflows", "routes")
@@ -69,6 +70,18 @@ def _contains(path: Path, needle: str) -> bool:
     if not path.exists():
         return False
     return needle in path.read_text(encoding="utf-8", errors="replace")
+
+
+def _home_agents_path() -> Path:
+    if os.environ.get("CODEX_HOME", "").strip():
+        return codex_home(HOME) / "AGENTS.md"
+    return HOME_AGENTS
+
+
+def _harness_global_memory_path() -> Path:
+    if os.environ.get("CODEX_HOME", "").strip():
+        return codex_home(HOME) / "codex-memory-harness" / "memories"
+    return GLOBAL_MEMORY
 
 
 def _has_marketplace_entry(path: Path) -> bool:
@@ -235,12 +248,16 @@ def inspect_state(cwd: Path, *, init: bool) -> dict[str, Any]:
     project_shared = selected_project / ".codex" / "shared" if selected_project else None
     harness_dir = selected_project / ".codex" / "harness" if selected_project else None
 
+    official_memory = inspect_official_memory(HOME)
+    home_agents = _home_agents_path()
+    harness_global_memory = _harness_global_memory_path()
+
     checks = {
-        "home_agents_exists": HOME_AGENTS.exists(),
-        "home_agents_mentions_memory": _contains(HOME_AGENTS, "Codex Memory"),
-        "home_agents_mentions_bootstrap": _contains(HOME_AGENTS, "codex_bootstrap.py"),
-        "home_agents_mentions_cli_entrypoints": _contains(HOME_AGENTS, "codex memory doctor")
-        or _contains(HOME_AGENTS, "codex_bootstrap.py"),
+        "home_agents_exists": home_agents.exists(),
+        "home_agents_mentions_memory": _contains(home_agents, "Codex Memory"),
+        "home_agents_mentions_bootstrap": _contains(home_agents, "codex_bootstrap.py"),
+        "home_agents_mentions_cli_entrypoints": _contains(home_agents, "codex memory doctor")
+        or _contains(home_agents, "codex_bootstrap.py"),
         "home_plugin_exists": HOME_PLUGIN.exists(),
         "home_plugin_resolved_path": _resolve_existing(HOME_PLUGIN),
         "home_plugin_points_to_current": _points_to(HOME_PLUGIN, plugin_root),
@@ -250,7 +267,7 @@ def inspect_state(cwd: Path, *, init: bool) -> dict[str, Any]:
         "bootstrap_script_exists": (plugin_root / "scripts" / "codex_bootstrap.py").exists(),
         "harness_controller_exists": (plugin_root / "scripts" / "harness_controller.py").exists(),
         "verification_runner_exists": (plugin_root / "scripts" / "verification_runner.py").exists(),
-        "global_memory_exists": GLOBAL_MEMORY.exists(),
+        "global_memory_exists": harness_global_memory.exists(),
         "project_memory_exists": project_memory.exists() if project_memory else False,
         "project_shared_exists": project_shared.exists() if project_shared else False,
         "project_shared_index_exists": (project_shared / "index.json").exists() if project_shared else False,
@@ -283,6 +300,13 @@ def inspect_state(cwd: Path, *, init: bool) -> dict[str, Any]:
         recommendations.append("运行 codex memory init 生成缺失的 .codex/harness 配置。")
     if selected_project and not checks["project_shared_exists"]:
         recommendations.append("运行 codex memory init 生成缺失的 .codex/shared 项目共享记忆模板。")
+    if official_memory.get("legacy_harness_markers_in_official_dir"):
+        recommendations.append(
+            "检测到旧版 harness 全局记忆文件位于官方 Codex Memories 目录；请手动迁移到 "
+            f"{official_memory['harness_global_memory_dir']}，避免污染官方自动记忆。"
+        )
+    if not official_memory.get("config_parse_ok", True):
+        recommendations.append("官方 Codex config.toml 解析失败；doctor 已跳过官方 Memories 开关判断。")
 
     return {
         "ok": ok,
@@ -298,6 +322,7 @@ def inspect_state(cwd: Path, *, init: bool) -> dict[str, Any]:
         "memory": {
             "recommended_scope": "project" if selected_project else "global",
             "storage": storage.as_dict(),
+            "official_codex": official_memory,
         },
         "checks": checks,
         "actions": actions,

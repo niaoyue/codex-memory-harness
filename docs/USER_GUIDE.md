@@ -71,7 +71,8 @@ Codex Memory 分三层：
 
 | 层级 | 位置 | 是否提交 | 适合内容 |
 |---|---|---|---|
-| 用户全局层 | `C:\Users\<你>\.codex\memories` | 不提交 | 跨项目长期偏好、通用工作流、用户明确要求全局沉淀的非敏感规则 |
+| 官方 Codex Memories | `C:\Users\<你>\.codex\memories` | 不提交 | 官方自动生成的个人长期记忆 |
+| 用户全局层 | `C:\Users\<你>\.codex\codex-memory-harness\memories` | 不提交 | 跨项目长期偏好、通用工作流、用户明确要求全局沉淀的非敏感规则 |
 | 项目私有层 | `<项目根目录>/.codex/memories` | 不提交 | 当前项目的本地任务状态、工具事件、summary、distilled 草稿 |
 | 项目共享层 | `<项目根目录>/.codex/shared` | 可提交，需审查 | 团队确认的项目事实、架构决策、流程、路由和验证规则摘要 |
 
@@ -90,7 +91,19 @@ Codex Memory 分三层：
 用户全局层位置：
 
 ```text
+C:\Users\<你>\.codex\codex-memory-harness\memories
+```
+
+官方 Codex Memories 的默认目录是：
+
+```text
 C:\Users\<你>\.codex\memories
+```
+
+本项目不会把 SQLite、JSONL 或 harness 运行态写入官方目录。兼容策略见：
+
+```text
+docs/OFFICIAL_CODEX_MEMORY_COMPATIBILITY.md
 ```
 
 项目共享层不能直接提交 `.codex/memories`。应先从本地 summary、decision、verification 中提取稳定、脱敏、可审查的 Markdown，再放入 `.codex/shared`。

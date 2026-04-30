@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any
 
@@ -14,8 +15,15 @@ def home_root() -> Path:
     return Path.home()
 
 
+def codex_home_root() -> Path:
+    configured = os.environ.get("CODEX_HOME", "").strip()
+    if configured:
+        return Path(configured).expanduser()
+    return home_root() / ".codex"
+
+
 def home_agents_path() -> Path:
-    return home_root() / ".codex" / "AGENTS.md"
+    return codex_home_root() / "AGENTS.md"
 
 
 def profile_paths(shells: str) -> list[Path]:
@@ -91,13 +99,15 @@ function codex-memory-doctor {{
 
 
 def agents_block(home_plugin: Path) -> str:
-    global_memory = home_root() / ".codex" / "memories"
+    official_memory = codex_home_root() / "memories"
+    global_memory = codex_home_root() / "codex-memory-harness" / "memories"
     return f"""
 {AGENTS_START}
 ## Codex Memory 全局无感使用（MUST）
 - 所有 Codex 窗口默认启用本地外部记忆插件，统一入口为 `{home_plugin}`。
 - 默认写入项目记忆：`<项目根目录>\\.codex\\memories`。
 - 只有跨项目偏好、长期通用规则、用户明确要求全局沉淀时，才写入全局记忆：`{global_memory}`。
+- 官方 Codex Memories 使用 `{official_memory}`；该目录保留给 Codex 官方自动记忆，不写入本插件的 SQLite/JSONL 运行态。
 - 不要求用户手动调用记忆命令；代理应在任务生命周期内自动调用 `before_task`、`after_tool`、`before_response`、`on_task_complete`。
 - 插件不可用时必须降级为普通无记忆模式，并在最终答复的工具调用简报中说明局限。
 - 不得把敏感信息、密钥、令牌或内部链接写入记忆；写入前应做最小化摘要。

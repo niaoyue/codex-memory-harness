@@ -142,6 +142,8 @@ class LauncherEntrypointTests(unittest.TestCase):
         self.assertIn("codex package verify", block)
         self.assertIn("codex xhigh review --uncommitted", block)
         self.assertIn("codex memory hook before_task", block)
+        self.assertIn(".codex\\codex-memory-harness\\memories", block)
+        self.assertIn("官方 Codex Memories", block)
         self.assertNotIn("codex_bootstrap.py --cwd", block)
         self.assertNotIn("hook_runner.py --event", block)
 

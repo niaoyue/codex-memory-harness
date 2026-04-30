@@ -25,7 +25,8 @@
 
 | 层级 | 检索用途 | 默认权重 |
 |---|---|---|
-| 用户全局层 `~/.codex/memories` | 用户偏好、通用流程、跨项目习惯 | 低于项目规则 |
+| 官方 Codex Memories `$CODEX_HOME/memories` | 官方自动生成的个人长期记忆 | 只作为个人偏好参考，低于项目规则 |
+| 用户全局层 `$CODEX_HOME/codex-memory-harness/memories` | 用户偏好、通用流程、跨项目习惯 | 低于项目规则 |
 | 项目私有层 `.codex/memories` | 当前用户在该项目的任务状态、summary、运行发现 | 当前任务高权重，但不作为团队事实 |
 | 项目共享层 `.codex/shared` | 团队确认的稳定事实、决策、流程和路由摘要 | 高于个人记忆，低于用户本次明确要求 |
 
@@ -64,7 +65,7 @@
 - 综合事务先读取 workspace 级 route plan 和 contract summary，再按 affected projects 读取子项目 memory。
 - SubAgent 只自动装载自己 route binding 相关的 memory；跨项目事实由 coordinator 汇总。
 - 找不到 `project_id` 的历史记录只能作为低置信参考，不能直接覆盖当前项目规则。
-- 如果用户全局层和项目共享层冲突，项目共享层优先；如果项目共享层和用户本次请求冲突，用户本次请求优先。
+- 如果官方 Codex Memories、用户全局层和项目共享层冲突，项目共享层优先；如果项目共享层和用户本次请求冲突，用户本次请求优先。
 
 ## 3. 为什么不先上向量数据库
 

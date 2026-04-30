@@ -2,22 +2,23 @@
 
 ## 1. 总体结论
 
-Codex Memory 应分成三层：
+Codex Memory Harness 的自研 memory 应分成三层，并与官方 Codex Memories 并存：
 
 | 层级 | 位置 | 是否提交 | 作用 |
 |---|---|---|---|
-| 用户全局层 | `~/.codex/memories` | 不提交 | 当前用户跨项目复用的偏好、通用工作流和长期规则 |
+| 官方 Codex Memories | `$CODEX_HOME/memories` | 不提交 | 官方自动生成的个人长期记忆；不写入本插件 SQLite/JSONL 运行态 |
+| 用户全局层 | `$CODEX_HOME/codex-memory-harness/memories` | 不提交 | 当前用户跨项目复用的偏好、通用工作流和长期规则 |
 | 项目私有层 | `<项目根目录>/.codex/memories` | 不提交 | 当前项目的本地任务状态、运行日志、summary、distilled 草稿 |
 | 项目共享层 | `<项目根目录>/.codex/shared` | 可提交，需审查 | 团队共享的稳定项目事实、决策、流程和路由规则摘要 |
 
-注意：`~/.codex/memories` 不是团队公共层，而是“当前用户的全局层”。它可以跨项目复用，但仍属于本机私有数据，不应上传到业务仓库。
+注意：`$CODEX_HOME/memories` 保留给官方 Codex Memories。Harness 用户全局层使用 `$CODEX_HOME/codex-memory-harness/memories`，避免和官方自动生成的 Markdown 记忆混合。
 
 ## 2. 用户全局层
 
 位置：
 
 ```text
-~/.codex/memories
+$CODEX_HOME/codex-memory-harness/memories
 ```
 
 适合写入：
@@ -177,7 +178,8 @@ updated_at: 2026-04-28
 
 | 数据 | 策略 |
 |---|---|
-| `~/.codex/memories` | 用户本机私有，不提交 |
+| `$CODEX_HOME/memories` | 官方 Codex Memories，本机私有，不提交，不写入 Harness runtime |
+| `$CODEX_HOME/codex-memory-harness/memories` | Harness 用户全局层，本机私有，不提交 |
 | `.codex/memories/memory.db` | 项目私有 raw memory，不提交 |
 | `.codex/memories/events.jsonl` | 项目私有事件流，不提交 |
 | `.codex/harness/tasks/**` | 项目私有运行态，不提交 |
@@ -208,7 +210,8 @@ codex memory shared index rebuild
 
 当前已经实现：
 
-- 用户全局层：`~/.codex/memories`。
+- 官方 Codex Memories 兼容检测：只读报告 `$CODEX_HOME/memories`、`features.memories` 总开关、`memories.generate_memories` 和 `memories.use_memories` 状态；总开关启用时，未配置的读写子开关按 Codex 默认启用处理。
+- 用户全局层：`$CODEX_HOME/codex-memory-harness/memories`。
 - 项目私有层：`<项目根目录>/.codex/memories`。
 - 全局/项目 memory scope 隔离。
 - `.codex/shared` 初始化模板：`README.md`、`index.json`、`decisions/`、`facts/`、`workflows/`、`routes/`。
@@ -222,4 +225,4 @@ codex memory shared index rebuild
 - 严格 JSON Schema front matter 校验。
 - 自动 PR review 或多人冲突解决。
 
-因此当前默认策略仍是保守的：不提交 raw `.codex` 运行态。项目共享层已经具备最小 promote/validate/index 能力，下一步是更严格的 schema 校验和协作冲突处理。
+因此当前默认策略仍是保守的：不提交 raw `.codex` 运行态，不把 Harness 全局运行态写进官方 Codex Memories 目录。项目共享层已经具备最小 promote/validate/index 能力，下一步是更严格的 schema 校验和协作冲突处理。

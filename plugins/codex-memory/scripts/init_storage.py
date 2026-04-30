@@ -9,7 +9,7 @@ from pathlib import Path
 
 
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
-GLOBAL_STORAGE_DIR = Path.home() / ".codex" / "memories"
+GLOBAL_STORAGE_DIR: Path | None = None
 PROJECT_MARKERS = [".git", "AGENTS.md", "pyproject.toml", "package.json", "README.md"]
 
 
@@ -39,6 +39,17 @@ def _env_value(name: str) -> str:
     return os.environ.get(name, "").strip()
 
 
+def _codex_home() -> Path:
+    configured = _env_value("CODEX_HOME")
+    if configured:
+        return Path(configured).expanduser()
+    return Path.home() / ".codex"
+
+
+def _global_storage_dir() -> Path:
+    return GLOBAL_STORAGE_DIR or (_codex_home() / "codex-memory-harness" / "memories")
+
+
 def _find_project_root(start: Path) -> Path | None:
     current = start.resolve()
     for candidate in [current, *current.parents]:
@@ -60,7 +71,7 @@ def resolve_storage_paths(
     start = Path(cwd or _env_value("CODEX_MEMORY_CWD") or Path.cwd()).resolve()
     project_root = _find_project_root(start)
     if requested_scope == "global" or (requested_scope == "auto" and project_root is None):
-        storage_dir = GLOBAL_STORAGE_DIR
+        storage_dir = _global_storage_dir()
         resolved_scope = "global"
         resolved_project_root = None
     else:
