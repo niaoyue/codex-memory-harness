@@ -8,6 +8,7 @@ from pathlib import Path
 
 
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
+PLUGIN_MANIFEST = PLUGIN_ROOT / ".codex-plugin" / "plugin.json"
 SCRIPTS_DIR = PLUGIN_ROOT / "scripts"
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
@@ -15,7 +16,9 @@ if str(SCRIPTS_DIR) not in sys.path:
 from init_storage import ensure_storage_layout
 
 
-SERVER_INFO = {"name": "codex-memory", "version": "0.1.0"}
+def server_info() -> dict[str, str]:
+    manifest = json.loads(PLUGIN_MANIFEST.read_text(encoding="utf-8"))
+    return {"name": str(manifest["name"]), "version": str(manifest["version"])}
 
 
 def _api():
@@ -67,7 +70,7 @@ def _handle_request(message: dict) -> dict | None:
             {
                 "protocolVersion": "2024-11-05",
                 "capabilities": {"resources": {}, "tools": {}, "prompts": {}},
-                "serverInfo": SERVER_INFO,
+                "serverInfo": server_info(),
             },
         )
     if method == "ping":
@@ -147,7 +150,7 @@ def main() -> int:
         print(
             json.dumps(
                 {
-                    "server": SERVER_INFO,
+                    "server": server_info(),
                     "storage": layout,
                     "resources": [item["uri"] for item in _api().resource_specs()],
                     "tools": [item["name"] for item in _api().tool_specs()],

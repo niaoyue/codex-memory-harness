@@ -233,7 +233,7 @@ docs/WORKSPACE_ROUTING_TASK_LIST.md
 codex package build
 ```
 
-把 `dist/codex-memory-harness-0.1.0.zip` 发给用户。用户解压后运行：
+把 `dist/codex-memory-harness-0.1.1.zip` 发给用户。用户解压后运行：
 
 ```powershell
 .\install.ps1

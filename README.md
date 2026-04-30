@@ -239,7 +239,7 @@ codex package verify
 `codex package build` 会生成：
 
 ```text
-dist/codex-memory-harness-0.1.0.zip
+dist/codex-memory-harness-0.1.1.zip
 ```
 
 发布包会排除：

@@ -1,6 +1,6 @@
 {
   "name": "codex-memory",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Codex 外部记忆与 Harness 运行时插件，提供本地记忆、检索、上下文编排、验证和蒸馏闭环。",
   "author": {
     "name": "Codex Memory Harness Maintainers",
