@@ -11,6 +11,10 @@ cd H:\dev\company\codex-memory-harness
 .\install.ps1
 ```
 
+安装脚本会先检查 Python 3.11+。如果缺少 Python、版本过低或未加入 PATH，它会提示 `winget install Python.Python.3.12`、手动安装地址和重新运行方式。
+
+安装器还会修复必要的官方 Codex 配置，确保 `$CODEX_HOME/config.toml` 中存在 `[features] codex_hooks = true`，让插件 hooks 走官方生命周期。
+
 如果已经安装的是当前版本，安装器会提示 `already_installed`，不会重新安装插件。
 
 如果机器上已经有旧版本或其他项目安装的 `codex-memory`，默认安装不会覆盖它。需要更新到当前包时显式运行：
@@ -27,13 +31,13 @@ cd H:\dev\company\codex-memory-harness
 codex
 ```
 
-`codex` 会先经过 PowerShell profile 注册的 wrapper，执行 bootstrap/doctor，然后启动真实 Codex。
+推荐主路径是官方 Codex config/hooks/MCP；PowerShell profile 注册的 wrapper 负责兼容旧环境、诊断入口和命令分流。当前 shell 中输入 `codex` 仍会先经过 wrapper 执行 bootstrap/doctor，然后启动真实 Codex；不经过 wrapper 的 Codex 客户端应依赖官方 hooks/MCP。
 
 可用入口：
 
 - `codex`：普通无感入口。
 - `codexm`：显式 memory wrapper 入口。
-- `codex memory doctor`：诊断当前项目 memory/harness 状态。
+- `codex memory doctor`：诊断当前项目 memory/harness 状态，并检查官方 `features.codex_hooks`、sandbox/approval、AGENTS.override、官方 Memories 和插件 hook 覆盖情况。
 - `codex memory init`：初始化缺失的项目 `.codex` memory/harness 配置。
 - `codex memory install/update/check-install`：安装、更新或检查插件接入。
 - `codex harness ...`：运行 harness 任务生命周期命令。
@@ -50,7 +54,7 @@ codex
 codex memory doctor
 ```
 
-如果项目缺少 `.codex/memories` 或 `.codex/harness`，正常启动 `codex` 时 wrapper 会自动初始化。也可以显式执行：
+如果项目缺少 `.codex/memories` 或 `.codex/harness`，正常启动 `codex` 时 wrapper 会自动初始化。官方 hooks 可用时，插件会通过 `UserPromptSubmit`、`PostToolUse`、`Stop` 自动桥接生命周期；也可以显式执行：
 
 ```powershell
 codex memory init
@@ -154,7 +158,9 @@ codex xhigh review --uncommitted
 
 SubAgent Reviewer 适合做窄范围专题审查，例如只看某个 route binding、某类安全风险或某组测试覆盖。最终提交或发布前，仍应以 `codex xhigh review --uncommitted` 作为代码审核 gate。
 
-如果当前宿主支持 SubAgent，大 diff 或长耗时审查可以派发一个专门的 XHigh Review Runner。它只负责执行 `codex xhigh review --uncommitted`，必要时降级到 `codex-raw xhigh review --uncommitted`，并回传退出状态和 findings；它不是让通用 SubAgent 自己重新审查。
+如果当前宿主支持 SubAgent，大 diff 或长耗时审查应优先派发一个专门的 XHigh Review Runner。它只负责执行 `codex xhigh review --uncommitted`，必要时降级到 `codex-raw -- review -c model_reasoning_effort="xhigh" --uncommitted`，并回传退出状态和 findings；它不是让通用 SubAgent 自己重新审查。等待策略按 stdout/stderr 和状态进度观察：持续有输出就继续等待，宿主等待窗口到期只代表本轮观察结束，不得因此中断或判失败，也不得再套固定总时长。
+
+review findings 全部修复、最终 review gate 无阻断问题且验证通过后，流程必须创建一个本地 git commit 记录当前版本。若工作树包含用户无关改动，应只提交本轮相关文件；无法安全隔离时必须说明未提交原因。
 
 如果需要理解完整实现后的日常开发流程、自动路由、SubAgent、诊断日志、验证聚合和 memory 沉淀闭环，可先看完整流程图：
 
@@ -217,7 +223,33 @@ codex workspace game-client init --engine unity --project-cwd client
 - `after_tool` 根据 touched paths 重算 route/bindings，并执行 scope guard；多项目时会按 specialist assigned scope 分发路径，避免误报未触达 specialist。
 - `before_response` 输出 `workspace_routing_review`，报告低置信路由、routing 降级、verification gap 和 scope gap。
 
-这仍不是真实 SubAgent 自动执行器。当前系统只准备 binding、scope guard、dispatch plan 和 review，是否实际启动多个 SubAgent 仍由 Codex 宿主能力或人工编排决定。
+生命周期 metadata 还会写入 `workspace_routing.subagent_runtime`，并在 `workspace_routing_review.subagent_runtime` 中回显当前决策：单项目串行、建议但未启动、用户要求但未启动，或已经观察到 route-bound/SubAgent-style artifact。该字段用于解释主 agent 直接执行或未启动 SubAgent 的原因。
+
+项目可以把 SubAgent 派发授权持久化到 `.codex/harness/project_profile.json`，或 workspace 级 `.codex/harness/workspace-routing.json`。例如正式 implementation 任务默认允许宿主 SubAgent 派发：
+
+```json
+{
+  "subagent_runtime_policy": {
+    "execution_model": "host_subagent_or_manual",
+    "autostart": false,
+    "task_types": ["implementation"],
+    "risk_levels": ["medium", "high"],
+    "reason": "Project policy authorizes Harness SubAgent dispatch for normal implementation tasks when the host supports it."
+  }
+}
+```
+
+当 route plan 命中该 policy 时，lifecycle 会写入 `host_dispatch_allowed=true`、`dispatch_plan_required=true` 和 `main_agent_action=read_dispatch_plan_and_call_host_subagents`。这解决“单项目单 specialist 被默认 main_agent_serial 压住”的问题，但仍受宿主层 `spawn_agent` 规则约束。
+
+没有项目 policy 时，runtime 也会做通用自动判断。planner 会综合：
+
+- `requirements_gate.task_intent`：例如 `feature_story`、`system_change`、`release_gate`。
+- `route_plan.task_type`：例如 `implementation`、`ui`、`contract`、`release`。
+- `risk_level`、route 数量、scope 大小、是否复杂应用级任务、是否 review gate。
+
+当这些信号表明任务是功能 story、系统改动、高风险、发布 gate、跨 route 或复杂应用级任务时，会触发 `autonomous_task_analysis` 或对应的 `complex_task` / `route_policy` / `xhigh_review_gate`。普通低风险小修仍保持 `main_agent_serial`。需要审查的实现任务会在 worker specialist 外额外生成 `Route Review Specialist`，最终代码审核仍优先使用 `codex xhigh review --uncommitted`。
+
+这仍不是真实 SubAgent 自动执行器。当前系统只准备 binding、scope guard、dispatch plan、runtime decision 和 review，是否实际启动多个 SubAgent 仍由 Codex 宿主能力、主 agent 的显式 spawn 策略或人工编排决定。
 
 Workspace routing 的实现拆分和当前进度见：
 

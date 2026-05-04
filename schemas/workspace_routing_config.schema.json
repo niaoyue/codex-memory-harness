@@ -74,6 +74,9 @@
         ]
       }
     },
+    "subagent_runtime_policy": {
+      "$ref": "#/$defs/subagent_runtime_policy"
+    },
     "diagnostic_logging": {
       "$ref": "#/$defs/diagnostic_logging_policy"
     }
@@ -127,6 +130,9 @@
         },
         "diagnostic_logging": {
           "$ref": "#/$defs/diagnostic_logging_policy"
+        },
+        "subagent_runtime_policy": {
+          "$ref": "#/$defs/subagent_runtime_policy"
         },
         "memory_binding": {
           "$ref": "#/$defs/memory_binding"
@@ -193,6 +199,55 @@
         },
         "shared_memory_allowed": {
           "type": "boolean"
+        }
+      }
+    },
+    "subagent_runtime_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "execution_model"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "execution_model": {
+          "type": "string",
+          "enum": [
+            "main_agent_serial",
+            "host_subagent_or_manual"
+          ]
+        },
+        "autostart": {
+          "type": "boolean"
+        },
+        "task_types": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "risk_levels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "modes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "project_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "reason": {
+          "type": "string"
         }
       }
     }

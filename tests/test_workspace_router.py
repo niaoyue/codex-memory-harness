@@ -481,7 +481,7 @@ def _write_text(path: Path, content: str) -> None:
 
 
 def _run_git(root: Path, *args: str) -> None:
-    subprocess.run(["git", *args], cwd=root, check=True, capture_output=True, text=True)
+    subprocess.run(["git", *args], cwd=root, check=True, capture_output=True, text=True, encoding="utf-8", errors="replace")
 
 
 if __name__ == "__main__":

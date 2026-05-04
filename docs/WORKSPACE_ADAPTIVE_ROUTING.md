@@ -45,7 +45,7 @@ Workspace Scanner
 核心原则：
 
 - 用户不需要手动选择客户端、服务器、后台或文档。
-- SubAgent 不应该共享同一个粗粒度规则包，而应按自己处理的子项目加载规则。
+- SubAgent 不应该共享同一个粗粒度规则包，而应按自己处理的子项目加载规则；复杂/应用级/多阶段实现即使只命中单个 route，也应默认生成可供宿主派发的 SubAgent dispatch plan。
 - 综合事务需要 coordinator，不应让某个单域 specialist 独自吞掉全局决策。
 - 自动识别可以给推荐，但项目显式配置优先。
 
@@ -58,7 +58,7 @@ Workspace Scanner
 - verification aggregation 需要支持每个子项目自己的执行目录；当前 `verification_runner.py` 已支持 command `cwd`，`workspace_verifier.py` 会按 route plan 聚合执行。
 - memory 需要区分 workspace 级事实和子项目级事实，避免把服务器、后台、客户端结论混成一个不可检索的大摘要。
 - SubAgent 的 artifact 必须带 route binding，否则后续无法判断它是否越权改了其他项目。
-- 代码审核的最终 gate 优先使用 `codex xhigh review --uncommitted`；大 diff 可让 SubAgent 作为并行命令执行器运行该 gate。通用 SubAgent reviewer 只做 route-bound 或专题辅助审查。
+- 代码审核的最终 gate 优先使用 `codex xhigh review --uncommitted`；大 diff 或长耗时审查优先让 XHigh Review Runner SubAgent 作为并行命令执行器运行该 gate，等待策略按 stdout/stderr 和状态进度观察，不再套固定总时长。通用 SubAgent reviewer 只做 route-bound 或专题辅助审查。
 
 ## 2.2 Schema 契约与字段命名
 
@@ -571,7 +571,7 @@ codex workspace game-client init --engine unity --project-cwd client
 | `route` | 已实现。给定任务、working set 或 diff，输出 route plan，不执行修改 |
 | `verify` | 已实现最小版。按 route plan 聚合验证 profile，支持缺失 profile 记录 gap |
 | `bind` | 已实现。把 route plan 转换成 SubAgent route bindings，不自动启动 SubAgent |
-| `schedule` | 已实现。根据 route plan/bindings 生成 coordinator/specialist dispatch plan，不启动真实 agent |
+| `schedule` | 已实现。根据 route plan/bindings 生成 coordinator/specialist dispatch plan 和 `host_spawn_requests`，不由插件自行启动真实 agent |
 | `scope-check` | 已实现。检查 touched paths 是否越过 assigned/denied scope |
 | `summarize` | 已实现。汇总 SubAgent artifact、同文件冲突、scope 违规和 verification gap |
 | `game-client` | 已实现。生成 Unity、LayaBox/LayaAir、Cocos Creator verification profile 模板 |
@@ -618,7 +618,7 @@ codex workspace game-client init --engine unity --project-cwd client
 - checkpoint 带 `project_id`、`domain`、`scope`、`verification_profile_ids`。
 - coordinator 汇总结果。
 
-当前状态：已完成 route binding 生成、scope guard、coordinator summary 和 dispatch plan 生成的最小运行时；`before_task` 会写入 route plan/bindings，`after_tool` 会按 touched paths 重算 route 并执行 scope guard，`before_response` 会输出 routing review。尚未实现自动启动/调度真实 SubAgent。
+当前状态：已完成 route binding 生成、scope guard、coordinator summary 和 dispatch plan 生成的最小运行时；`before_task` 会写入 route plan/bindings、`subagent_runtime` 决策，并在显式、route policy、复杂/应用级任务、xhigh review gate 或通用自动判断命中时写入 `subagent_dispatch_plan.host_spawn_requests`。`route policy` 可从 `.codex/harness/project_profile.json` 或 `.codex/harness/workspace-routing.json` 的 `subagent_runtime_policy` 注入 route plan，让单项目正式 implementation 任务也能持久化授权宿主 SubAgent 派发；通用 planner 会按 `task_intent`、`task_type`、`risk_level`、route 数量、scope 大小和复杂度决定普通小修是否留在主 Agent、功能/系统/发布任务是否派发 worker，以及是否额外加入 `Route Review Specialist`；`after_tool` 会按 touched paths 重算 route、记录 route-bound/SubAgent-style artifact 并执行 scope guard；`before_response` 会输出 routing review 和 runtime decision。插件自身尚未实现自动启动/调度真实 SubAgent；用户明确选择、项目 policy 授权、通用 planner 判定需要派发且宿主支持时，由主 agent 消费 host spawn requests 调用宿主 SubAgent。
 
 ### 阶段 F：游戏客户端 profile 模板与诊断 release gate
 

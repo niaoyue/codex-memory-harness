@@ -11,6 +11,18 @@
     "scanner",
     "fallback"
   ],
+  "subagent_runtime_policy": {
+    "execution_model": "host_subagent_or_manual",
+    "autostart": false,
+    "task_types": [
+      "implementation"
+    ],
+    "risk_levels": [
+      "medium",
+      "high"
+    ],
+    "reason": "Workspace policy authorizes Harness SubAgent dispatch for implementation tasks when the host supports it."
+  },
   "diagnostic_logging": {
     "default_allowed": false,
     "release_must_be_disabled": true,

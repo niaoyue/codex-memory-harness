@@ -9,8 +9,21 @@ from typing import Any
 from workspace_path_utils import normalize_path
 
 
-RELEASE_TEXT_WORDS = ("release", "publish", "hotfix", "hot update", "发版", "发布", "热更", "渠道包")
-RELEASE_TEXT_PHRASES = ("release build", "build release", "production build", "发版构建", "发布构建")
+RELEASE_TEXT_WORDS = ("release", "publish", "hotfix", "发版", "发布", "热更", "渠道包", "提包")
+RELEASE_TEXT_PHRASES = (
+    "release build",
+    "build release",
+    "production build",
+    "hot update",
+    "hot update release",
+    "release hot update",
+    "发版构建",
+    "发布构建",
+    "热更发布",
+    "发布热更",
+    "正式热更",
+    "热更包",
+)
 RELEASE_PATH_TOKENS = {"release", "publish", "hotfix", "build"}
 
 
@@ -100,6 +113,8 @@ def git_output_paths(workspace_root: Path, command: list[str]) -> list[str]:
             cwd=workspace_root,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=15,
             check=False,
         )

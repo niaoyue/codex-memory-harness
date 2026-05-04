@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from init_storage import PROJECT_MARKERS, ensure_storage_layout, resolve_storage_paths
+from codex_config_status import inspect_codex_config
 from official_memory_status import codex_home, inspect_official_memory
 
 
@@ -40,6 +41,16 @@ SHARED_MEMORY_INDEX = {
     "version": 1,
     "description": "Reviewable project shared memory index. Rebuild when promote tooling is available.",
     "entries": [],
+}
+DEFAULT_SUBAGENT_RUNTIME_POLICY = {
+    "execution_model": "host_subagent_or_manual",
+    "autostart": False,
+    "task_types": ["implementation"],
+    "risk_levels": ["medium", "high"],
+    "reason": (
+        "Project policy authorizes Harness SubAgent dispatch for normal implementation tasks "
+        "when the host supports it."
+    ),
 }
 
 
@@ -172,6 +183,7 @@ def _profile_config(plugin_root: Path, project_root: Path) -> dict[str, Any]:
         "name": project_root.name,
         "project_root": str(project_root),
         "default_memory_scope": "project",
+        "subagent_runtime_policy": dict(DEFAULT_SUBAGENT_RUNTIME_POLICY),
         "harness": {
             "task_spec_dir": ".codex/harness/tasks",
             "artifact_policy": "record structured tool summaries, not raw sensitive output",
@@ -194,6 +206,23 @@ def _ensure_file(path: Path, payload: dict[str, Any], actions: list[dict[str, An
         return
     _write_json(path, payload)
     actions.append({"action": "create_file", "path": str(path)})
+
+
+def _ensure_profile_policy(path: Path, actions: list[dict[str, Any]]) -> None:
+    if not path.exists():
+        return
+    try:
+        profile = _read_json(path)
+    except (OSError, json.JSONDecodeError, ValueError):
+        actions.append({"action": "skip_invalid_json", "path": str(path)})
+        return
+    harness = profile.get("harness") if isinstance(profile.get("harness"), dict) else {}
+    if isinstance(profile.get("subagent_runtime_policy"), dict) or isinstance(harness.get("subagent_runtime_policy"), dict):
+        actions.append({"action": "keep_existing_subagent_runtime_policy", "path": str(path)})
+        return
+    profile["subagent_runtime_policy"] = dict(DEFAULT_SUBAGENT_RUNTIME_POLICY)
+    _write_json(path, profile)
+    actions.append({"action": "add_subagent_runtime_policy", "path": str(path)})
 
 
 def _ensure_text_file(path: Path, content: str, actions: list[dict[str, Any]]) -> None:
@@ -226,7 +255,9 @@ def init_project(project_root: Path, plugin_root: Path) -> list[dict[str, Any]]:
     harness_dir.mkdir(parents=True, exist_ok=True)
     actions.append({"action": "ensure_directory", "path": str(harness_dir)})
     _ensure_file(harness_dir / "commands.json", _command_config(plugin_root, project_root), actions)
-    _ensure_file(harness_dir / "project_profile.json", _profile_config(plugin_root, project_root), actions)
+    profile_path = harness_dir / "project_profile.json"
+    _ensure_file(profile_path, _profile_config(plugin_root, project_root), actions)
+    _ensure_profile_policy(profile_path, actions)
     _ensure_shared_memory_template(project_root, actions)
     return actions
 
@@ -249,6 +280,7 @@ def inspect_state(cwd: Path, *, init: bool) -> dict[str, Any]:
     harness_dir = selected_project / ".codex" / "harness" if selected_project else None
 
     official_memory = inspect_official_memory(HOME)
+    codex_config = inspect_codex_config(HOME, plugin_root=plugin_root)
     home_agents = _home_agents_path()
     harness_global_memory = _harness_global_memory_path()
 
@@ -307,6 +339,25 @@ def inspect_state(cwd: Path, *, init: bool) -> dict[str, Any]:
         )
     if not official_memory.get("config_parse_ok", True):
         recommendations.append("官方 Codex config.toml 解析失败；doctor 已跳过官方 Memories 开关判断。")
+    if not codex_config.get("config_parse_ok", True):
+        recommendations.append("官方 Codex config.toml 解析失败；doctor 已跳过 native hooks/MCP/sandbox 对齐检查。")
+    native_alignment = codex_config.get("native_alignment") if isinstance(codex_config.get("native_alignment"), dict) else {}
+    if native_alignment.get("needs_codex_hooks_feature"):
+        recommendations.append("建议在官方 Codex config.toml 中启用 [features] codex_hooks = true，让插件 hooks 走官方生命周期。")
+    plugin_hooks = codex_config.get("plugin_hooks") if isinstance(codex_config.get("plugin_hooks"), dict) else {}
+    if plugin_hooks.get("missing_recommended_events"):
+        recommendations.append(
+            "插件 hooks.json 缺少官方生命周期事件："
+            + ", ".join(plugin_hooks["missing_recommended_events"])
+            + "；请更新插件或重新安装。"
+        )
+    if native_alignment.get("high_risk_unattended_permissions"):
+        recommendations.append(
+            "当前 Codex sandbox_mode=danger-full-access 且 approval_policy=never；日常交互建议改为带审批的工作区写入配置。"
+        )
+    agents_override = codex_config.get("agents_override") if isinstance(codex_config.get("agents_override"), dict) else {}
+    if agents_override.get("may_override_global_agents"):
+        recommendations.append("检测到官方 AGENTS.override.md；它可能覆盖全局 Codex Memory 规则，请确认其中保留必要入口。")
 
     return {
         "ok": ok,
@@ -323,6 +374,9 @@ def inspect_state(cwd: Path, *, init: bool) -> dict[str, Any]:
             "recommended_scope": "project" if selected_project else "global",
             "storage": storage.as_dict(),
             "official_codex": official_memory,
+        },
+        "codex": {
+            "native_integration": codex_config,
         },
         "checks": checks,
         "actions": actions,

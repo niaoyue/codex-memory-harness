@@ -24,7 +24,6 @@ import build_release
 import codex_bootstrap
 import init_storage
 import install_support
-import install_codex_memory
 import memory_store
 import retrieval_store
 import run_demo_flow
@@ -49,68 +48,6 @@ class BuildReleaseTests(unittest.TestCase):
         self.assertFalse(any(name.endswith("events.jsonl") for name in names))
         self.assertIn("templates/project/.codex/harness/commands.json", names)
         self.assertIn("templates/project/.codex/shared/README.md", names)
-
-
-class InstallerTests(unittest.TestCase):
-    def test_remove_home_plugin_can_remove_current_entry_when_uninstalling(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            home_plugin = Path(temp_dir) / "codex-memory"
-            home_plugin.mkdir()
-            (home_plugin / "marker.txt").write_text("installed", encoding="utf-8")
-
-            with mock.patch.object(install_codex_memory, "_plugin_root", return_value=home_plugin):
-                kept = install_codex_memory._remove_existing_home_plugin(home_plugin)
-                self.assertFalse(kept["removed"])
-                self.assertEqual(kept["reason"], "already_current")
-                self.assertTrue(home_plugin.exists())
-
-                removed = install_codex_memory._remove_existing_home_plugin(
-                    home_plugin,
-                    remove_current=True,
-                )
-
-            self.assertTrue(removed["removed"])
-            self.assertEqual(removed["mode"], "backup")
-            self.assertFalse(home_plugin.exists())
-            self.assertTrue(Path(str(removed["backup_path"])).exists())
-
-    def test_home_plugin_install_reports_current_as_already_installed(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            home_plugin = Path(temp_dir) / "codex-memory"
-            home_plugin.mkdir()
-
-            with (
-                mock.patch.object(install_codex_memory, "_plugin_root", return_value=home_plugin),
-                mock.patch.object(install_codex_memory, "_home_plugin_path", return_value=home_plugin),
-            ):
-                result = install_codex_memory._ensure_home_plugin_install(
-                    "auto",
-                    update_existing=False,
-                )
-
-        self.assertEqual(result["status"], "already_installed")
-        self.assertFalse(result["created"])
-
-    def test_home_plugin_install_does_not_replace_other_install_without_update(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            temp_root = Path(temp_dir)
-            plugin_root = temp_root / "current" / "codex-memory"
-            home_plugin = temp_root / "home" / "codex-memory"
-            plugin_root.mkdir(parents=True)
-            home_plugin.mkdir(parents=True)
-
-            with (
-                mock.patch.object(install_codex_memory, "_plugin_root", return_value=plugin_root),
-                mock.patch.object(install_codex_memory, "_home_plugin_path", return_value=home_plugin),
-            ):
-                result = install_codex_memory._ensure_home_plugin_install(
-                    "auto",
-                    update_existing=False,
-                )
-
-            self.assertEqual(result["status"], "installed_elsewhere")
-            self.assertIn("-UpdateExisting", result["recommended_action"])
-            self.assertTrue(home_plugin.exists())
 
 
 class LauncherEntrypointTests(unittest.TestCase):
@@ -141,6 +78,12 @@ class LauncherEntrypointTests(unittest.TestCase):
         self.assertIn("codex harness verify run --profile primary", block)
         self.assertIn("codex package verify", block)
         self.assertIn("codex xhigh review --uncommitted", block)
+        self.assertIn("timeout 只能作为本次观察窗口", block)
+        self.assertIn("不得仅因观察窗口到期而中断", block)
+        self.assertIn("stdout/stderr 进度输出观察", block)
+        self.assertIn("subagent_dispatch_plan.host_spawn_requests", block)
+        self.assertIn("host_dispatch_allowed=true", block)
+        self.assertIn("复杂/应用级/多阶段实现", block)
         self.assertIn("codex memory hook before_task", block)
         self.assertIn(".codex\\codex-memory-harness\\memories", block)
         self.assertIn("官方 Codex Memories", block)
@@ -154,6 +97,12 @@ class LauncherEntrypointTests(unittest.TestCase):
         self.assertIn("function Invoke-HarnessCommand", launcher)
         self.assertIn("function Invoke-PackageCommand", launcher)
         self.assertIn("function Resolve-CodexReviewAlias", launcher)
+        self.assertIn("review_gate_runner.py", launcher)
+        self.assertIn("--idle-seconds", launcher)
+        self.assertIn("$ReviewGateIdleSeconds = 1800", launcher)
+        self.assertIn("--max-seconds", launcher)
+        self.assertIn('"0"', launcher)
+        self.assertIn('@("Application", "ExternalScript")', launcher)
         self.assertIn('model_reasoning_effort=`"$effort`"', launcher)
         self.assertIn("codex xhigh review --uncommitted", launcher)
         self.assertIn("codex workspace schedule", launcher)
@@ -161,6 +110,16 @@ class LauncherEntrypointTests(unittest.TestCase):
         self.assertIn('"verify"', launcher)
         self.assertIn('"harness"', launcher)
         self.assertIn('"hook"', launcher)
+        self.assertIn("function Resolve-PythonRuntime", launcher)
+        self.assertIn("python3", launcher)
+        self.assertNotIn("& py -X utf8", launcher)
+
+    def test_install_script_passes_selected_python_runtime_to_mcp_config(self) -> None:
+        installer = (PROJECT_ROOT / "install.ps1").read_text(encoding="utf-8")
+
+        self.assertIn("--mcp-python-command", installer)
+        self.assertIn("$PythonRuntime.Name", installer)
+        self.assertIn("--mcp-python-prefix-arg", installer)
 
     def test_launcher_respects_disable_wrapper_before_memory_dispatch(self) -> None:
         launcher = (PLUGIN_SCRIPTS_DIR / "codexm.ps1").read_text(encoding="utf-8")
@@ -352,6 +311,42 @@ class BootstrapTests(unittest.TestCase):
             for name in ("decisions", "facts", "workflows", "routes"):
                 self.assertTrue((shared_dir / name / ".gitkeep").exists())
             self.assertTrue(any(item["path"] == str(shared_dir) for item in actions))
+            profile = json.loads((project_root / ".codex" / "harness" / "project_profile.json").read_text(encoding="utf-8"))
+            self.assertEqual(profile["subagent_runtime_policy"]["execution_model"], "host_subagent_or_manual")
+
+    def test_init_project_adds_missing_subagent_runtime_policy_to_existing_profile(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            project_root = Path(temp_dir)
+            harness_dir = project_root / ".codex" / "harness"
+            harness_dir.mkdir(parents=True)
+            (harness_dir / "project_profile.json").write_text('{"version": 1}\n', encoding="utf-8")
+            actions = codex_bootstrap.init_project(project_root, PROJECT_ROOT / "plugins" / "codex-memory")
+
+            profile = json.loads((harness_dir / "project_profile.json").read_text(encoding="utf-8"))
+
+        self.assertEqual(profile["subagent_runtime_policy"]["execution_model"], "host_subagent_or_manual")
+        self.assertTrue(any(item["action"] == "add_subagent_runtime_policy" for item in actions))
+
+    def test_init_project_keeps_existing_nested_subagent_runtime_policy(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            project_root = Path(temp_dir)
+            harness_dir = project_root / ".codex" / "harness"
+            harness_dir.mkdir(parents=True)
+            nested_policy = {
+                "execution_model": "main_agent_serial",
+                "reason": "Nested profile disables SubAgent runtime.",
+            }
+            (harness_dir / "project_profile.json").write_text(
+                json.dumps({"version": 1, "harness": {"subagent_runtime_policy": nested_policy}}, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            actions = codex_bootstrap.init_project(project_root, PROJECT_ROOT / "plugins" / "codex-memory")
+
+            profile = json.loads((harness_dir / "project_profile.json").read_text(encoding="utf-8"))
+
+        self.assertNotIn("subagent_runtime_policy", profile)
+        self.assertEqual(profile["harness"]["subagent_runtime_policy"], nested_policy)
+        self.assertTrue(any(item["action"] == "keep_existing_subagent_runtime_policy" for item in actions))
 
     def test_doctor_is_not_ready_when_home_plugin_points_elsewhere(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

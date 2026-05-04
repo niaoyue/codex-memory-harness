@@ -9,11 +9,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from codex_config_status import ensure_codex_config, inspect_codex_config
 from install_support import (
     AGENTS_END,
     AGENTS_START,
     PROFILE_END,
     PROFILE_START,
+    dependency_status,
     ensure_agents,
     ensure_profile,
     home_agents_path,
@@ -21,7 +23,10 @@ from install_support import (
     profile_statuses,
     read_text,
     remove_marked_block,
+    select_mcp_python_runtime,
 )
+from mcp_config import ensure_mcp_config as _ensure_mcp_config
+from mcp_config import mcp_config as _mcp_config
 
 
 PLUGIN_NAME = "codex-memory"
@@ -251,6 +256,8 @@ def _check_state() -> dict[str, Any]:
     home_marketplace = _home_marketplace_path()
     plugin_root = _plugin_root()
     home_plugin = _home_plugin_path()
+    dependencies = dependency_status()
+    codex_config = inspect_codex_config(plugin_root=plugin_root)
     def _has_entry(path: Path) -> bool:
         if not path.exists():
             return False
@@ -262,7 +269,9 @@ def _check_state() -> dict[str, Any]:
         "plugin_files": {
             "manifest": (plugin_root / ".codex-plugin" / "plugin.json").exists(),
             "mcp": (plugin_root / ".mcp.json").exists(),
+            "mcp_launcher": (plugin_root / "scripts" / "mcp_launcher.ps1").exists(),
             "hooks": (plugin_root / "hooks.json").exists(),
+            "hook_launcher": (plugin_root / "scripts" / "hook_launcher.ps1").exists(),
             "hook_bridge": (plugin_root / "scripts" / "hook_bridge.py").exists(),
         },
         "repo_marketplace": {
@@ -287,6 +296,10 @@ def _check_state() -> dict[str, Any]:
             "mentions_memory": "Codex Memory" in read_text(home_agents_path()),
         },
         "powershell_profiles": profile_statuses("all"),
+        "codex_config": codex_config,
+        "dependencies": dependencies,
+        "missing_dependencies": dependencies["missing"],
+        "dependency_recommendations": dependencies["recommendations"],
     }
 
 
@@ -297,9 +310,17 @@ def install(
     *,
     install_agents: bool,
     update_existing: bool,
+    mcp_python_command: str | None = None,
+    mcp_python_prefix_args: list[str] | None = None,
 ) -> dict[str, Any]:
     result: dict[str, Any] = {"scope": scope, "mode": mode}
+    mcp_runtime = select_mcp_python_runtime(mcp_python_command, mcp_python_prefix_args)
     if scope in ("repo", "all"):
+        result["mcp_config"] = _ensure_mcp_config(
+            _plugin_root(),
+            python_command=mcp_runtime["command"],
+            python_prefix_args=mcp_runtime["prefix_args"],
+        )
         result["repo_marketplace"] = _upsert_marketplace_entry(
             _repo_marketplace_path(),
             default_name="codex-memory-harness",
@@ -312,10 +333,17 @@ def install(
             update_existing=update_existing,
         )
         if result["home_plugin"].get("status") == "installed_elsewhere":
+            result["codex_config"] = {"skipped": True, "reason": "installed_elsewhere"}
             result["home_marketplace"] = {"skipped": True, "reason": "installed_elsewhere"}
             result["home_agents"] = {"skipped": True, "reason": "installed_elsewhere"}
             result["powershell_profiles"] = []
         else:
+            result["codex_config"] = ensure_codex_config(plugin_root=_plugin_root())
+            result["mcp_config"] = _ensure_mcp_config(
+                _home_plugin_path(),
+                python_command=mcp_runtime["command"],
+                python_prefix_args=mcp_runtime["prefix_args"],
+            )
             result["home_marketplace"] = _upsert_marketplace_entry(
                 _home_marketplace_path(),
                 default_name="local-user-plugins",
@@ -389,6 +417,17 @@ def main() -> int:
         help="Update an existing ~/plugins/codex-memory that points at another source.",
     )
     parser.add_argument(
+        "--mcp-python-command",
+        default=None,
+        help="Python command to write into .mcp.json.",
+    )
+    parser.add_argument(
+        "--mcp-python-prefix-arg",
+        action="append",
+        default=None,
+        help="Prefix argument for the MCP Python command. Repeat for multiple args.",
+    )
+    parser.add_argument(
         "--uninstall",
         action="store_true",
         help="Remove marketplace entries and marked launcher/global-rules blocks.",
@@ -411,6 +450,8 @@ def main() -> int:
             args.profile_shells,
             install_agents=not args.skip_agents,
             update_existing=args.update_existing or args.replace_existing,
+            mcp_python_command=args.mcp_python_command,
+            mcp_python_prefix_args=args.mcp_python_prefix_arg,
         )
 
     print(json.dumps(result, ensure_ascii=False, indent=2))

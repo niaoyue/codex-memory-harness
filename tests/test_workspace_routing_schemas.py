@@ -21,6 +21,7 @@ SCHEMA_FILES = [
     "workspace_project_inventory.schema.json",
     "workspace_route_plan.schema.json",
     "subagent_route_binding.schema.json",
+    "subagent_dispatch_plan.schema.json",
     "verification_aggregation.schema.json",
     "workspace_routing_config.schema.json",
 ]
@@ -39,14 +40,25 @@ class WorkspaceRoutingSchemaTests(unittest.TestCase):
         inventory = _read_json(PROJECT_ROOT / "schemas" / "workspace_project_inventory.schema.json")
         route_plan = _read_json(PROJECT_ROOT / "schemas" / "workspace_route_plan.schema.json")
         binding = _read_json(PROJECT_ROOT / "schemas" / "subagent_route_binding.schema.json")
+        dispatch = _read_json(PROJECT_ROOT / "schemas" / "subagent_dispatch_plan.schema.json")
         aggregation = _read_json(PROJECT_ROOT / "schemas" / "verification_aggregation.schema.json")
         routing_config = _read_json(PROJECT_ROOT / "schemas" / "workspace_routing_config.schema.json")
 
         self.assertIn("projects", inventory["required"])
         self.assertIn("routes", route_plan["required"])
         self.assertIn("confidence", route_plan["required"])
+        self.assertIn("requirements_gate", route_plan["properties"])
+        self.assertNotIn("requirements_gate", route_plan["required"])
+        self.assertIn("subagent_runtime_policy", route_plan["properties"])
+        self.assertNotIn("subagent_runtime_policy", route_plan["required"])
         self.assertIn("assigned_scope", binding["required"])
         self.assertIn("artifact_policy", binding["required"])
+        self.assertIn("host_spawn_requests", dispatch["required"])
+        spawn = dispatch["$defs"]["host_spawn_request"]
+        self.assertIn("total_timeout_policy", spawn["required"])
+        self.assertEqual(spawn["properties"]["total_timeout_policy"]["enum"], ["none"])
+        self.assertIn("poll_only_never_interrupt", spawn["properties"]["observation_window_policy"]["enum"])
+        self.assertEqual(spawn["properties"]["no_fixed_total_timeout"]["const"], True)
         self.assertIn("overall_status", aggregation["required"])
         self.assertIn("verification_plan", aggregation["required"])
         gate_properties = aggregation["$defs"]["gate_result"]["properties"]
@@ -57,6 +69,8 @@ class WorkspaceRoutingSchemaTests(unittest.TestCase):
         self.assertIn("memory_binding", route_plan["$defs"])
         self.assertIn("memory_binding", binding["$defs"])
         self.assertIn("$schema", routing_config["properties"])
+        self.assertIn("subagent_runtime_policy", routing_config["properties"])
+        self.assertIn("subagent_runtime_policy", routing_config["$defs"]["project_config"]["properties"])
 
     def test_workspace_routing_template_matches_schema_entrypoint(self) -> None:
         template = _read_json(
@@ -72,6 +86,8 @@ class WorkspaceRoutingSchemaTests(unittest.TestCase):
         self.assertEqual(template["version"], 1)
         self.assertIn("projects", template)
         self.assertIn("fallback", template)
+        self.assertIn("subagent_runtime_policy", template)
+        self.assertEqual(template["subagent_runtime_policy"]["execution_model"], "host_subagent_or_manual")
         project_ids = [project["id"] for project in template["projects"]]
         self.assertEqual(len(project_ids), len(set(project_ids)))
 
@@ -99,6 +115,47 @@ class WorkspaceRoutingSchemaTests(unittest.TestCase):
         for name in SCHEMA_FILES:
             self.assertIn(f"schemas/{name}", names)
         self.assertIn("templates/project/.codex/harness/workspace-routing.json", names)
+
+    def test_blocking_requirements_gate_uses_schema_fallback_action_value(self) -> None:
+        schema = _read_json(PROJECT_ROOT / "schemas" / "workspace_route_plan.schema.json")
+        plan = {
+            "version": 1,
+            "task_id": "blocking-gate",
+            "mode": "single_project",
+            "affected_projects": ["unity-client"],
+            "routes": [],
+            "risk_level": "medium",
+            "requirements_gate": {
+                "version": 1,
+                "task_intent": "feature_story",
+                "status": "needs_clarification",
+                "blocking": True,
+                "requirement_sources": [],
+                "missing": [{"field": "acceptance_criteria", "reason": "missing"}],
+                "open_questions": ["本任务完成后按哪些验收条件判断通过？"],
+                "assumptions_policy": "Ask first.",
+                "technical_decision_policy": "Follow existing conventions.",
+            },
+            "confidence": 0.9,
+            "reasons": ["test"],
+            "fallback_action": "ask_user",
+        }
+
+        self.assert_route_plan_contract_accepts(schema, plan)
+
+    def assert_route_plan_contract_accepts(self, schema: dict[str, object], plan: dict[str, object]) -> None:
+        self.assertFalse(set(schema["required"]) - set(plan))
+        self.assertIn(plan["fallback_action"], schema["properties"]["fallback_action"]["enum"])
+        if "subagent_runtime_policy" in plan:
+            policy_schema = schema["$defs"]["subagent_runtime_policy"]
+            policy = plan["subagent_runtime_policy"]
+            self.assertFalse(set(policy_schema["required"]) - set(policy))
+            self.assertIn(policy["execution_model"], policy_schema["properties"]["execution_model"]["enum"])
+        gate_schema = schema["$defs"]["requirements_gate"]
+        gate = plan["requirements_gate"]
+        self.assertFalse(set(gate_schema["required"]) - set(gate))
+        self.assertIn(gate["task_intent"], gate_schema["properties"]["task_intent"]["enum"])
+        self.assertIn(gate["status"], gate_schema["properties"]["status"]["enum"])
 
 
 def _read_json(path: Path) -> dict[str, object]:

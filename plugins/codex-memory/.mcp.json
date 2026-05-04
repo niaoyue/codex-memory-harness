@@ -1,11 +1,13 @@
 {
   "mcpServers": {
     "codex-memory": {
-      "command": "py",
+      "command": "powershell",
       "args": [
-        "-X",
-        "utf8",
-        "./mcp/memory_server.py",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "./scripts/mcp_launcher.ps1",
         "--stdio",
         "--memory-scope",
         "project"

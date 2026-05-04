@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import json
 import sys
 import tempfile
 import unittest
@@ -17,6 +18,7 @@ if str(PLUGIN_SCRIPTS_DIR) not in sys.path:
 import init_storage
 import install_support
 import codex_bootstrap
+import codex_config_status
 import official_memory_status
 
 
@@ -163,6 +165,14 @@ class OfficialMemoryCompatibilityTests(unittest.TestCase):
 
         self.assertIn(str(codex_home / "memories"), block)
         self.assertIn(str(codex_home / "codex-memory-harness" / "memories"), block)
+        self.assertIn("subagent_dispatch_plan.host_spawn_requests", block)
+        self.assertIn("host_dispatch_allowed=true", block)
+        self.assertIn("复杂/应用级/多阶段实现", block)
+        self.assertIn("subagent_runtime_policy", block)
+        self.assertIn("正式 implementation 任务", block)
+        self.assertIn("timeout 只能作为本次观察窗口", block)
+        self.assertIn("不得仅因观察窗口到期而中断", block)
+        self.assertIn("本地创建一个 git commit", block)
         self.assertEqual(agents_path, codex_home / "AGENTS.md")
 
     def test_bootstrap_doctor_reads_agents_from_codex_home(self) -> None:
@@ -203,6 +213,224 @@ class OfficialMemoryCompatibilityTests(unittest.TestCase):
         self.assertTrue(result["checks"]["home_agents_mentions_cli_entrypoints"])
         self.assertFalse(
             any("codex memory doctor/init" in item for item in result["recommendations"])
+        )
+
+    def test_codex_config_status_reports_native_alignment_gaps(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            old_codex_home = os.environ.get("CODEX_HOME")
+            codex_home = Path(temp_dir) / "codex-home"
+            codex_home.mkdir()
+            (codex_home / "config.toml").write_text(
+                'sandbox_mode = "danger-full-access"\napproval_policy = "never"\n',
+                encoding="utf-8",
+            )
+            plugin_root = Path(temp_dir) / "plugin"
+            plugin_root.mkdir()
+            (plugin_root / "hooks.json").write_text(
+                '{"hooks": {"PostToolUse": []}}',
+                encoding="utf-8",
+            )
+            try:
+                os.environ["CODEX_HOME"] = str(codex_home)
+                status = codex_config_status.inspect_codex_config(plugin_root=plugin_root)
+            finally:
+                _restore_env("CODEX_HOME", old_codex_home)
+
+        self.assertFalse(status["codex_hooks_enabled"])
+        self.assertTrue(status["native_alignment"]["needs_codex_hooks_feature"])
+        self.assertTrue(status["native_alignment"]["needs_hook_event_update"])
+        self.assertTrue(status["native_alignment"]["high_risk_unattended_permissions"])
+        self.assertEqual(
+            status["plugin_hooks"]["missing_recommended_events"],
+            ["UserPromptSubmit", "PostToolUse", "Stop"],
+        )
+
+    def test_codex_config_status_accepts_recommended_hook_coverage(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            old_codex_home = os.environ.get("CODEX_HOME")
+            codex_home = Path(temp_dir) / "codex-home"
+            codex_home.mkdir()
+            (codex_home / "config.toml").write_text(
+                "[features]\ncodex_hooks = true\n\n[mcp_servers.codex-memory]\ncommand = \"py\"\n",
+                encoding="utf-8",
+            )
+            plugin_root = Path(temp_dir) / "plugin"
+            plugin_root.mkdir()
+            command_hook = {"hooks": [{"type": "command", "command": "py hook_bridge.py"}]}
+            (plugin_root / "hooks.json").write_text(
+                json.dumps({"hooks": {
+                    "UserPromptSubmit": [command_hook],
+                    "PostToolUse": [command_hook],
+                    "Stop": [command_hook],
+                }}),
+                encoding="utf-8",
+            )
+            try:
+                os.environ["CODEX_HOME"] = str(codex_home)
+                status = codex_config_status.inspect_codex_config(plugin_root=plugin_root)
+            finally:
+                _restore_env("CODEX_HOME", old_codex_home)
+
+        self.assertTrue(status["codex_hooks_enabled"])
+        self.assertTrue(status["codex_memory_mcp_configured"])
+        self.assertTrue(status["plugin_hooks"]["covers_recommended_events"])
+        self.assertTrue(status["native_alignment"]["ok"])
+
+    def test_codex_config_status_rejects_empty_hook_event_lists(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            old_codex_home = os.environ.get("CODEX_HOME")
+            codex_home = Path(temp_dir) / "codex-home"
+            codex_home.mkdir()
+            (codex_home / "config.toml").write_text(
+                "[features]\ncodex_hooks = true\n",
+                encoding="utf-8",
+            )
+            plugin_root = Path(temp_dir) / "plugin"
+            plugin_root.mkdir()
+            (plugin_root / "hooks.json").write_text(
+                '{"hooks": {"UserPromptSubmit": [], "PostToolUse": [], "Stop": []}}',
+                encoding="utf-8",
+            )
+            try:
+                os.environ["CODEX_HOME"] = str(codex_home)
+                status = codex_config_status.inspect_codex_config(plugin_root=plugin_root)
+            finally:
+                _restore_env("CODEX_HOME", old_codex_home)
+
+        self.assertFalse(status["plugin_hooks"]["covers_recommended_events"])
+        self.assertEqual(
+            status["plugin_hooks"]["missing_recommended_events"],
+            ["UserPromptSubmit", "PostToolUse", "Stop"],
+        )
+        self.assertTrue(status["native_alignment"]["needs_hook_event_update"])
+
+    def test_ensure_codex_config_enables_hooks_feature(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            old_codex_home = os.environ.get("CODEX_HOME")
+            codex_home = Path(temp_dir) / "codex-home"
+            try:
+                os.environ["CODEX_HOME"] = str(codex_home)
+                result = codex_config_status.ensure_codex_config()
+                status = codex_config_status.inspect_codex_config()
+                text = (codex_home / "config.toml").read_text(encoding="utf-8")
+            finally:
+                _restore_env("CODEX_HOME", old_codex_home)
+
+        self.assertTrue(result["modified"])
+        self.assertTrue(status["codex_hooks_enabled"])
+        self.assertIn("[features]", text)
+        self.assertIn("codex_hooks = true", text)
+
+    def test_ensure_codex_config_updates_existing_features_section(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            old_codex_home = os.environ.get("CODEX_HOME")
+            codex_home = Path(temp_dir) / "codex-home"
+            codex_home.mkdir()
+            config_path = codex_home / "config.toml"
+            config_path.write_text(
+                'sandbox_mode = "workspace-write"\n\n[features]\nmemories = true\ncodex_hooks = false\n',
+                encoding="utf-8",
+            )
+            try:
+                os.environ["CODEX_HOME"] = str(codex_home)
+                result = codex_config_status.ensure_codex_config()
+                status = codex_config_status.inspect_codex_config()
+                text = config_path.read_text(encoding="utf-8")
+            finally:
+                _restore_env("CODEX_HOME", old_codex_home)
+
+        self.assertTrue(result["modified"])
+        self.assertTrue(status["codex_hooks_enabled"])
+        self.assertIn('sandbox_mode = "workspace-write"', text)
+        self.assertIn("memories = true", text)
+        self.assertIn("codex_hooks = true", text)
+        self.assertNotIn("codex_hooks = false", text)
+
+    def test_ensure_codex_config_preserves_existing_dotted_features_table(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            old_codex_home = os.environ.get("CODEX_HOME")
+            codex_home = Path(temp_dir) / "codex-home"
+            codex_home.mkdir()
+            config_path = codex_home / "config.toml"
+            config_path.write_text(
+                'sandbox_mode = "workspace-write"\nfeatures.memories = true\n',
+                encoding="utf-8",
+            )
+            try:
+                os.environ["CODEX_HOME"] = str(codex_home)
+                result = codex_config_status.ensure_codex_config()
+                status = codex_config_status.inspect_codex_config()
+                text = config_path.read_text(encoding="utf-8")
+            finally:
+                _restore_env("CODEX_HOME", old_codex_home)
+
+        self.assertTrue(result["modified"])
+        self.assertEqual(result["error"], "")
+        self.assertTrue(status["codex_hooks_enabled"])
+        self.assertIn("features.memories = true", text)
+        self.assertIn("features.codex_hooks = true", text)
+        self.assertNotIn("[features]", text)
+
+    def test_ensure_codex_config_does_not_rewrite_invalid_toml(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            old_codex_home = os.environ.get("CODEX_HOME")
+            codex_home = Path(temp_dir) / "codex-home"
+            codex_home.mkdir()
+            config_path = codex_home / "config.toml"
+            original = "[features\ncodex_hooks = false\n"
+            config_path.write_text(original, encoding="utf-8")
+            try:
+                os.environ["CODEX_HOME"] = str(codex_home)
+                result = codex_config_status.ensure_codex_config()
+                text = config_path.read_text(encoding="utf-8")
+            finally:
+                _restore_env("CODEX_HOME", old_codex_home)
+
+        self.assertFalse(result["modified"])
+        self.assertTrue(result["error"])
+        self.assertEqual(text, original)
+
+    def test_bootstrap_doctor_recommends_official_hook_enablement(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            old_codex_home = os.environ.get("CODEX_HOME")
+            temp_root = Path(temp_dir)
+            codex_home = temp_root / "codex-home"
+            codex_home.mkdir()
+            (codex_home / "config.toml").write_text(
+                'sandbox_mode = "danger-full-access"\napproval_policy = "never"\n',
+                encoding="utf-8",
+            )
+            (codex_home / "AGENTS.md").write_text(
+                "Codex Memory\ncodex memory doctor\n",
+                encoding="utf-8",
+            )
+            project_root = temp_root / "project"
+            (project_root / ".codex" / "memories").mkdir(parents=True)
+            harness_dir = project_root / ".codex" / "harness"
+            harness_dir.mkdir(parents=True)
+            (harness_dir / "commands.json").write_text("{}", encoding="utf-8")
+            (harness_dir / "project_profile.json").write_text("{}", encoding="utf-8")
+            home_marketplace = temp_root / "marketplace.json"
+            home_marketplace.write_text(
+                '{"plugins": [{"name": "codex-memory"}]}',
+                encoding="utf-8",
+            )
+            try:
+                os.environ["CODEX_HOME"] = str(codex_home)
+                with (
+                    mock.patch.object(codex_bootstrap, "HOME_PLUGIN", codex_bootstrap._plugin_root()),
+                    mock.patch.object(codex_bootstrap, "HOME_MARKETPLACE", home_marketplace),
+                ):
+                    result = codex_bootstrap.inspect_state(project_root, init=False)
+            finally:
+                _restore_env("CODEX_HOME", old_codex_home)
+
+        self.assertFalse(result["codex"]["native_integration"]["codex_hooks_enabled"])
+        self.assertTrue(
+            any("codex_hooks" in item for item in result["recommendations"])
+        )
+        self.assertTrue(
+            any("danger-full-access" in item for item in result["recommendations"])
         )
 
 

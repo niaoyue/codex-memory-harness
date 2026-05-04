@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "local://codex-memory-harness/schemas/subagent_dispatch_plan.schema.json",
+  "title": "SubAgent Dispatch Plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "task_id",
+    "status",
+    "execution_model",
+    "autostart",
+    "host_spawn_requests",
+    "items",
+    "completion_gate"
+  ],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "task_id": {
+      "type": "string"
+    },
+    "route_plan_id": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string"
+    },
+    "execution_model": {
+      "type": "string",
+      "enum": [
+        "host_subagent_or_manual"
+      ]
+    },
+    "autostart": {
+      "type": "boolean",
+      "const": false
+    },
+    "host_spawn_requests": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/host_spawn_request"
+      }
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/dispatch_item"
+      }
+    },
+    "completion_gate": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "host_spawn_request": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "dispatch_id",
+        "role",
+        "agent_type",
+        "message",
+        "total_timeout_policy",
+        "observation_window_policy",
+        "no_fixed_total_timeout"
+      ],
+      "properties": {
+        "dispatch_id": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        },
+        "agent_type": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "wait_policy": {
+          "type": "string",
+          "enum": [
+            "progress_output_observation"
+          ]
+        },
+        "idle_policy": {
+          "type": "string",
+          "enum": [
+            "stdout_stderr_no_progress_only",
+            "progress_signal_observation_only"
+          ]
+        },
+        "total_timeout_policy": {
+          "type": "string",
+          "enum": [
+            "none"
+          ]
+        },
+        "observation_window_policy": {
+          "type": "string",
+          "enum": [
+            "poll_only_never_interrupt"
+          ]
+        },
+        "no_fixed_total_timeout": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    },
+    "dispatch_item": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "dispatch_id",
+        "role",
+        "status",
+        "prompt"
+      ],
+      "properties": {
+        "dispatch_id": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "prompt": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

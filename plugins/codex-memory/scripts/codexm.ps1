@@ -22,31 +22,87 @@ $WorkspaceRouterScript = Join-Path $ScriptRoot "workspace_router.py"
 $WorkspaceVerifierScript = Join-Path $ScriptRoot "workspace_verifier.py"
 $WorkspaceSubagentsScript = Join-Path $ScriptRoot "workspace_subagents.py"
 $SubagentSchedulerScript = Join-Path $ScriptRoot "subagent_scheduler.py"
+$ReviewGateScript = Join-Path $ScriptRoot "review_gate_runner.py"
 $GameClientProfilesScript = Join-Path $ScriptRoot "game_client_profiles.py"
+$HookBridgeScript = Join-Path $ScriptRoot "hook_bridge.py"
+$RequiredPythonMajor = 3
+$RequiredPythonMinor = 11
+$ReviewGateIdleSeconds = 1800
+$script:ResolvedPythonRuntime = $null
+
+function Get-PythonVersion {
+    param([Parameter(Mandatory = $true)][pscustomobject]$Runtime)
+    $probeArgs = @($Runtime.PrefixArgs) + @("-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')")
+    $versionText = & $Runtime.Command @probeArgs 2>$null
+    if ($LASTEXITCODE -ne 0 -or -not $versionText) { return $null }
+    return ($versionText | Select-Object -First 1).Trim()
+}
+
+function Test-PythonVersion {
+    param([Parameter(Mandatory = $true)][string]$VersionText)
+    $parts = $VersionText.Split(".")
+    if ($parts.Count -lt 2) { return $false }
+    try { $major = [int]$parts[0]; $minor = [int]$parts[1] } catch { return $false }
+    return ($major -gt $RequiredPythonMajor) -or ($major -eq $RequiredPythonMajor -and $minor -ge $RequiredPythonMinor)
+}
+
+function Resolve-PythonRuntime {
+    if ($script:ResolvedPythonRuntime) { return $script:ResolvedPythonRuntime }
+    $candidates = @([pscustomobject]@{ Name = "py"; PrefixArgs = @("-3") }, [pscustomobject]@{ Name = "python"; PrefixArgs = @() }, [pscustomobject]@{ Name = "python3"; PrefixArgs = @() })
+    $detected = @()
+    foreach ($candidate in $candidates) {
+        $command = Get-Command $candidate.Name -ErrorAction SilentlyContinue | Select-Object -First 1
+        if (-not $command) { continue }
+        $runtime = [pscustomobject]@{ Command = if ($command.Source) { $command.Source } else { $command.Name }; PrefixArgs = @($candidate.PrefixArgs) }
+        $version = Get-PythonVersion -Runtime $runtime
+        if ($version) { $detected += "$($candidate.Name) $version" }
+        if ($version -and (Test-PythonVersion -VersionText $version)) {
+            $script:ResolvedPythonRuntime = [pscustomobject]@{ Command = $runtime.Command; PrefixArgs = $runtime.PrefixArgs; Detected = $detected }
+            return $script:ResolvedPythonRuntime
+        }
+    }
+    return [pscustomobject]@{ Command = $null; PrefixArgs = @(); Detected = $detected }
+}
+
+function Write-PythonDependencyHint {
+    param([string[]]$Detected = @())
+    Write-Host "Python 3.11 or newer is required to run Codex Memory commands." -ForegroundColor Yellow
+    if ($Detected.Count -gt 0) { Write-Host "Detected Python command(s): $($Detected -join ', ')" }
+    Write-Host "Install Python, then rerun the command."
+    Write-Host "Windows winget: winget install Python.Python.3.12"
+    Write-Host "Manual installer: https://www.python.org/downloads/windows/"
+    Write-Host "During manual installation, enable 'Add python.exe to PATH'."
+}
+
+function Require-PythonRuntime {
+    $runtime = Resolve-PythonRuntime
+    if (-not $runtime.Command) {
+        Write-PythonDependencyHint -Detected $runtime.Detected
+        if ($runtime.Detected.Count -gt 0) { exit 126 }
+        exit 127
+    }
+    return $runtime
+}
+
+function Invoke-PythonScriptCapture {
+    param([Parameter(Mandatory = $true)][string]$ScriptPath, [string[]]$Arguments = @())
+    $runtime = Require-PythonRuntime
+    $pythonArgs = @($runtime.PrefixArgs) + @("-X", "utf8", $ScriptPath) + @($Arguments)
+    $output = & $runtime.Command @pythonArgs
+    return [pscustomobject]@{ Output = $output; ExitCode = $LASTEXITCODE }
+}
 
 function Invoke-PythonScriptAndExit {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$ScriptPath,
-        [string[]]$Arguments = @()
-    )
-
-    & py -X utf8 $ScriptPath @Arguments
+    param([Parameter(Mandatory = $true)][string]$ScriptPath, [string[]]$Arguments = @())
+    $runtime = Require-PythonRuntime
+    $pythonArgs = @($runtime.PrefixArgs) + @("-X", "utf8", $ScriptPath) + @($Arguments)
+    & $runtime.Command @pythonArgs
     exit $LASTEXITCODE
 }
 
 function Resolve-RepoScript {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$ScriptName,
-        [Parameter(Mandatory = $true)]
-        [string]$Cwd
-    )
-
-    $candidates = @(
-        (Join-Path $Cwd "scripts\$ScriptName"),
-        (Join-Path $RepoRoot "scripts\$ScriptName")
-    )
+    param([Parameter(Mandatory = $true)][string]$ScriptName, [Parameter(Mandatory = $true)][string]$Cwd)
+    $candidates = @((Join-Path $Cwd "scripts\$ScriptName"), (Join-Path $RepoRoot "scripts\$ScriptName"))
     foreach ($candidate in $candidates) {
         if (Test-Path -LiteralPath $candidate -PathType Leaf) {
             return $candidate
@@ -59,26 +115,12 @@ function Resolve-RepoScript {
 function Write-MemoryHelp {
     @"
 Codex Memory 命令：
-  codex memory doctor              诊断当前项目 memory/harness 接入状态。
-  codex memory init                初始化缺失的 .codex memory/harness/shared 文件。
-  codex memory install [...]        安装或修复当前插件接入；已安装当前版本时只提示已安装。
-  codex memory update [...]         将已有旧安装更新到当前插件版本。
-  codex memory check-install       检查全局插件、profile 和 marketplace 接入。
-  codex memory uninstall [...]      移除 marketplace/profile/全局规则接入。
-  codex memory hook <event> [...]   执行 memory 生命周期 hook 事件。
+  codex memory doctor/init/install/update/check-install/uninstall
+  codex memory hook <event> [...]
   codex memory promote --task-id <task-id> [--kind fact]
-  codex memory shared validate
-  codex memory shared index rebuild
-
-兼容别名：
-  codex harness ...                执行 harness 生命周期与验证命令。
-  codex package ...                执行本仓库打包与健康检查。
-  codex workspace ...              执行只读 workspace 扫描与诊断。
-  codex xhigh review --uncommitted 转发为非交互 codex review，并设置 xhigh reasoning。
-  codex memory verify ...          兼容旧入口，等同于 codex harness verify ...
-  codex memory harness ...         兼容旧入口，等同于 codex harness ...
-  codex-memory-doctor              等同于 codex memory doctor。
-  codexm memory ...                通过显式 wrapper 执行同一组命令。
+  codex memory shared validate|index rebuild
+兼容别名：codex harness/package/workspace ...；codex xhigh review --uncommitted；codex-memory-doctor；codexm memory ...
+常用：codex workspace schedule；codex workspace game-client
 "@
 }
 
@@ -105,23 +147,13 @@ Codex Package 命令：
 function Write-WorkspaceHelp {
     @"
 Codex Workspace 命令：
-  codex workspace doctor           只读扫描 workspace，输出 project inventory 和建议。
-  codex workspace scan             只读输出 workspace project inventory。
-  codex workspace route [...]      只读生成 route plan，不执行修改或验证。
-  codex workspace verify [...]     按 route plan 聚合验证结果。
-  codex workspace bind [...]       生成 SubAgent route binding，不启动 SubAgent。
-  codex workspace schedule [...]   自动生成 SubAgent dispatch plan。
-  codex workspace scope-check [...] 检查 touched paths 是否越过 binding scope。
-  codex workspace summarize [...]  汇总 SubAgent artifact、冲突和验证 gap。
-  codex workspace game-client init --engine unity|laya|cocos
+  doctor|scan|route|verify|bind|schedule|scope-check|summarize
+  game-client init --engine unity|laya|cocos
 "@
 }
 
 function Invoke-MemoryCommand {
-    param(
-        [string[]]$Arguments = @()
-    )
-
+    param([string[]]$Arguments = @())
     $cwd = (Get-Location).ProviderPath
     if ($Arguments.Count -eq 0 -or $Arguments[0] -in @("help", "-h", "--help")) {
         Write-MemoryHelp
@@ -129,10 +161,7 @@ function Invoke-MemoryCommand {
     }
 
     $command = $Arguments[0].ToLowerInvariant()
-    $remaining = @()
-    if ($Arguments.Count -gt 1) {
-        $remaining = $Arguments[1..($Arguments.Count - 1)]
-    }
+    $remaining = if ($Arguments.Count -gt 1) { $Arguments[1..($Arguments.Count - 1)] } else { @() }
 
     switch ($command) {
         "doctor" {
@@ -167,16 +196,11 @@ function Invoke-MemoryCommand {
                 Write-Error "缺少 hook event。运行 'codex memory help' 查看用法。"
                 exit 64
             }
-            if ($remaining[0].StartsWith("-")) {
-                $scriptArgs = $remaining
-            } else {
-                $hookRest = @()
-                if ($remaining.Count -gt 1) {
-                    $hookRest = $remaining[1..($remaining.Count - 1)]
-                }
-                $scriptArgs = @("--event", $remaining[0]) + $hookRest
-            }
+            if ($remaining[0].StartsWith("-")) { $scriptArgs = $remaining } else { $hookRest = if ($remaining.Count -gt 1) { $remaining[1..($remaining.Count - 1)] } else { @() }; $scriptArgs = @("--event", $remaining[0]) + $hookRest }
             Invoke-PythonScriptAndExit -ScriptPath $HookScript -Arguments $scriptArgs
+        }
+        "codex-hook" {
+            Invoke-PythonScriptAndExit -ScriptPath $HookBridgeScript -Arguments $remaining
         }
         "promote" {
             Invoke-PythonScriptAndExit -ScriptPath $SharedMemoryScript -Arguments (@("--project-root", $cwd, "promote") + $remaining)
@@ -198,10 +222,7 @@ function Invoke-MemoryCommand {
 }
 
 function Invoke-HarnessCommand {
-    param(
-        [string[]]$Arguments = @()
-    )
-
+    param([string[]]$Arguments = @())
     $cwd = (Get-Location).ProviderPath
     if ($Arguments.Count -eq 0 -or $Arguments[0] -in @("help", "-h", "--help")) {
         Write-HarnessHelp
@@ -209,10 +230,7 @@ function Invoke-HarnessCommand {
     }
 
     $command = $Arguments[0].ToLowerInvariant()
-    $remaining = @()
-    if ($Arguments.Count -gt 1) {
-        $remaining = $Arguments[1..($Arguments.Count - 1)]
-    }
+    $remaining = if ($Arguments.Count -gt 1) { $Arguments[1..($Arguments.Count - 1)] } else { @() }
 
     switch ($command) {
         "start" {
@@ -235,10 +253,7 @@ function Invoke-HarnessCommand {
 }
 
 function Invoke-PackageCommand {
-    param(
-        [string[]]$Arguments = @()
-    )
-
+    param([string[]]$Arguments = @())
     $cwd = (Get-Location).ProviderPath
     if ($Arguments.Count -eq 0 -or $Arguments[0] -in @("help", "-h", "--help")) {
         Write-PackageHelp
@@ -246,10 +261,7 @@ function Invoke-PackageCommand {
     }
 
     $command = $Arguments[0].ToLowerInvariant()
-    $remaining = @()
-    if ($Arguments.Count -gt 1) {
-        $remaining = $Arguments[1..($Arguments.Count - 1)]
-    }
+    $remaining = if ($Arguments.Count -gt 1) { $Arguments[1..($Arguments.Count - 1)] } else { @() }
 
     switch ($command) {
         "build" {
@@ -272,10 +284,7 @@ function Invoke-PackageCommand {
 }
 
 function Invoke-WorkspaceCommand {
-    param(
-        [string[]]$Arguments = @()
-    )
-
+    param([string[]]$Arguments = @())
     $cwd = (Get-Location).ProviderPath
     if ($Arguments.Count -eq 0 -or $Arguments[0] -in @("help", "-h", "--help")) {
         Write-WorkspaceHelp
@@ -283,10 +292,7 @@ function Invoke-WorkspaceCommand {
     }
 
     $command = $Arguments[0].ToLowerInvariant()
-    $remaining = @()
-    if ($Arguments.Count -gt 1) {
-        $remaining = $Arguments[1..($Arguments.Count - 1)]
-    }
+    $remaining = if ($Arguments.Count -gt 1) { $Arguments[1..($Arguments.Count - 1)] } else { @() }
 
     switch ($command) {
         "doctor" {
@@ -320,43 +326,22 @@ function Invoke-WorkspaceCommand {
 }
 
 function Invoke-Bootstrap {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string[]]$Arguments
-    )
-
-    $output = & py -X utf8 $BootstrapScript @Arguments
-    $exitCode = $LASTEXITCODE
-    $text = ($output | Out-String).Trim()
+    param([Parameter(Mandatory = $true)][string[]]$Arguments)
+    $result = Invoke-PythonScriptCapture -ScriptPath $BootstrapScript -Arguments $Arguments
+    $text = ($result.Output | Out-String).Trim()
     $json = $null
-    if ($text) {
-        try {
-            $json = $text | ConvertFrom-Json
-        } catch {
-            $json = $null
-        }
-    }
-    return [pscustomobject]@{
-        ExitCode = $exitCode
-        Text = $text
-        Json = $json
-    }
+    if ($text) { try { $json = $text | ConvertFrom-Json } catch { $json = $null } }
+    return [pscustomobject]@{ ExitCode = $result.ExitCode; Text = $text; Json = $json }
 }
 
 function Find-RealCodex {
     $commands = Get-Command codex -All -ErrorAction SilentlyContinue
-    foreach ($command in $commands) {
-        if ($command.CommandType -in @("Application", "ExternalScript")) {
-            return $command.Source
-        }
-    }
+    foreach ($type in @("Application", "ExternalScript")) { foreach ($command in $commands) { if ($command.CommandType -eq $type) { return $command.Source } } }
     return $null
 }
 
 function Invoke-RealCodex {
-    param(
-        [string[]]$Arguments
-    )
+    param([string[]]$Arguments)
 
     $codex = Find-RealCodex
     if (-not $codex) {
@@ -369,58 +354,34 @@ function Invoke-RealCodex {
 }
 
 function Resolve-CodexReviewAlias {
-    param(
-        [string[]]$Arguments
-    )
-
-    if ($Arguments.Count -lt 2) {
-        return $Arguments
-    }
+    param([string[]]$Arguments)
+    if ($Arguments.Count -lt 2) { return $Arguments }
 
     $effort = $Arguments[0].ToLowerInvariant()
     $command = $Arguments[1].ToLowerInvariant()
-    if ($command -ne "review") {
-        return $Arguments
-    }
-    if (@("low", "medium", "high", "xhigh") -notcontains $effort) {
-        return $Arguments
-    }
+    if ($command -ne "review") { return $Arguments }
+    if (@("low", "medium", "high", "xhigh") -notcontains $effort) { return $Arguments }
 
-    $tail = @()
-    if ($Arguments.Count -gt 2) {
-        $tail = $Arguments[2..($Arguments.Count - 1)]
-    }
+    $tail = if ($Arguments.Count -gt 2) { $Arguments[2..($Arguments.Count - 1)] } else { @() }
     return @("review", "-c", "model_reasoning_effort=`"$effort`"") + $tail
 }
 
 function Set-MemoryEnvironment {
     param($Doctor)
 
-    if ($null -eq $Doctor -or $null -eq $Doctor.recommended_env) {
-        return
-    }
+    if ($null -eq $Doctor -or $null -eq $Doctor.recommended_env) { return }
     $scope = [string]$Doctor.recommended_env.CODEX_MEMORY_SCOPE
     $cwd = [string]$Doctor.recommended_env.CODEX_MEMORY_CWD
-    if ($scope) {
-        $env:CODEX_MEMORY_SCOPE = $scope
-    }
-    if ($cwd) {
-        $env:CODEX_MEMORY_CWD = $cwd
-    }
+    if ($scope) { $env:CODEX_MEMORY_SCOPE = $scope }
+    if ($cwd) { $env:CODEX_MEMORY_CWD = $cwd }
 }
 
 function Should-InitProject {
     param($Doctor)
 
-    if ($InitProject) {
-        return $true
-    }
-    if ($null -eq $Doctor -or $null -eq $Doctor.project -or $null -eq $Doctor.checks) {
-        return $false
-    }
-    if (-not [bool]$Doctor.project.detected) {
-        return $false
-    }
+    if ($InitProject) { return $true }
+    if ($null -eq $Doctor -or $null -eq $Doctor.project -or $null -eq $Doctor.checks) { return $false }
+    if (-not [bool]$Doctor.project.detected) { return $false }
     return (-not [bool]$Doctor.checks.project_memory_exists) -or
         (-not [bool]$Doctor.checks.project_commands_exists) -or
         (-not [bool]$Doctor.checks.project_profile_exists) -or
@@ -431,62 +392,42 @@ function Should-InitProject {
 $cwd = (Get-Location).ProviderPath
 $doctorResult = $null
 
-if ($env:CODEX_MEMORY_DISABLE_WRAPPER -eq "1") {
-    Invoke-RealCodex -Arguments $CodexArgs
-}
+if ($env:CODEX_MEMORY_DISABLE_WRAPPER -eq "1") { Invoke-RealCodex -Arguments $CodexArgs }
 
 if ($CodexArgs.Count -gt 0 -and $CodexArgs[0].ToLowerInvariant() -eq "memory") {
-    $memoryArgs = @()
-    if ($CodexArgs.Count -gt 1) {
-        $memoryArgs = $CodexArgs[1..($CodexArgs.Count - 1)]
-    }
+    $memoryArgs = if ($CodexArgs.Count -gt 1) { $CodexArgs[1..($CodexArgs.Count - 1)] } else { @() }
     Invoke-MemoryCommand -Arguments $memoryArgs
 }
 
 if ($CodexArgs.Count -gt 0 -and $CodexArgs[0].ToLowerInvariant() -eq "harness") {
-    $harnessArgs = @()
-    if ($CodexArgs.Count -gt 1) {
-        $harnessArgs = $CodexArgs[1..($CodexArgs.Count - 1)]
-    }
+    $harnessArgs = if ($CodexArgs.Count -gt 1) { $CodexArgs[1..($CodexArgs.Count - 1)] } else { @() }
     Invoke-HarnessCommand -Arguments $harnessArgs
 }
 
 if ($CodexArgs.Count -gt 0 -and $CodexArgs[0].ToLowerInvariant() -eq "package") {
-    $packageArgs = @()
-    if ($CodexArgs.Count -gt 1) {
-        $packageArgs = $CodexArgs[1..($CodexArgs.Count - 1)]
-    }
+    $packageArgs = if ($CodexArgs.Count -gt 1) { $CodexArgs[1..($CodexArgs.Count - 1)] } else { @() }
     Invoke-PackageCommand -Arguments $packageArgs
 }
 
 if ($CodexArgs.Count -gt 0 -and $CodexArgs[0].ToLowerInvariant() -eq "workspace") {
-    $workspaceArgs = @()
-    if ($CodexArgs.Count -gt 1) {
-        $workspaceArgs = $CodexArgs[1..($CodexArgs.Count - 1)]
-    }
+    $workspaceArgs = if ($CodexArgs.Count -gt 1) { $CodexArgs[1..($CodexArgs.Count - 1)] } else { @() }
     Invoke-WorkspaceCommand -Arguments $workspaceArgs
 }
 
 if (-not $SkipBootstrap) {
     $doctorResult = Invoke-Bootstrap -Arguments @("--cwd", $cwd, "--doctor")
     if ($DoctorOnly) {
-        if ($doctorResult.Text) {
-            Write-Output $doctorResult.Text
-        }
+        if ($doctorResult.Text) { Write-Output $doctorResult.Text }
         exit $doctorResult.ExitCode
     }
 
     if (Should-InitProject -Doctor $doctorResult.Json) {
         $initResult = Invoke-Bootstrap -Arguments @("--cwd", $cwd, "--init-project")
-        if ($VerboseBootstrap -and $initResult.Text) {
-            Write-Host $initResult.Text
-        }
+        if ($VerboseBootstrap -and $initResult.Text) { Write-Host $initResult.Text }
         $doctorResult = Invoke-Bootstrap -Arguments @("--cwd", $cwd, "--doctor")
     }
 
-    if ($VerboseBootstrap -and $doctorResult.Text) {
-        Write-Host $doctorResult.Text
-    }
+    if ($VerboseBootstrap -and $doctorResult.Text) { Write-Host $doctorResult.Text }
 
     Set-MemoryEnvironment -Doctor $doctorResult.Json
     if ($doctorResult.ExitCode -ne 0) {
@@ -494,4 +435,10 @@ if (-not $SkipBootstrap) {
     }
 }
 
+if ($CodexArgs.Count -ge 2 -and $CodexArgs[1].ToLowerInvariant() -eq "review" -and @("low", "medium", "high", "xhigh") -contains $CodexArgs[0].ToLowerInvariant()) {
+    $tail = if ($CodexArgs.Count -gt 2) { $CodexArgs[2..($CodexArgs.Count - 1)] } else { @() }
+    $realCodex = Find-RealCodex
+    if (-not $realCodex) { Write-Error "Unable to find the real codex command in PATH."; exit 127 }
+    Invoke-PythonScriptAndExit -ScriptPath $ReviewGateScript -Arguments (@("--codex", $realCodex, "--effort", $CodexArgs[0].ToLowerInvariant(), "--idle-seconds", "$ReviewGateIdleSeconds", "--max-seconds", "0", "--cwd", $cwd, "--") + $tail)
+}
 Invoke-RealCodex -Arguments (Resolve-CodexReviewAlias -Arguments $CodexArgs)

@@ -16,7 +16,7 @@
 - 为不同 SubAgent 绑定 project、domain、cwd、scope、rules 和 verification profile ids。
 - 支持 coordinator 汇总跨项目契约、验证结果、冲突和发布顺序。
 - 支持 AI 诊断日志统一开关，开发期可临时开启，release 必须关闭。
-- 支持把 Codex CLI xhigh review gate 委托给 SubAgent 并行执行，但最终审核语义仍来自 `codex xhigh review --uncommitted`。
+- 支持把 Codex CLI xhigh review gate 委托给 XHigh Review Runner SubAgent 并行执行，按 stdout/stderr 和状态进度观察，不再套固定总时长；最终审核语义仍来自 `codex xhigh review --uncommitted`。
 - 支持多项目 verification aggregation，每个子项目可使用自己的 cwd 和 profile。
 - 支持 scope guard、敏感信息扫描、裸日志检查和 release gate。
 - 支持项目私有 memory、用户全局 memory、项目共享 memory 的分层写入。
@@ -55,10 +55,11 @@
 4. 各 SubAgent 只处理自己的项目和 scope。
 5. 需要运行反馈时，临时开启对应 scope 的 AI 诊断日志。
 6. 修改完成后自动聚合验证。
-7. 代码变更优先通过 `codex xhigh review --uncommitted` 做最终审核；大 diff 可由 SubAgent 作为命令执行器并行运行该 gate。
+7. 代码变更优先通过 `codex xhigh review --uncommitted` 做最终审核；大 diff 或长耗时审查优先由 XHigh Review Runner SubAgent 作为命令执行器并行运行该 gate，持续有输出时不按固定总时长失败，也不得再套任何外层总时长。
 8. Release gate 检查诊断日志关闭、敏感信息、scope 越权和构建边界。
-9. Codex 给出最终 summary、验证证据、发布顺序和回滚说明。
-10. 稳定结论写入项目私有 memory；可共享事实经 review 后提升到项目共享层。
+9. review findings 全部修复、最终 review gate 无阻断问题且验证通过后，Codex 创建本地 git commit 记录当前版本。
+10. Codex 给出最终 summary、验证证据、发布顺序和回滚说明。
+11. 稳定结论写入项目私有 memory；可共享事实经 review 后提升到项目共享层。
 
 ## 4. 总流程图
 
@@ -123,7 +124,8 @@ flowchart TD
   AH{"是否发布/提交就绪?"}
 
   AH -- "否" --> AI["输出未完成项和风险"]
-  AH -- "是" --> AJ["生成 summary / release notes / 回滚说明"]
+  AH -- "是" --> AI1["创建本地 git commit"]
+  AI1 --> AJ["生成 summary / release notes / 回滚说明"]
 
   AJ --> AK["写入项目私有 memory"]
   AK --> AL{"是否存在团队共享事实?"}
@@ -147,7 +149,8 @@ flowchart TD
 5. 把失败证据、日志摘要、touched paths 写入 checkpoint。
 6. 如果 touched paths 扩大到其他项目，回到 Task Router 重新路由。
 7. 如果验证通过，进入聚合验证和 gate。
-8. 对代码变更运行 `codex xhigh review --uncommitted`；大 diff 时可派发 SubAgent 执行该命令。SubAgent 自行审查只作为专题辅助，不替代 Codex CLI xhigh review gate。
+8. 对代码变更运行 `codex xhigh review --uncommitted`；大 diff 或长耗时审查优先派发 XHigh Review Runner SubAgent 执行该命令，按 stdout/stderr 和状态进度观察，不再套固定总时长。SubAgent 自行审查只作为专题辅助，不替代 Codex CLI xhigh review gate。
+9. review findings 全部修复、最终 review gate 无阻断问题且验证通过后，必须创建本地 git commit；若工作树包含用户无关改动，只提交本轮相关文件。
 
 ## 6. SubAgent 分工
 

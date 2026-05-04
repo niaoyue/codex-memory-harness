@@ -3,6 +3,18 @@
   "name": "<PROJECT_NAME>",
   "project_root": "<PROJECT_ROOT>",
   "default_memory_scope": "project",
+  "subagent_runtime_policy": {
+    "execution_model": "host_subagent_or_manual",
+    "autostart": false,
+    "task_types": [
+      "implementation"
+    ],
+    "risk_levels": [
+      "medium",
+      "high"
+    ],
+    "reason": "Project policy authorizes Harness SubAgent dispatch for normal implementation tasks when the host supports it."
+  },
   "harness": {
     "task_spec_dir": ".codex/harness/tasks",
     "artifact_policy": "record structured tool summaries, not raw sensitive output",

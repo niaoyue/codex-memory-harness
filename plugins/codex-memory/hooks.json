@@ -1,12 +1,34 @@
 {
   "hooks": {
+    "UserPromptSubmit": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/hook_launcher.ps1 --codex-event UserPromptSubmit"
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": ".*",
         "hooks": [
           {
             "type": "command",
-            "command": "py -X utf8 ./scripts/hook_bridge.py --codex-event PostToolUse"
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/hook_launcher.ps1 --codex-event PostToolUse"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/hook_launcher.ps1 --codex-event Stop"
           }
         ]
       }

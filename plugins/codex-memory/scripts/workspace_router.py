@@ -6,6 +6,8 @@ import os
 from pathlib import Path
 from typing import Any
 
+import requirements_gate
+import workspace_runtime_policy
 import workspace_scanner
 from workspace_routing_signals import (
     diagnostic_logging_policy,
@@ -20,8 +22,6 @@ from workspace_routing_signals import (
     project_diagnostic_policies,
     text_has_keyword,
 )
-
-
 DOMAIN_RULES = {
     "game_client": ["workspace/base", "game_client/base"],
     "game_server": ["workspace/base", "game_server/base"],
@@ -49,8 +49,6 @@ PROFILE_PRIORITY = {
     "docs": ("docs", "quick", "primary"),
     "implementation": ("quick", "primary"),
 }
-
-
 def build_route_plan(
     workspace_root: Path,
     task: dict[str, Any],
@@ -75,6 +73,9 @@ def build_route_plan(
     mode = route_mode(affected, signals)
     task_type = infer_task_type(signals)
     risk = risk_level(mode, signals)
+    requirement_review = requirements_gate.evaluate(
+        task, signals, mode=mode, task_type=task_type, risk_level=risk, domains=[str(project.get("domain") or "") for project in affected]
+    )
     confidence = min(0.96, max(score for _, score in scored) / 10)
     workspace_diagnostic = dict_value(config.get("diagnostic_logging"))
     project_diagnostics = project_diagnostic_policies(config)
@@ -90,7 +91,7 @@ def build_route_plan(
         for project in affected
     ]
 
-    return {
+    plan = {
         "version": 1,
         "task_id": str(task.get("task_id") or "workspace-route"),
         "route_plan_id": str(task.get("route_plan_id") or f"route-{task.get('task_id') or 'workspace-route'}"),
@@ -103,13 +104,15 @@ def build_route_plan(
         "coordinator_required": mode in {"cross_project_contract", "multi_project_parallel", "release_train"},
         "verification_profile_ids": flatten_profiles(route_entries),
         "contracts": contracts(mode, affected, signals),
+        "requirements_gate": requirement_review,
         "confidence": round(confidence, 2),
         "reasons": reasons(affected, signals, explicit_ids),
         "verification_plan": verification_plan(route_entries),
         "memory_plan": memory_plan(affected, mode),
         "coordination": coordination(mode, affected),
-        "fallback_action": "none",
+        "fallback_action": "ask_user" if requirement_review.get("blocking") else "none",
     }
+    return workspace_runtime_policy.apply_runtime_policy(workspace_root, plan, task, config=config)
 
 
 def inventory_projects(inventory: dict[str, Any]) -> list[dict[str, Any]]:
@@ -194,6 +197,9 @@ def score_projects(
 
 def unknown_plan(task: dict[str, Any], inventory: dict[str, Any], signals: dict[str, Any]) -> dict[str, Any]:
     profiles = fallback_profiles(inventory)
+    task_type = infer_task_type(signals)
+    risk = risk_level("unknown_low_confidence", signals)
+    requirement_review = requirements_gate.evaluate(task, signals, mode="unknown_low_confidence", task_type=task_type, risk_level=risk, domains=[])
     return {
         "version": 1,
         "task_id": str(task.get("task_id") or "workspace-route"),
@@ -201,14 +207,15 @@ def unknown_plan(task: dict[str, Any], inventory: dict[str, Any], signals: dict[
         "primary_project": None,
         "affected_projects": [],
         "routes": [],
-        "task_type": infer_task_type(signals),
-        "risk_level": risk_level("unknown_low_confidence", signals),
+        "task_type": task_type,
+        "risk_level": risk,
         "coordinator_required": False,
         "verification_profile_ids": profiles,
         "confidence": 0.2,
         "reasons": ["No explicit project, cwd, or changed path matched the project inventory."],
         "verification_plan": fallback_verification_plan(profiles),
-        "fallback_action": "readonly_analysis",
+        "requirements_gate": requirement_review,
+        "fallback_action": "ask_user" if requirement_review.get("blocking") else "readonly_analysis",
     }
 
 
@@ -454,12 +461,7 @@ def main() -> int:
     if args.working_set:
         task["working_set"] = string_list(task.get("working_set")) + args.working_set
 
-    route_plan = build_route_plan(
-        Path(args.workspace_root),
-        task,
-        changed=args.changed,
-        max_depth=max(args.max_depth, 0),
-    )
+    route_plan = build_route_plan(Path(args.workspace_root), task, changed=args.changed, max_depth=max(args.max_depth, 0))
     checkpoint_result = None
     if args.checkpoint and route_plan.get("task_id"):
         checkpoint_result = checkpoint_route_plan(Path(args.workspace_root), str(route_plan["task_id"]), route_plan)

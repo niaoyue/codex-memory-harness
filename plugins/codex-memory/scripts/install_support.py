@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import os
+import shutil
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -9,6 +12,8 @@ PROFILE_START = "# >>> codex-memory codexm launcher >>>"
 PROFILE_END = "# <<< codex-memory codexm launcher <<<"
 AGENTS_START = "<!-- >>> codex-memory-harness global >>> -->"
 AGENTS_END = "<!-- <<< codex-memory-harness global <<< -->"
+MIN_PYTHON_VERSION = (3, 11)
+DEFAULT_PY_LAUNCHER_PREFIX_ARGS = ["-3"]
 
 
 def home_root() -> Path:
@@ -48,6 +53,119 @@ def read_text(path: Path) -> str:
 def write_text(path: Path, value: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(value, encoding="utf-8")
+
+
+def dependency_status() -> dict[str, Any]:
+    python_ok = sys.version_info[:2] >= MIN_PYTHON_VERSION
+    py_launcher_path = shutil.which("py")
+    launchers = []
+    seen: set[str] = set()
+    for command in ("py", "python", "python3"):
+        path = shutil.which(command)
+        if not path:
+            continue
+        normalized = os.path.normcase(os.path.abspath(path))
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        launchers.append({"command": command, "path": path})
+
+    codex_path = shutil.which("codex")
+    powershell_commands = []
+    for command in ("pwsh", "powershell"):
+        path = shutil.which(command)
+        if path:
+            powershell_commands.append({"command": command, "path": path})
+
+    missing = []
+    recommendations = []
+    def _recommend(value: str) -> None:
+        if value not in recommendations:
+            recommendations.append(value)
+
+    python_hint = (
+        "Install Python 3.11+ and enable 'Add python.exe to PATH'; "
+        "on Windows you can run: winget install Python.Python.3.12"
+    )
+    py_hint = (
+        "Optional Windows Python launcher. Codex Memory hooks, wrappers, and MCP launcher also support "
+        "python or python3 when either command is on PATH."
+    )
+    if not python_ok:
+        missing.append("python>=3.11")
+        _recommend(python_hint)
+    if not launchers:
+        missing.append("python_launcher")
+        _recommend(python_hint)
+    if not codex_path:
+        missing.append("codex_cli")
+        _recommend("Install Codex CLI and make sure the codex command is on PATH.")
+    if not powershell_commands:
+        missing.append("powershell")
+        _recommend("Install PowerShell 7 with: winget install Microsoft.PowerShell")
+
+    return {
+        "python": {
+            "ok": python_ok,
+            "required": ">=3.11",
+            "version": ".".join(str(part) for part in sys.version_info[:3]),
+            "executable": sys.executable,
+            "launchers": launchers,
+            "install_hint": python_hint,
+        },
+        "py_launcher": {
+            "ok": bool(py_launcher_path),
+            "path": py_launcher_path or "",
+            "install_hint": py_hint,
+        },
+        "codex_cli": {
+            "ok": bool(codex_path),
+            "path": codex_path or "",
+            "install_hint": "Install Codex CLI and make sure the codex command is on PATH.",
+        },
+        "powershell": {
+            "ok": bool(powershell_commands),
+            "commands": powershell_commands,
+            "install_hint": "Install PowerShell 7 with: winget install Microsoft.PowerShell",
+        },
+        "missing": missing,
+        "recommendations": recommendations,
+    }
+
+
+def select_mcp_python_runtime(
+    command: str | None = None,
+    prefix_args: list[str] | None = None,
+) -> dict[str, Any]:
+    if command:
+        return {"command": command, "prefix_args": list(prefix_args or [])}
+    candidates = [
+        ("py", list(DEFAULT_PY_LAUNCHER_PREFIX_ARGS)),
+        ("python", []),
+        ("python3", []),
+    ]
+    for candidate, candidate_prefix_args in candidates:
+        if shutil.which(candidate) and _python_runtime_ok(candidate, candidate_prefix_args):
+            return {"command": candidate, "prefix_args": candidate_prefix_args}
+    return {"command": sys.executable, "prefix_args": []}
+
+
+def _python_runtime_ok(command: str, prefix_args: list[str]) -> bool:
+    probe = [command, *prefix_args, "-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"]
+    try:
+        completed = subprocess.run(probe, check=False, capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    if completed.returncode != 0:
+        return False
+    parts = completed.stdout.strip().split(".")
+    if len(parts) < 2:
+        return False
+    try:
+        version = (int(parts[0]), int(parts[1]))
+    except ValueError:
+        return False
+    return version >= MIN_PYTHON_VERSION
 
 
 def replace_marked_block(
@@ -108,10 +226,15 @@ def agents_block(home_plugin: Path) -> str:
 - 默认写入项目记忆：`<项目根目录>\\.codex\\memories`。
 - 只有跨项目偏好、长期通用规则、用户明确要求全局沉淀时，才写入全局记忆：`{global_memory}`。
 - 官方 Codex Memories 使用 `{official_memory}`；该目录保留给 Codex 官方自动记忆，不写入本插件的 SQLite/JSONL 运行态。
-- 不要求用户手动调用记忆命令；代理应在任务生命周期内自动调用 `before_task`、`after_tool`、`before_response`、`on_task_complete`。
+- 推荐优先通过官方 Codex config/hooks/MCP 接入；PowerShell wrapper 作为兼容入口、诊断入口和旧环境兜底。
+- 不要求用户手动调用记忆命令；官方 hooks 可用时自动桥接 `UserPromptSubmit`、`PostToolUse`、`Stop`，不可用时代理应在任务生命周期内自动调用 `before_task`、`after_tool`、`before_response`、`on_task_complete`。
+- `codex memory doctor` 会检查 `features.codex_hooks`、sandbox/approval、AGENTS.override、官方 Memories 和插件 hook 覆盖情况。
 - 插件不可用时必须降级为普通无记忆模式，并在最终答复的工具调用简报中说明局限。
 - 不得把敏感信息、密钥、令牌或内部链接写入记忆；写入前应做最小化摘要。
-- 代码审核优先使用 `codex xhigh review --uncommitted` 作为最终 review gate；大 diff 可让 SubAgent 作为并行命令执行器运行该 gate。通用 SubAgent reviewer 只做限定 scope 的专题/旁路审查。
+- 用户明确选择 SubAgent、分角色或并行代理，任务属于复杂/应用级/多阶段实现，项目 `.codex/harness/project_profile.json` / `.codex/harness/workspace-routing.json` 的 `subagent_runtime_policy` 授权正式 implementation 任务，或通用 planner 基于 `task_intent/task_type/risk_level/complexity` 判定需要派发时，代理必须读取 `metadata.workspace_routing.subagent_runtime` 与 `subagent_dispatch_plan.host_spawn_requests`；当 `host_dispatch_allowed=true` 且宿主提供 SubAgent 工具时，按请求派发宿主 SubAgent，否则记录降级原因并由主 Agent 串行执行。
+- 所有 SubAgent 都不得设置固定总时长；宿主 `wait_agent` 或类似 API 的 timeout 只能作为本次观察窗口，窗口到期后继续观察，不得仅因观察窗口到期而中断、关闭或判失败。只要 SubAgent 有输出、checkpoint、状态更新或可见进度，就视为仍在运行。
+- 代码审核优先使用 `codex xhigh review --uncommitted` 作为最终 review gate；大 diff 或长耗时审查优先派发 XHigh Review Runner SubAgent 作为并行命令执行器运行该 gate，等待策略按 stdout/stderr 进度输出观察，不使用固定总时长超时，也不得再用 10 分钟外层总时长包住 runner。通用 SubAgent reviewer 只做限定 scope 的专题/旁路审查。
+- 代码 review findings 全部修复、最终 review gate 无阻断问题且验证通过后，必须在本地创建一个 git commit 记录当前版本；若工作树包含用户无关改动，必须只提交本轮相关文件或先说明无法安全提交。
 
 ### 常用入口
 ```powershell

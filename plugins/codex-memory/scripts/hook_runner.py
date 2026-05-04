@@ -3,160 +3,30 @@ from __future__ import annotations
 import argparse
 import json
 import sqlite3
-import sys
 from contextlib import closing
-from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
 
 from context_builder import ContextBuilder
 from distillation_store import DistillationStore
+from hook_runner_utils import (
+    HOOK_EVENTS,
+    _build_fallback_context,
+    _default_task_id,
+    _load_payload,
+    _merge_dicts,
+    _merge_lists,
+    _result_task_id,
+    _safe_task_id,
+    _select_scope_bindings,
+    _string,
+    _string_list,
+    _utc_stamp,
+)
 import init_storage
 from memory_store import MemoryStore
 from retrieval_store import RetrievalEngine
-from sensitive_scan import sanitized_payload
 from workspace_artifact_filters import is_subagent_artifact
 import workspace_lifecycle
-
-
-HOOK_EVENTS = [
-    "on_session_start",
-    "before_task",
-    "after_tool",
-    "before_response",
-    "on_task_complete",
-]
-
-
-def _utc_stamp() -> str:
-    return datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
-
-
-def _string(value: Any) -> str:
-    if value is None:
-        return ""
-    if isinstance(value, str):
-        return value.strip()
-    return str(value).strip()
-
-
-def _string_list(value: Any) -> list[str]:
-    if value is None:
-        return []
-    if isinstance(value, str):
-        item = value.strip()
-        return [item] if item else []
-    if isinstance(value, (list, tuple, set)):
-        items = [str(item).strip() for item in value]
-        return [item for item in items if item]
-    return [str(value).strip()]
-
-
-def _merge_lists(base: list[str], extra: list[str]) -> list[str]:
-    seen = set()
-    merged: list[str] = []
-    for item in [*base, *extra]:
-        if not item or item in seen:
-            continue
-        seen.add(item)
-        merged.append(item)
-    return merged
-
-
-def _merge_dicts(base: Any, extra: Any) -> dict[str, Any]:
-    merged = base if isinstance(base, dict) else {}
-    merged = dict(merged)
-    if isinstance(extra, dict):
-        merged.update(extra)
-    return merged
-
-
-def _select_scope_bindings(bindings: Any, payload: dict[str, Any]) -> Any:
-    if not isinstance(bindings, list):
-        return bindings
-    specialists = [
-        item for item in bindings if isinstance(item, dict) and item.get("binding_mode") == "specialist"
-    ]
-    for key in ("binding_id", "subagent_id"):
-        value = _string(payload.get(key))
-        if value:
-            matched = [item for item in specialists if _string(item.get(key)) == value]
-            if matched:
-                return matched
-    project_id = _string(payload.get("project_id"))
-    if project_id:
-        matched = [item for item in specialists if _string(item.get("project_id")) == project_id]
-        if matched:
-            return matched
-    return bindings
-
-
-def _default_task_id() -> str:
-    return f"task-{_utc_stamp()}"
-
-
-def _safe_task_id(value: str | None) -> str | None:
-    if not value:
-        return value
-    try:
-        return str(sanitized_payload(value, context="task_id")).strip() or "task"
-    except Exception:
-        return "task"
-
-
-def _result_task_id(result: dict[str, Any], fallback: str | None) -> str | None:
-    state = result.get("task_state") if isinstance(result.get("task_state"), dict) else {}
-    context = result.get("context_pack") if isinstance(result.get("context_pack"), dict) else {}
-    return _string(state.get("task_id")) or _string(context.get("task_id")) or _safe_task_id(fallback)
-
-
-def _load_payload(payload_json: str | None, payload_file: str | None) -> dict[str, Any]:
-    if payload_json:
-        value = json.loads(payload_json)
-        if not isinstance(value, dict):
-            raise ValueError("payload_json must decode to an object.")
-        return value
-
-    if payload_file:
-        value = json.loads(Path(payload_file).read_text(encoding="utf-8"))
-        if not isinstance(value, dict):
-            raise ValueError("payload_file must contain a JSON object.")
-        return value
-
-    if not sys.stdin.isatty():
-        raw = sys.stdin.read().strip()
-        if raw:
-            value = json.loads(raw)
-            if not isinstance(value, dict):
-                raise ValueError("stdin payload must decode to an object.")
-            return value
-
-    return {}
-
-
-def _build_fallback_context(task_id: str | None, reason: str) -> dict[str, Any]:
-    return {
-        "task_id": task_id,
-        "budget": {
-            "total_chars": 0,
-            "task_state_chars": 0,
-            "summary_chars": 0,
-            "decisions_chars": 0,
-            "evidence_chars": 0,
-            "used_chars": 0,
-        },
-        "sections": [
-            {
-                "name": "fallback",
-                "title": "Fallback",
-                "content": f"Hook degraded: {reason}",
-                "chars_used": len(f"Hook degraded: {reason}"),
-                "truncated": False,
-            }
-        ],
-        "evidence_queries": [],
-        "rendered_context": f"Hook degraded: {reason}",
-    }
 
 
 class HookRunner:
@@ -228,17 +98,24 @@ class HookRunner:
             or _string(current_state.get("objective"))
         )
         metadata = _merge_dicts(current_state.get("metadata"), payload.get("metadata"))
-        workspace_routing = workspace_lifecycle.safe_workspace_routing(
-            task_id,
-            {
-                "objective": objective,
-                "working_set": _merge_lists(
-                    _string_list(current_state.get("working_set")),
-                    _string_list(payload.get("working_set")),
-                ),
-                "cwd": payload.get("cwd"),
-            },
-        )
+        routing_payload = {
+            "objective": objective,
+            "working_set": _merge_lists(
+                _string_list(current_state.get("working_set")),
+                _string_list(payload.get("working_set")),
+            ),
+            "cwd": payload.get("cwd"),
+            "metadata": metadata,
+        }
+        for field in ("use_subagents", "subagent_mode"):
+            if field in payload:
+                routing_payload[field] = payload[field]
+                metadata[field] = payload[field]
+        for field in workspace_lifecycle.requirement_task_fields():
+            if field in payload:
+                routing_payload[field] = payload[field]
+                metadata[field] = payload[field]
+        workspace_routing = workspace_lifecycle.safe_workspace_routing(task_id, routing_payload)
         if workspace_routing:
             metadata["workspace_routing"] = workspace_routing
         merged_payload = {
@@ -295,17 +172,13 @@ class HookRunner:
                 "working_set": _merge_lists(_string_list(current_state.get("working_set")), touched_paths),
                 "touched_paths": touched_paths,
                 "cwd": payload.get("cwd"),
+                "metadata": metadata,
             },
         )
         workspace_routing = dict(previous_routing) if previous_routing else adaptive_routing
         if workspace_routing:
             if previous_routing and adaptive_routing:
-                if isinstance(adaptive_routing.get("route_plan"), dict):
-                    workspace_routing["adaptive_route_plan"] = adaptive_routing["route_plan"]
-                if isinstance(adaptive_routing.get("bindings"), list):
-                    workspace_routing["adaptive_bindings"] = adaptive_routing["bindings"]
-                if adaptive_routing.get("degraded"):
-                    workspace_routing["adaptive_degraded"] = adaptive_routing
+                workspace_lifecycle.merge_adaptive_routing(workspace_routing, adaptive_routing)
             signals = payload.get("signals") if isinstance(payload.get("signals"), dict) else {}
             explicit_scope = any(_string(payload.get(key)) for key in ("binding_id", "subagent_id", "project_id"))
             scope_source_bindings = previous_bindings or workspace_routing.get("bindings")
@@ -314,13 +187,13 @@ class HookRunner:
             elif not scope_source_bindings and isinstance(adaptive_routing.get("bindings"), list):
                 scope_source_bindings = adaptive_routing["bindings"]
             if isinstance(signals.get("route_plan"), dict):
-                workspace_routing["route_plan"] = signals["route_plan"]
-                workspace_routing["bindings"] = workspace_lifecycle.create_bindings(signals["route_plan"])
+                workspace_lifecycle.apply_signal_route_plan(workspace_routing, signals["route_plan"], payload)
                 scope_source_bindings = workspace_routing["bindings"]
             if isinstance(signals.get("verification_aggregation"), dict):
                 workspace_routing["verification_aggregation"] = signals["verification_aggregation"]
             scope_bindings = _select_scope_bindings(scope_source_bindings, payload)
             if is_subagent_artifact(payload):
+                workspace_lifecycle.note_subagent_artifact(workspace_routing, payload)
                 next_scope_guard = workspace_lifecycle.safe_scope_guard(
                     scope_bindings,
                     touched_paths,
@@ -356,9 +229,41 @@ class HookRunner:
             max_total_chars=payload.get("max_total_chars"),
         )
         task_state = self.memory_store.get_task_state(resolved_task_id)
-        return {
+        result = {
             "context_pack": context_pack,
             "workspace_routing_review": workspace_lifecycle.routing_review(task_state),
+        }
+        if payload.get("writeback"):
+            result["writeback"] = self._write_response_memory(resolved_task_id, payload, task_state)
+        return result
+
+    def _write_response_memory(
+        self,
+        task_id: str | None,
+        payload: dict[str, Any],
+        task_state: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        resolved_task_id = task_id or self.memory_store.get_current_task_id() or _default_task_id()
+        summary_markdown = _string(payload.get("summary_markdown")) or _string(payload.get("summary"))
+        if not summary_markdown:
+            state = task_state or self.memory_store.get_task_state(resolved_task_id) or {}
+            lines = ["# Response Checkpoint", ""]
+            if state.get("objective"):
+                lines.append(f"- Objective: {state['objective']}")
+            lines.append(f"- Status: {state.get('status', 'open')}")
+            summary_markdown = "\n".join(lines)
+        summary = self.memory_store.write_task_summary(resolved_task_id, summary_markdown)
+        distillation_result = self.distillation_store.distill_task(
+            task_id=resolved_task_id,
+            queries=payload.get("queries"),
+            retrieval_mode=_string(payload.get("retrieval_mode")) or "auto",
+            max_total_chars=int(payload.get("max_total_chars", 2400)),
+        )
+        return {
+            "task_id": resolved_task_id,
+            "summary": summary,
+            "distillation_result": distillation_result,
+            "task_completed": False,
         }
 
     def _on_task_complete(self, task_id: str | None, payload: dict[str, Any]) -> dict[str, Any]:
