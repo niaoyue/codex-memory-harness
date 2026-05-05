@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import py_compile
 import subprocess
+import sys
 import tempfile
 import zipfile
 from pathlib import Path
@@ -15,17 +17,43 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 MAX_CODE_LINES = 500
 CODE_SUFFIXES = {".py", ".ps1", ".bat", ".sh"}
 JSON_SUFFIXES = {".json"}
+SKIPPED_DIR_NAMES = {
+    ".git",
+    "__pycache__",
+    "dist",
+    ".codex",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".ruff_cache",
+}
 
 
 def is_generated(path: Path) -> bool:
-    parts = set(path.relative_to(PROJECT_ROOT).parts)
-    return "__pycache__" in parts or "dist" in parts or ".codex" in parts
+    relative_parts = path.relative_to(PROJECT_ROOT).parts
+    parts = set(relative_parts)
+    if parts.intersection(SKIPPED_DIR_NAMES):
+        return True
+    return relative_parts[:4] == ("plugins", "codex-memory", "skills", "openai-curated")
+
+
+def iter_project_files() -> list[Path]:
+    files: list[Path] = []
+    for root, dirs, names in os.walk(PROJECT_ROOT):
+        root_path = Path(root)
+        dirs[:] = sorted(
+            item for item in dirs if not is_generated(root_path / item)
+        )
+        for name in sorted(names):
+            path = root_path / name
+            if not is_generated(path):
+                files.append(path)
+    return files
 
 
 def check_code_line_counts() -> list[dict[str, object]]:
     failures: list[dict[str, object]] = []
-    for path in sorted(PROJECT_ROOT.rglob("*")):
-        if not path.is_file() or path.suffix not in CODE_SUFFIXES or is_generated(path):
+    for path in iter_project_files():
+        if path.suffix not in CODE_SUFFIXES:
             continue
         lines = len(path.read_text(encoding="utf-8").splitlines())
         if lines > MAX_CODE_LINES:
@@ -35,8 +63,8 @@ def check_code_line_counts() -> list[dict[str, object]]:
 
 def compile_python() -> list[dict[str, object]]:
     failures: list[dict[str, object]] = []
-    for path in sorted(PROJECT_ROOT.rglob("*.py")):
-        if is_generated(path):
+    for path in iter_project_files():
+        if path.suffix != ".py":
             continue
         try:
             py_compile.compile(str(path), doraise=True)
@@ -47,8 +75,8 @@ def compile_python() -> list[dict[str, object]]:
 
 def validate_json() -> list[dict[str, object]]:
     failures: list[dict[str, object]] = []
-    for path in sorted(PROJECT_ROOT.rglob("*")):
-        if not path.is_file() or path.suffix not in JSON_SUFFIXES or is_generated(path):
+    for path in iter_project_files():
+        if path.suffix not in JSON_SUFFIXES:
             continue
         try:
             json.loads(path.read_text(encoding="utf-8"))
@@ -60,7 +88,7 @@ def validate_json() -> list[dict[str, object]]:
 def run_installer_check() -> dict[str, object]:
     installer = PROJECT_ROOT / "plugins" / "codex-memory" / "scripts" / "install_codex_memory.py"
     completed = subprocess.run(
-        ["py", "-X", "utf8", str(installer), "--check"],
+        [sys.executable, "-X", "utf8", str(installer), "--check"],
         cwd=PROJECT_ROOT,
         capture_output=True,
         text=True,
@@ -97,7 +125,7 @@ def run_behavior_tests() -> dict[str, object]:
     if not tests_dir.exists():
         return {"ok": False, "exit_code": 1, "stdout": "", "stderr": "tests directory is missing"}
     completed = subprocess.run(
-        ["py", "-X", "utf8", "-m", "unittest", "discover", "-s", str(tests_dir)],
+        [sys.executable, "-X", "utf8", "-m", "unittest", "discover", "-s", str(tests_dir)],
         cwd=PROJECT_ROOT,
         capture_output=True,
         text=True,

@@ -37,6 +37,27 @@ sh ./install.sh --install-python
 
 安装器还会修复必要的官方 Codex 配置，确保 `$CODEX_HOME/config.toml` 中存在 `[features] codex_hooks = true`，让插件 hooks 走官方生命周期。
 
+安装器会默认离线安装随包附带的 openai/skills curated 技能到 `$CODEX_HOME/skills/<skill-name>`，包括：
+
+- `security-best-practices`
+- `security-threat-model`
+- `cli-creator`
+- `migrate-to-codex`
+- `gh-fix-ci`
+- `gh-address-comments`
+
+这些技能已经 vendor 在发布包里，安装时不会联网拉取 GitHub。如果目标技能目录已存在，安装器会保留用户已有版本并跳过，不会覆盖。若只想安装 memory/harness 接入、不安装 bundled skills，可运行：
+
+```powershell
+.\install.bat --skip-skills
+```
+
+POSIX shell：
+
+```sh
+sh ./install.sh --skip-skills
+```
+
 如果已经安装的是当前版本，安装器会提示 `already_installed`，不会重新安装插件。
 
 如果机器上已经有旧版本或其他项目安装的 `codex-memory`，默认安装不会覆盖它。需要更新到当前包时显式运行：
@@ -306,6 +327,7 @@ sh ./install.sh
 ```
 
 发布包不会包含维护者本机的根目录 `.codex` 运行态；用户项目的 `.codex/memories` 和 `.codex/harness` 由 bootstrap 在目标机器上初始化。
+发布包会包含 `plugins/codex-memory/skills/openai-curated/` 和 `plugins/codex-memory/skills/bundled-skills.json`，用于目标机器离线安装 bundled Codex skills。
 
 ## 验证安装
 
@@ -357,3 +379,4 @@ sh ./install.sh --uninstall
 ```
 
 卸载不会删除项目 memory。需要删除某个项目的 memory 时，由用户手动处理对应项目的 `.codex/memories`，不要由自动脚本递归删除。
+卸载也不会默认删除 `$CODEX_HOME/skills` 中已有的技能目录，避免误删用户自己安装或修改过的技能。

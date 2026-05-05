@@ -7,7 +7,8 @@ param(
 
     [switch]$ReplaceExisting,
     [switch]$UpdateExisting,
-    [switch]$SkipAgents
+    [switch]$SkipAgents,
+    [switch]$SkipSkills
 )
 
 $ErrorActionPreference = "Stop"
@@ -134,6 +135,10 @@ if ($UpdateExisting) {
 
 if ($SkipAgents) {
     $InstallerArgs += "--skip-agents"
+}
+
+if ($SkipSkills) {
+    $InstallerArgs += "--skip-skills"
 }
 
 $PythonArgs = @($PythonRuntime.PrefixArgs) + $InstallerArgs

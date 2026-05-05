@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -55,12 +56,26 @@ def should_skip(path: Path) -> bool:
     return path.suffix in EXCLUDED_SUFFIXES
 
 
+def should_skip_dir(path: Path) -> bool:
+    relative = path.relative_to(PROJECT_ROOT)
+    parts = relative.parts
+    if any(_has_prefix(parts, prefix) for prefix in EXCLUDED_PATH_PREFIXES):
+        return True
+    return any(part in EXCLUDED_DIRS for part in parts)
+
+
 def iter_files() -> list[Path]:
-    return [
-        path
-        for path in sorted(PROJECT_ROOT.rglob("*"))
-        if path.is_file() and not should_skip(path)
-    ]
+    files: list[Path] = []
+    for root, dirs, names in os.walk(PROJECT_ROOT):
+        root_path = Path(root)
+        dirs[:] = sorted(
+            item for item in dirs if not should_skip_dir(root_path / item)
+        )
+        for name in sorted(names):
+            path = root_path / name
+            if not should_skip(path):
+                files.append(path)
+    return files
 
 
 def build(output_dir: Path) -> Path:
@@ -77,6 +92,7 @@ def build(output_dir: Path) -> Path:
         "install": (
             "Windows CMD: run install.bat. PowerShell: run .\\install.bat. "
             "POSIX shell with powershell command available: run sh ./install.sh. "
+            "Bundled Codex skills install into $CODEX_HOME/skills by default; use --skip-skills to skip them. "
             "Use --update-existing to update an existing install. install.ps1 remains supported."
         ),
     }

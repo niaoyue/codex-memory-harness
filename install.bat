@@ -60,6 +60,11 @@ if /I "%~1"=="-SkipAgents" (
     shift
     goto :parse_args
 )
+if /I "%~1"=="-SkipSkills" (
+    call :append_arg "--skip-skills"
+    shift
+    goto :parse_args
+)
 if /I "%~1"=="-RemoveHomePlugin" (
     call :append_arg "--remove-home-plugin"
     shift

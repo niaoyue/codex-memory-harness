@@ -17,6 +17,7 @@ if str(PLUGIN_SCRIPTS_DIR) not in sys.path:
 
 import install_codex_memory
 import install_support
+import skill_bundle
 
 
 class InstallerTests(unittest.TestCase):
@@ -90,6 +91,8 @@ class InstallerTests(unittest.TestCase):
         self.assertIn("Add python.exe to PATH", script)
         self.assertIn('Name = "python3.12"', script)
         self.assertIn("& $PythonRuntime.Command", script)
+        self.assertIn("[switch]$SkipSkills", script)
+        self.assertIn("--skip-skills", script)
 
     def test_batch_install_script_checks_python_and_can_offer_winget(self) -> None:
         script = (PROJECT_ROOT / "install.bat").read_text(encoding="utf-8")
@@ -103,6 +106,8 @@ class InstallerTests(unittest.TestCase):
         self.assertIn('call :try_python "python3.12"', script)
         self.assertIn("-UpdateExisting", script)
         self.assertIn("--update-existing", script)
+        self.assertIn("-SkipSkills", script)
+        self.assertIn("--skip-skills", script)
 
     def test_shell_install_script_checks_python_and_can_offer_package_managers(self) -> None:
         script = (PROJECT_ROOT / "install.sh").read_text(encoding="utf-8")
@@ -119,6 +124,8 @@ class InstallerTests(unittest.TestCase):
         self.assertLess(script.index('try_python py "-3"'), script.index('try_python python3 ""'))
         self.assertIn("--mcp-python-command", script)
         self.assertIn("--mcp-python-prefix-arg", script)
+        self.assertIn("-SkipSkills", script)
+        self.assertIn("--skip-skills", script)
 
     def test_check_state_reports_dependency_guidance(self) -> None:
         with (
@@ -129,6 +136,7 @@ class InstallerTests(unittest.TestCase):
             mock.patch.object(install_codex_memory, "_home_plugin_path", return_value=Path("missing-home-plugin")),
             mock.patch.object(install_codex_memory, "home_agents_path", return_value=Path("missing-agents.md")),
             mock.patch.object(install_codex_memory, "profile_statuses", return_value=[]),
+            mock.patch.object(install_codex_memory, "bundled_skills_status", return_value={"skills": []}),
         ):
             state = install_codex_memory._check_state()
 
@@ -282,6 +290,7 @@ class InstallerTests(unittest.TestCase):
                     "none",
                     install_agents=True,
                     update_existing=False,
+                    install_skills=False,
                     mcp_python_command="python",
                     mcp_python_prefix_args=[],
                 )
@@ -323,6 +332,7 @@ class InstallerTests(unittest.TestCase):
             mock.patch.object(install_codex_memory, "ensure_agents", return_value={"status": "updated"}),
             mock.patch.object(install_codex_memory, "ensure_profile", return_value=[]),
             mock.patch.object(install_codex_memory, "_ensure_mcp_config", return_value={"modified": True}) as ensure_mcp_config,
+            mock.patch.object(install_codex_memory, "ensure_bundled_skills", return_value={"installed": 0}) as ensure_skills,
             mock.patch.object(install_codex_memory, "_check_state", return_value={}),
         ):
             result = install_codex_memory.install(
@@ -331,10 +341,12 @@ class InstallerTests(unittest.TestCase):
                 "none",
                 install_agents=True,
                 update_existing=False,
+                install_skills=True,
             )
 
         ensure_config.assert_called_once()
         ensure_mcp_config.assert_called_once()
+        ensure_skills.assert_called_once()
         self.assertTrue(result["codex_config"]["modified"])
 
     def test_install_passes_selected_python_runtime_to_mcp_config(self) -> None:
@@ -353,6 +365,7 @@ class InstallerTests(unittest.TestCase):
                 "none",
                 install_agents=True,
                 update_existing=False,
+                install_skills=False,
                 mcp_python_command="python",
                 mcp_python_prefix_args=[],
             )
@@ -377,11 +390,97 @@ class InstallerTests(unittest.TestCase):
                 "none",
                 install_agents=True,
                 update_existing=False,
+                install_skills=True,
             )
 
         ensure_config.assert_not_called()
         self.assertEqual(result["codex_config"]["reason"], "installed_elsewhere")
         self.assertTrue(result["codex_config"]["skipped"])
+        self.assertEqual(result["bundled_skills"]["reason"], "installed_elsewhere")
+
+    def test_install_can_skip_bundled_skills(self) -> None:
+        with (
+            mock.patch.object(install_codex_memory, "_ensure_home_plugin_install", return_value={"status": "already_installed"}),
+            mock.patch.object(install_codex_memory, "ensure_codex_config", return_value={"modified": True}),
+            mock.patch.object(install_codex_memory, "_upsert_marketplace_entry", return_value={"updated": True}),
+            mock.patch.object(install_codex_memory, "ensure_agents", return_value={"status": "updated"}),
+            mock.patch.object(install_codex_memory, "ensure_profile", return_value=[]),
+            mock.patch.object(install_codex_memory, "_ensure_mcp_config", return_value={"modified": True}),
+            mock.patch.object(install_codex_memory, "ensure_bundled_skills") as ensure_skills,
+            mock.patch.object(install_codex_memory, "_check_state", return_value={}),
+        ):
+            result = install_codex_memory.install(
+                "auto",
+                "home",
+                "none",
+                install_agents=True,
+                update_existing=False,
+                install_skills=False,
+            )
+
+        ensure_skills.assert_not_called()
+        self.assertEqual(result["bundled_skills"]["reason"], "skip_skills")
+
+    def test_bundled_skills_status_uses_vendored_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            old_codex_home = os.environ.get("CODEX_HOME")
+            os.environ["CODEX_HOME"] = str(Path(temp_dir) / ".codex")
+            try:
+                status = skill_bundle.bundled_skills_status(PROJECT_ROOT / "plugins" / "codex-memory")
+            finally:
+                _restore_env("CODEX_HOME", old_codex_home)
+
+        names = {item["name"] for item in status["skills"]}
+        self.assertEqual(status["source_ref"], "af9b54f235d0d56c6b4410be54d578b0fda4ddfc")
+        self.assertIn("security-threat-model", names)
+        self.assertIn("gh-fix-ci", names)
+        self.assertEqual(status["source_missing_count"], 0)
+        self.assertEqual(status["missing_count"], 6)
+
+    def test_ensure_bundled_skills_copies_missing_without_overwriting(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            plugin_root = temp_root / "plugin"
+            source_root = plugin_root / "skills" / "openai-curated"
+            for name in ("fresh-skill", "existing-skill"):
+                skill_dir = source_root / name
+                skill_dir.mkdir(parents=True)
+                (skill_dir / "SKILL.md").write_text(f"# {name}\n", encoding="utf-8")
+            (plugin_root / "skills" / "bundled-skills.json").write_text(
+                json.dumps(
+                    {
+                        "version": 1,
+                        "source_ref": "test-ref",
+                        "installed_by_default": True,
+                        "skills": [{"name": "fresh-skill"}, {"name": "existing-skill"}],
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            codex_home = temp_root / "codex-home"
+            existing = codex_home / "skills" / "existing-skill"
+            existing.mkdir(parents=True)
+            (existing / "SKILL.md").write_text("# user copy\n", encoding="utf-8")
+
+            old_codex_home = os.environ.get("CODEX_HOME")
+            os.environ["CODEX_HOME"] = str(codex_home)
+            try:
+                result = skill_bundle.ensure_bundled_skills(plugin_root)
+            finally:
+                _restore_env("CODEX_HOME", old_codex_home)
+
+            self.assertEqual(result["installed"], 1)
+            self.assertEqual(result["skipped_existing"], 1)
+            self.assertTrue((codex_home / "skills" / "fresh-skill" / "SKILL.md").exists())
+            self.assertEqual((existing / "SKILL.md").read_text(encoding="utf-8"), "# user copy\n")
+
+
+def _restore_env(name: str, value: str | None) -> None:
+    if value is None:
+        os.environ.pop(name, None)
+    else:
+        os.environ[name] = value
 
 
 if __name__ == "__main__":

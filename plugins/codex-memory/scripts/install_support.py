@@ -231,6 +231,7 @@ def agents_block(home_plugin: Path) -> str:
 - 只有跨项目偏好、长期通用规则、用户明确要求全局沉淀时，才写入全局记忆：`{global_memory}`。
 - 官方 Codex Memories 使用 `{official_memory}`；该目录保留给 Codex 官方自动记忆，不写入本插件的 SQLite/JSONL 运行态。
 - 推荐优先通过官方 Codex config/hooks/MCP 接入；PowerShell wrapper 作为兼容入口、诊断入口和旧环境兜底。
+- 本包默认随安装写入 bundled Codex skills：安全最佳实践、威胁模型、CLI 创建、迁移到 Codex、GitHub CI 修复和 PR 评论处理；目标位置为 `$CODEX_HOME/skills`。
 - 不要求用户手动调用记忆命令；官方 hooks 可用时自动桥接 `UserPromptSubmit`、`PostToolUse`、`Stop`，不可用时代理应在任务生命周期内自动调用 `before_task`、`after_tool`、`before_response`、`on_task_complete`。
 - `codex memory doctor` 会检查 `features.codex_hooks`、sandbox/approval、AGENTS.override、官方 Memories 和插件 hook 覆盖情况。
 - 插件不可用时必须降级为普通无记忆模式，并在最终答复的工具调用简报中说明局限。

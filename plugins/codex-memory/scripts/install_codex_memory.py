@@ -27,6 +27,7 @@ from install_support import (
 )
 from mcp_config import ensure_mcp_config as _ensure_mcp_config
 from mcp_config import mcp_config as _mcp_config
+from skill_bundle import bundled_skills_status, ensure_bundled_skills
 
 
 PLUGIN_NAME = "codex-memory"
@@ -297,6 +298,7 @@ def _check_state() -> dict[str, Any]:
         },
         "powershell_profiles": profile_statuses("all"),
         "codex_config": codex_config,
+        "bundled_skills": bundled_skills_status(plugin_root),
         "dependencies": dependencies,
         "missing_dependencies": dependencies["missing"],
         "dependency_recommendations": dependencies["recommendations"],
@@ -310,6 +312,7 @@ def install(
     *,
     install_agents: bool,
     update_existing: bool,
+    install_skills: bool,
     mcp_python_command: str | None = None,
     mcp_python_prefix_args: list[str] | None = None,
 ) -> dict[str, Any]:
@@ -336,6 +339,7 @@ def install(
             result["codex_config"] = {"skipped": True, "reason": "installed_elsewhere"}
             result["home_marketplace"] = {"skipped": True, "reason": "installed_elsewhere"}
             result["home_agents"] = {"skipped": True, "reason": "installed_elsewhere"}
+            result["bundled_skills"] = {"skipped": True, "reason": "installed_elsewhere"}
             result["powershell_profiles"] = []
         else:
             result["codex_config"] = ensure_codex_config(plugin_root=_plugin_root())
@@ -352,6 +356,10 @@ def install(
             )
             if install_agents:
                 result["home_agents"] = ensure_agents(_home_plugin_path())
+            if install_skills:
+                result["bundled_skills"] = ensure_bundled_skills(_plugin_root())
+            else:
+                result["bundled_skills"] = {"skipped": True, "reason": "skip_skills"}
             result["powershell_profiles"] = ensure_profile(_home_plugin_path(), profile_shells)
     result["check"] = _check_state()
     return result
@@ -407,6 +415,11 @@ def main() -> int:
         help="Do not update ~/.codex/AGENTS.md.",
     )
     parser.add_argument(
+        "--skip-skills",
+        action="store_true",
+        help="Do not install bundled Codex skills into $CODEX_HOME/skills.",
+    )
+    parser.add_argument(
         "--replace-existing",
         action="store_true",
         help="Alias for --update-existing.",
@@ -450,6 +463,7 @@ def main() -> int:
             args.profile_shells,
             install_agents=not args.skip_agents,
             update_existing=args.update_existing or args.replace_existing,
+            install_skills=not args.skip_skills,
             mcp_python_command=args.mcp_python_command,
             mcp_python_prefix_args=args.mcp_python_prefix_arg,
         )

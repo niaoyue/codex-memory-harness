@@ -51,6 +51,10 @@ class BuildReleaseTests(unittest.TestCase):
         self.assertIn("templates/project/.codex/shared/README.md", names)
         self.assertIn("install.bat", manifest["install"])
         self.assertIn("install.sh", manifest["install"])
+        self.assertIn("--skip-skills", manifest["install"])
+        self.assertIn("plugins/codex-memory/skills/bundled-skills.json", names)
+        self.assertIn("plugins/codex-memory/skills/openai-curated/security-threat-model/SKILL.md", names)
+        self.assertIn("plugins/codex-memory/skills/openai-curated/gh-fix-ci/scripts/inspect_pr_checks.py", names)
 
 
 class LauncherEntrypointTests(unittest.TestCase):
@@ -90,6 +94,8 @@ class LauncherEntrypointTests(unittest.TestCase):
         self.assertIn("codex memory hook before_task", block)
         self.assertIn(".codex\\codex-memory-harness\\memories", block)
         self.assertIn("官方 Codex Memories", block)
+        self.assertIn("$CODEX_HOME/skills", block)
+        self.assertIn("GitHub CI 修复", block)
         self.assertNotIn("codex_bootstrap.py --cwd", block)
         self.assertNotIn("hook_runner.py --event", block)
 

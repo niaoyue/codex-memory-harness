@@ -5,6 +5,7 @@
 ## 核心入口
 
 - `scripts/install_codex_memory.py`：用户级安装、检查、卸载和旧安装迁移。
+- `scripts/skill_bundle.py`：随包 bundled skills 的状态检查和离线复制安装。
 - `scripts/codexm.ps1`：PowerShell 启动 wrapper。
 - `scripts/codex_bootstrap.py`：项目识别、doctor、自初始化。
 - `scripts/hook_runner.py`：任务生命周期 hook。
@@ -54,6 +55,21 @@ sh ./install.sh --update-existing
 codex memory install
 codex memory update
 codex memory check-install
+```
+
+安装器默认会把随包附带的 openai/skills curated 技能复制到 `$CODEX_HOME/skills`：
+
+- `security-best-practices`
+- `security-threat-model`
+- `cli-creator`
+- `migrate-to-codex`
+- `gh-fix-ci`
+- `gh-address-comments`
+
+这些技能位于 `skills/openai-curated/`，来源记录在 `skills/bundled-skills.json`。安装时不联网下载；如果 `$CODEX_HOME/skills/<skill-name>` 已存在，会跳过并保留用户已有版本。需要跳过技能安装时使用：
+
+```bat
+install.bat --skip-skills
 ```
 
 ## 记忆存储分层

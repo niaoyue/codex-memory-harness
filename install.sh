@@ -159,6 +159,9 @@ while [ "$remaining" -gt 0 ]; do
         -SkipAgents)
             set -- "$@" "--skip-agents"
             ;;
+        -SkipSkills)
+            set -- "$@" "--skip-skills"
+            ;;
         -RemoveHomePlugin)
             set -- "$@" "--remove-home-plugin"
             ;;
