@@ -74,20 +74,21 @@ class HookBridgeTaskMappingTests(unittest.TestCase):
                 self.assertEqual(payload["task_id"], task_id)
 
     def test_native_followup_hooks_use_current_session_task_id_without_turn_id(self) -> None:
-        with _project_memory_env():
+        with _project_memory_env() as project_dir:
+            session_id = f"session-{Path(project_dir).name}"
             prompt_event, prompt_payload = hook_bridge._normalize_payload(
                 "UserPromptSubmit",
-                {"session_id": "session-one", "prompt": "Fix client login"},
+                {"session_id": session_id, "prompt": "Fix client login"},
                 persist_hook_task=True,
             )
             tool_event, tool_payload = hook_bridge._normalize_payload(
                 "PostToolUse",
-                {"session_id": "session-one", "summary": "ran shell"},
+                {"session_id": session_id, "summary": "ran shell"},
                 persist_hook_task=True,
             )
             stop_event, stop_payload = hook_bridge._normalize_payload(
                 "Stop",
-                {"session_id": "session-one", "summary": "# Done"},
+                {"session_id": session_id, "summary": "# Done"},
                 persist_hook_task=True,
             )
 
@@ -100,19 +101,20 @@ class HookBridgeTaskMappingTests(unittest.TestCase):
 
     def test_turn_scoped_prompt_updates_current_session_mapping(self) -> None:
         with _project_memory_env() as project_dir:
+            session_id = f"session-{Path(project_dir).name}"
             prompt_event, prompt_payload = hook_bridge._normalize_payload(
                 "UserPromptSubmit",
-                {"cwd": project_dir, "session_id": "session-one", "turn_id": "turn-one", "prompt": "Fix client login"},
+                {"cwd": project_dir, "session_id": session_id, "turn_id": "turn-one", "prompt": "Fix client login"},
                 persist_hook_task=True,
             )
             tool_event, tool_payload = hook_bridge._normalize_payload(
                 "PostToolUse",
-                {"cwd": project_dir, "session_id": "session-one", "summary": "ran shell"},
+                {"cwd": project_dir, "session_id": session_id, "summary": "ran shell"},
                 persist_hook_task=True,
             )
             stop_event, stop_payload = hook_bridge._normalize_payload(
                 "Stop",
-                {"cwd": project_dir, "session_id": "session-one", "summary": "# Done"},
+                {"cwd": project_dir, "session_id": session_id, "summary": "# Done"},
                 persist_hook_task=True,
             )
 
@@ -148,19 +150,20 @@ class HookBridgeTaskMappingTests(unittest.TestCase):
         self.assertTrue(payload["task_id"].startswith("hook-stop-"))
 
     def test_persisted_hook_session_mapping_survives_interleaved_current_task_changes(self) -> None:
-        with _project_memory_env():
+        with _project_memory_env() as project_dir:
+            session_id = f"session-{Path(project_dir).name}"
             store = memory_store.MemoryStore()
             runner = hook_bridge.HookRunner(memory_store=store)
             event, payload = hook_bridge._normalize_payload(
                 "UserPromptSubmit",
-                {"session_id": "session-one", "prompt": "First prompt"},
+                {"session_id": session_id, "prompt": "First prompt"},
                 persist_hook_task=True,
             )
             runner.run_event(event, payload)
             runner.run_event("before_task", {"task_id": "task-two", "objective": "Second prompt"})
             stop_event, stop_payload = hook_bridge._normalize_payload(
                 "Stop",
-                {"session_id": "session-one", "summary": "# First response"},
+                {"session_id": session_id, "summary": "# First response"},
                 persist_hook_task=True,
             )
             runner.run_event(stop_event, stop_payload)
@@ -172,12 +175,13 @@ class HookBridgeTaskMappingTests(unittest.TestCase):
 
     def test_explicit_task_id_updates_turn_and_current_session_mappings(self) -> None:
         with _project_memory_env() as project_dir:
+            session_id = f"session-{Path(project_dir).name}"
             prompt_event, prompt_payload = hook_bridge._normalize_payload(
                 "UserPromptSubmit",
                 {
                     "cwd": project_dir,
                     "task_id": "task-explicit",
-                    "session_id": "session-one",
+                    "session_id": session_id,
                     "turn_id": "turn-one",
                     "prompt": "First prompt",
                 },
@@ -185,12 +189,12 @@ class HookBridgeTaskMappingTests(unittest.TestCase):
             )
             tool_event, tool_payload = hook_bridge._normalize_payload(
                 "PostToolUse",
-                {"cwd": project_dir, "session_id": "session-one", "turn_id": "turn-one", "summary": "ran shell"},
+                {"cwd": project_dir, "session_id": session_id, "turn_id": "turn-one", "summary": "ran shell"},
                 persist_hook_task=True,
             )
             stop_event, stop_payload = hook_bridge._normalize_payload(
                 "Stop",
-                {"cwd": project_dir, "session_id": "session-one", "summary": "# Done"},
+                {"cwd": project_dir, "session_id": session_id, "summary": "# Done"},
                 persist_hook_task=True,
             )
 
@@ -203,18 +207,19 @@ class HookBridgeTaskMappingTests(unittest.TestCase):
 
     def test_remembered_hook_task_id_is_sanitized_before_persistence(self) -> None:
         with _project_memory_env() as project_dir:
+            session_id = f"session-{Path(project_dir).name}"
             secret_task_id = "token=SECRET123456789"
             hook_bridge._normalize_payload(
                 "UserPromptSubmit",
                 {
                     "cwd": project_dir,
                     "task_id": secret_task_id,
-                    "session_id": "session-one",
+                    "session_id": session_id,
                     "prompt": "Secret task id",
                 },
                 persist_hook_task=True,
             )
-            recalled = hook_bridge._recall_hook_task(f"session_id:session-one|cwd:{project_dir}")
+            recalled = hook_bridge._recall_hook_task(f"session_id:{session_id}|cwd:{project_dir}")
 
         self.assertEqual(recalled, "token=[REDACTED]")
         self.assertNotIn("SECRET123456789", recalled)
@@ -242,7 +247,7 @@ class HookBridgeTaskMappingTests(unittest.TestCase):
             def close(self) -> None:
                 self.closed = True
 
-        def fake_connect(db_path: str) -> FakeConnection:
+        def fake_connect(db_path: str, *args: object, **kwargs: object) -> FakeConnection:
             connection = FakeConnection()
             connections.append(connection)
             return connection

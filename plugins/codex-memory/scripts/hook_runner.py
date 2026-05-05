@@ -390,8 +390,16 @@ def main() -> int:
         print(json.dumps({"ok": True, "cleaned_task_id": args.cleanup_task_id}, ensure_ascii=False, indent=2))
         return 0
 
-    payload = _load_payload(args.payload_json, args.payload_file)
     runner = HookRunner()
+    try:
+        payload = _load_payload(args.payload_json, args.payload_file)
+    except Exception as exc:
+        result = runner._degraded_response(args.event, None, {}, exc)
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        if args.strict:
+            return 1
+        return 0
+
     result = runner.run_event(args.event, payload)
     print(json.dumps(result, ensure_ascii=False, indent=2))
     if args.strict and result.get("degraded"):

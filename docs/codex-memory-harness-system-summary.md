@@ -555,6 +555,7 @@ codex workspace doctor
 codex workspace route --task-file task.json
 codex workspace route --changed
 codex workspace verify --auto
+codex workspace verify --changed
 ```
 
 workspace routing 会先形成 project inventory，再为当前任务生成 route plan。specialist SubAgent 绑定单个子项目 route，coordinator SubAgent 负责跨项目契约、验证聚合、冲突处理和最终 summary。

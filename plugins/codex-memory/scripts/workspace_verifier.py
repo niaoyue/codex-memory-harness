@@ -234,6 +234,7 @@ def main() -> int:
     parser.add_argument("--objective")
     parser.add_argument("--working-set", action="append", default=[])
     parser.add_argument("--changed", action="store_true")
+    parser.add_argument("--auto", action="store_true", help="Alias for automatic route planning when no route file is provided.")
     parser.add_argument("--max-depth", type=int, default=2)
     parser.add_argument("--no-run", action="store_true")
     parser.add_argument("--no-checkpoint", action="store_true")

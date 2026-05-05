@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import py_compile
 import subprocess
 import sys
 import tempfile
@@ -67,8 +66,9 @@ def compile_python() -> list[dict[str, object]]:
         if path.suffix != ".py":
             continue
         try:
-            py_compile.compile(str(path), doraise=True)
-        except py_compile.PyCompileError as exc:
+            source = path.read_text(encoding="utf-8")
+            compile(source, str(path), "exec", dont_inherit=True)
+        except (OSError, SyntaxError, ValueError) as exc:
             failures.append({"path": str(path), "error": str(exc)})
     return failures
 
@@ -218,13 +218,25 @@ def run_behavior_tests() -> dict[str, object]:
     tests_dir = PROJECT_ROOT / "tests"
     if not tests_dir.exists():
         return {"ok": False, "exit_code": 1, "stdout": "", "stderr": "tests directory is missing"}
-    completed = subprocess.run(
-        [sys.executable, "-X", "utf8", "-m", "unittest", "discover", "-s", str(tests_dir)],
-        cwd=PROJECT_ROOT,
-        capture_output=True,
-        text=True,
-        timeout=120,
-    )
+    with tempfile.TemporaryDirectory() as temp_dir:
+        memory_root = Path(temp_dir) / "behavior-memory"
+        memory_root.mkdir()
+        env = os.environ.copy()
+        env.update(
+            {
+                "CODEX_MEMORY_SCOPE": "project",
+                "CODEX_MEMORY_CWD": str(memory_root),
+                "PYTHONDONTWRITEBYTECODE": "1",
+            }
+        )
+        completed = subprocess.run(
+            [sys.executable, "-X", "utf8", "-m", "unittest", "discover", "-s", str(tests_dir)],
+            cwd=PROJECT_ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
     return {
         "ok": completed.returncode == 0,
         "exit_code": completed.returncode,

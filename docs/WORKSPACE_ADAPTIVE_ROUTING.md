@@ -512,7 +512,7 @@ Verification Aggregator 不应该只跑一个 `primary`。
 - 危险命令检查必须同时覆盖展示命令和实际 argv。
 - 缺失 profile 时必须记录 `verification_gap`，不能回退成“通过”。
 
-因此 `codex workspace verify --auto` 应在这些能力完成后再实现。
+这些能力已经落地为最小本地聚合运行时；`codex workspace verify --auto` 作为自动路由规划别名可用。它不代表完整发布验证平台已经完成，release profile 和跨平台构建仍需业务项目显式配置。
 
 ### 9.2 Memory 分层策略
 

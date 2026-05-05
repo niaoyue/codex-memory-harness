@@ -42,6 +42,7 @@ class BuildReleaseTests(unittest.TestCase):
         self.assertNotIn(".codex/harness/commands.json", names)
         self.assertNotIn(".codex/harness/project_profile.json", names)
         self.assertFalse(any(name.startswith(".codex/") for name in names))
+        self.assertIn(".github/workflows/verify.yml", names)
         self.assertFalse(any(name.startswith("dist/") for name in names))
         self.assertFalse(any("__pycache__/" in name for name in names))
         self.assertFalse(any(name.endswith(".pyc") for name in names))
@@ -308,6 +309,14 @@ class BootstrapTests(unittest.TestCase):
             self.assertNotIn("py -X utf8", spec["command"])
             self.assertIn("codexm.ps1", " ".join(spec["argv"]))
 
+    def test_workspace_routing_project_id_is_ascii_for_non_ascii_project_names(self) -> None:
+        config = codex_bootstrap._workspace_routing_config(Path("\u5ba2\u6237\u9879\u76ee"))
+        project_id = config["projects"][0]["id"]
+
+        self.assertRegex(project_id, r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
+        self.assertTrue(all(ord(ch) < 128 for ch in project_id))
+        self.assertRegex(project_id, r"^workspace_meta-project-[0-9a-f]{8}$")
+
     def test_init_project_creates_shared_memory_template(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             project_root = Path(temp_dir)
@@ -322,8 +331,12 @@ class BootstrapTests(unittest.TestCase):
             for name in ("decisions", "facts", "workflows", "routes"):
                 self.assertTrue((shared_dir / name / ".gitkeep").exists())
             self.assertTrue(any(item["path"] == str(shared_dir) for item in actions))
-            profile = json.loads((project_root / ".codex" / "harness" / "project_profile.json").read_text(encoding="utf-8"))
+            harness_dir = project_root / ".codex" / "harness"
+            profile = json.loads((harness_dir / "project_profile.json").read_text(encoding="utf-8"))
+            workspace_routing = json.loads((harness_dir / "workspace-routing.json").read_text(encoding="utf-8"))
             self.assertEqual(profile["subagent_runtime_policy"]["execution_model"], "host_subagent_or_manual")
+            self.assertEqual(workspace_routing["subagent_runtime_policy"]["execution_model"], "host_subagent_or_manual")
+            self.assertEqual(workspace_routing["projects"][0]["domain"], "workspace_meta")
 
     def test_init_project_adds_missing_subagent_runtime_policy_to_existing_profile(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

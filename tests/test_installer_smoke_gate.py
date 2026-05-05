@@ -38,6 +38,10 @@ class InstallerSmokeGateTests(unittest.TestCase):
         self.assertIn("run_installer_smoke_test", verifier)
         self.assertIn('"cmd", "/c", "install.bat"', verifier)
         self.assertIn("CODEX_MEMORY_HOME", verifier)
+        self.assertIn("CODEX_MEMORY_CWD", verifier)
+        self.assertIn("PYTHONDONTWRITEBYTECODE", verifier)
+        self.assertIn("compile(source", verifier)
+        self.assertNotIn("py_compile", verifier)
         self.assertIn("harness-release-gate", verifier)
 
 

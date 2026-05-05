@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
+import re
 import shutil
 from pathlib import Path
 from typing import Any
@@ -20,6 +22,7 @@ HOME_MARKETPLACE = HOME / ".agents" / "plugins" / "marketplace.json"
 GLOBAL_MEMORY = HOME / ".codex" / "codex-memory-harness" / "memories"
 DEFAULT_TIMEOUT_SECONDS = 120
 DEFAULT_MAX_OUTPUT_CHARS = 1200
+PROJECT_ID_RE = re.compile(r"[^A-Za-z0-9_.-]+")
 SHARED_MEMORY_DIRS = ("decisions", "facts", "workflows", "routes")
 SHARED_MEMORY_README = """# Codex Shared Memory
 
@@ -52,6 +55,7 @@ DEFAULT_SUBAGENT_RUNTIME_POLICY = {
         "when the host supports it."
     ),
 }
+WORKSPACE_ROUTING_SCHEMA = "local://codex-memory-harness/schemas/workspace_routing_config.schema.json"
 
 
 def _plugin_root() -> Path:
@@ -200,6 +204,72 @@ def _profile_config(plugin_root: Path, project_root: Path) -> dict[str, Any]:
     }
 
 
+def _project_id(prefix: str, name: str) -> str:
+    normalized_prefix = PROJECT_ID_RE.sub("-", prefix).strip("-._").lower() or "project"
+    normalized_name = PROJECT_ID_RE.sub("-", name).strip("-._").lower()
+    if not normalized_name:
+        digest = hashlib.sha256(name.encode("utf-8")).hexdigest()[:8]
+        normalized_name = f"project-{digest}"
+    return f"{normalized_prefix}-{normalized_name}"
+
+
+def _workspace_routing_config(project_root: Path) -> dict[str, Any]:
+    project_id = _project_id("workspace_meta", project_root.name)
+    return {
+        "$schema": WORKSPACE_ROUTING_SCHEMA,
+        "version": 1,
+        "workspace": {
+            "name": project_root.name,
+        },
+        "routing_priority": [
+            "user_explicit",
+            "subagent_explicit",
+            "explicit_config",
+            "scanner",
+            "fallback",
+        ],
+        "subagent_runtime_policy": dict(DEFAULT_SUBAGENT_RUNTIME_POLICY),
+        "diagnostic_logging": {
+            "default_allowed": False,
+            "release_must_be_disabled": True,
+            "allowed_scopes": [
+                "flow",
+                "state",
+                "validation",
+            ],
+        },
+        "projects": [
+            {
+                "id": project_id,
+                "path": ".",
+                "cwd": ".",
+                "domain": "workspace_meta",
+                "rules": [
+                    "workspace/base",
+                ],
+                "verification_profiles": {
+                    "quick": "primary",
+                    "release": "primary",
+                },
+                "memory_binding": {
+                    "storage_scope": "project",
+                    "semantic_scope": "project",
+                    "project_id": project_id,
+                    "shared_memory_allowed": True,
+                },
+            }
+        ],
+        "fallback": {
+            "rules": [
+                "workspace/generic",
+            ],
+            "verification_profiles": [
+                "primary",
+            ],
+        },
+    }
+
+
 def _ensure_file(path: Path, payload: dict[str, Any], actions: list[dict[str, Any]]) -> None:
     if path.exists():
         actions.append({"action": "keep_existing", "path": str(path)})
@@ -257,6 +327,7 @@ def init_project(project_root: Path, plugin_root: Path) -> list[dict[str, Any]]:
     _ensure_file(harness_dir / "commands.json", _command_config(plugin_root, project_root), actions)
     profile_path = harness_dir / "project_profile.json"
     _ensure_file(profile_path, _profile_config(plugin_root, project_root), actions)
+    _ensure_file(harness_dir / "workspace-routing.json", _workspace_routing_config(project_root), actions)
     _ensure_profile_policy(profile_path, actions)
     _ensure_shared_memory_template(project_root, actions)
     return actions
@@ -305,6 +376,7 @@ def inspect_state(cwd: Path, *, init: bool) -> dict[str, Any]:
         "project_shared_index_exists": (project_shared / "index.json").exists() if project_shared else False,
         "project_commands_exists": (harness_dir / "commands.json").exists() if harness_dir else False,
         "project_profile_exists": (harness_dir / "project_profile.json").exists() if harness_dir else False,
+        "project_workspace_routing_exists": (harness_dir / "workspace-routing.json").exists() if harness_dir else False,
     }
     ok = all(
         checks[key]
@@ -330,6 +402,8 @@ def inspect_state(cwd: Path, *, init: bool) -> dict[str, Any]:
         recommendations.append("当前目录未识别为项目；如需项目级记忆，请在项目根目录运行 codex memory init。")
     elif not checks["project_commands_exists"] or not checks["project_profile_exists"]:
         recommendations.append("运行 codex memory init 生成缺失的 .codex/harness 配置。")
+    elif selected_project and not checks["project_workspace_routing_exists"]:
+        recommendations.append("运行 codex memory init 生成缺失的 .codex/harness/workspace-routing.json 路由配置。")
     if selected_project and not checks["project_shared_exists"]:
         recommendations.append("运行 codex memory init 生成缺失的 .codex/shared 项目共享记忆模板。")
     if official_memory.get("legacy_harness_markers_in_official_dir"):

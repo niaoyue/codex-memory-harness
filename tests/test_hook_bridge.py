@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+import io
 import json
 import os
 import sys
@@ -17,6 +18,7 @@ if str(PLUGIN_SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(PLUGIN_SCRIPTS_DIR))
 
 import hook_bridge
+import hook_runner
 import memory_store
 
 
@@ -283,6 +285,41 @@ class HookBridgeTests(unittest.TestCase):
 
         text.encode("ascii")
         self.assertIn("memory_server.py", text)
+
+    def test_hook_runner_reports_missing_payload_file_as_degraded_json(self) -> None:
+        old_scope = os.environ.get("CODEX_MEMORY_SCOPE")
+        old_cwd = os.environ.get("CODEX_MEMORY_CWD")
+        with tempfile.TemporaryDirectory() as project_dir:
+            output = io.StringIO()
+            try:
+                with (
+                    mock.patch("sys.stdout", output),
+                    mock.patch.object(
+                        sys,
+                        "argv",
+                        [
+                            "hook_runner.py",
+                            "--event",
+                            "before_response",
+                            "--memory-scope",
+                            "project",
+                            "--memory-cwd",
+                            project_dir,
+                            "--payload-file",
+                            str(Path(project_dir) / "missing.json"),
+                        ],
+                    ),
+                ):
+                    exit_code = hook_runner.main()
+            finally:
+                _restore_env("CODEX_MEMORY_SCOPE", old_scope)
+                _restore_env("CODEX_MEMORY_CWD", old_cwd)
+
+        result = json.loads(output.getvalue())
+        self.assertEqual(exit_code, 0)
+        self.assertFalse(result["ok"])
+        self.assertTrue(result["degraded"])
+        self.assertIn("FileNotFoundError", result["reason"])
 
 def _restore_env(name: str, value: str | None) -> None:
     if value is None:

@@ -175,6 +175,31 @@ class WorkspaceVerifierTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         checkpoint.assert_not_called()
 
+    def test_main_accepts_auto_alias_for_route_planning(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            _write_harness_config(root)
+
+            with (
+                mock.patch.object(workspace_verifier.workspace_router, "build_route_plan", return_value=_route_plan("client", ["client_quick"])) as route,
+                mock.patch("sys.stdout", io.StringIO()),
+                mock.patch.object(
+                    sys,
+                    "argv",
+                    [
+                        "workspace_verifier.py",
+                        "--project-root",
+                        str(root),
+                        "--auto",
+                        "--no-run",
+                    ],
+                ),
+            ):
+                exit_code = workspace_verifier.main()
+
+        self.assertEqual(exit_code, 0)
+        route.assert_called_once()
+
     def test_main_checkpoints_route_plan_task_id_when_task_spec_exists(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

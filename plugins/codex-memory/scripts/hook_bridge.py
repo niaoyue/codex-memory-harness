@@ -51,6 +51,8 @@ TURN_ID_KEYS = (
     "userPromptId",
 )
 HOOK_TASK_META_PREFIX = "hook_task_map:"
+HOOK_TASK_SQLITE_TIMEOUT_SECONDS = 30.0
+HOOK_TASK_CACHE: dict[str, str] = {}
 
 
 def _string(value: Any) -> str:
@@ -292,7 +294,8 @@ def _remember_hook_task(scope_key: str, task_id: str) -> None:
         import init_storage
 
         layout = init_storage.ensure_storage_layout()
-        with closing(sqlite3.connect(layout["db_path"])) as conn:
+        HOOK_TASK_CACHE[_hook_task_cache_key(layout["db_path"], meta_key)] = safe_task_id
+        with closing(_connect_hook_db(layout["db_path"])) as conn:
             with conn:
                 conn.execute(
                     """
@@ -328,26 +331,41 @@ def _remember_hook_task_keys(scope_key: str, turn_key: str, task_id: str) -> Non
 def _recall_hook_task(scope_key: str) -> str:
     if not scope_key:
         return ""
+    meta_key = _hook_task_meta_key(scope_key)
     try:
         import init_storage
 
         layout = init_storage.ensure_storage_layout()
-        with closing(sqlite3.connect(layout["db_path"])) as conn:
+        cached = HOOK_TASK_CACHE.get(_hook_task_cache_key(layout["db_path"], meta_key), "")
+        with closing(_connect_hook_db(layout["db_path"])) as conn:
             row = conn.execute(
                 "SELECT value_json FROM plugin_meta WHERE key = ?",
-                (_hook_task_meta_key(scope_key),),
+                (meta_key,),
             ).fetchone()
         if not row:
-            return ""
+            return cached
         payload = json.loads(str(row[0]))
     except Exception:
-        return ""
-    return _string(payload.get("task_id")) if isinstance(payload, dict) else ""
+        return locals().get("cached", "")
+    task_id = _string(payload.get("task_id")) if isinstance(payload, dict) else ""
+    if task_id:
+        HOOK_TASK_CACHE[_hook_task_cache_key(layout["db_path"], meta_key)] = task_id
+    return task_id or cached
+
+
+def _connect_hook_db(db_path: str) -> sqlite3.Connection:
+    conn = sqlite3.connect(db_path, timeout=HOOK_TASK_SQLITE_TIMEOUT_SECONDS)
+    conn.execute("PRAGMA busy_timeout = 30000")
+    return conn
 
 
 def _hook_task_meta_key(scope_key: str) -> str:
     digest = hashlib.sha256(scope_key.encode("utf-8")).hexdigest()
     return f"{HOOK_TASK_META_PREFIX}{digest}"
+
+
+def _hook_task_cache_key(db_path: str, meta_key: str) -> str:
+    return f"{db_path}|{meta_key}"
 
 
 def _apply_payload_cwd(payload: dict[str, Any]) -> str | None:
