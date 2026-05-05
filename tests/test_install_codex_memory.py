@@ -423,10 +423,12 @@ class InstallerTests(unittest.TestCase):
 
     def test_bundled_skills_status_uses_vendored_manifest(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
+            temp_home = Path(temp_dir)
             old_codex_home = os.environ.get("CODEX_HOME")
-            os.environ["CODEX_HOME"] = str(Path(temp_dir) / ".codex")
+            os.environ["CODEX_HOME"] = str(temp_home / ".codex")
             try:
-                status = skill_bundle.bundled_skills_status(PROJECT_ROOT / "plugins" / "codex-memory")
+                with mock.patch.object(skill_bundle, "home_root", return_value=temp_home):
+                    status = skill_bundle.bundled_skills_status(PROJECT_ROOT / "plugins" / "codex-memory")
             finally:
                 _restore_env("CODEX_HOME", old_codex_home)
 
@@ -434,8 +436,11 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(status["source_ref"], "af9b54f235d0d56c6b4410be54d578b0fda4ddfc")
         self.assertIn("security-threat-model", names)
         self.assertIn("gh-fix-ci", names)
+        self.assertIn("harness-release-gate", names)
+        self.assertIn(".agents", status["target_root"])
+        self.assertIn(".codex", status["legacy_target_root"])
         self.assertEqual(status["source_missing_count"], 0)
-        self.assertEqual(status["missing_count"], 6)
+        self.assertEqual(status["missing_count"], 7)
 
     def test_ensure_bundled_skills_copies_missing_without_overwriting(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -458,21 +463,22 @@ class InstallerTests(unittest.TestCase):
                 + "\n",
                 encoding="utf-8",
             )
-            codex_home = temp_root / "codex-home"
-            existing = codex_home / "skills" / "existing-skill"
+            home = temp_root / "home"
+            existing = home / ".agents" / "skills" / "existing-skill"
             existing.mkdir(parents=True)
             (existing / "SKILL.md").write_text("# user copy\n", encoding="utf-8")
 
             old_codex_home = os.environ.get("CODEX_HOME")
-            os.environ["CODEX_HOME"] = str(codex_home)
+            os.environ["CODEX_HOME"] = str(temp_root / "codex-home")
             try:
-                result = skill_bundle.ensure_bundled_skills(plugin_root)
+                with mock.patch.object(skill_bundle, "home_root", return_value=home):
+                    result = skill_bundle.ensure_bundled_skills(plugin_root)
             finally:
                 _restore_env("CODEX_HOME", old_codex_home)
 
             self.assertEqual(result["installed"], 1)
             self.assertEqual(result["skipped_existing"], 1)
-            self.assertTrue((codex_home / "skills" / "fresh-skill" / "SKILL.md").exists())
+            self.assertTrue((home / ".agents" / "skills" / "fresh-skill" / "SKILL.md").exists())
             self.assertEqual((existing / "SKILL.md").read_text(encoding="utf-8"), "# user copy\n")
 
 

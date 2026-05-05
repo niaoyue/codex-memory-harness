@@ -57,7 +57,7 @@ codex memory update
 codex memory check-install
 ```
 
-安装器默认会把随包附带的 openai/skills curated 技能复制到 `$CODEX_HOME/skills`：
+安装器默认会把随包附带的 openai/skills curated 技能和本项目 release gate 技能复制到 `~/.agents/skills`：
 
 - `security-best-practices`
 - `security-threat-model`
@@ -65,8 +65,9 @@ codex memory check-install
 - `migrate-to-codex`
 - `gh-fix-ci`
 - `gh-address-comments`
+- `harness-release-gate`
 
-这些技能位于 `skills/openai-curated/`，来源记录在 `skills/bundled-skills.json`。安装时不联网下载；如果 `$CODEX_HOME/skills/<skill-name>` 已存在，会跳过并保留用户已有版本。需要跳过技能安装时使用：
+这些技能位于 `skills/openai-curated/` 和 `skills/local/`，来源记录在 `skills/bundled-skills.json`。安装时不联网下载；如果 `~/.agents/skills/<skill-name>` 已存在，会跳过并保留用户已有版本。需要跳过技能安装时使用：
 
 ```bat
 install.bat --skip-skills

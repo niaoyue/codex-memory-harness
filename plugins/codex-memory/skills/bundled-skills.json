@@ -4,7 +4,7 @@
   "source_ref": "af9b54f235d0d56c6b4410be54d578b0fda4ddfc",
   "source_path": "skills/.curated",
   "reviewed_curated_skill_count": 38,
-  "selection_policy": "Vendor the curated skills that directly support Codex Memory Harness installation, security review, threat modeling, CLI design, Codex migration, GitHub CI repair, and PR comment handling. Exclude domain-specific UI/design/deploy/service skills and skills with extra runtime dependencies unless this project later needs them explicitly.",
+  "selection_policy": "Install the curated skills that directly support Codex Memory Harness installation, security review, threat modeling, CLI design, Codex migration, GitHub CI repair, and PR comment handling, plus local skills that make this package's verification gate reusable after install. Exclude domain-specific UI/design/deploy/service skills and skills with extra runtime dependencies unless this project later needs them explicitly.",
   "installed_by_default": true,
   "overwrite_existing": false,
   "skills": [
@@ -31,6 +31,12 @@
     {
       "name": "gh-address-comments",
       "reason": "Supports GitHub PR review comment collection and response workflows."
+    },
+    {
+      "name": "harness-release-gate",
+      "source_group": "local",
+      "path": "local/harness-release-gate",
+      "reason": "Makes this package's verify, xhigh review, and commit gate available in fresh installs without relying on local-only AGENTS.md edits."
     }
   ]
 }

@@ -34,7 +34,7 @@
 ## 安装边界
 
 - 不修改真实 Codex CLI 文件。
-- 只通过 `~/plugins/codex-memory`、`~/.agents/plugins/marketplace.json`、`$CODEX_HOME/config.toml`、`~/.codex/AGENTS.md`、PowerShell profile 和 `$CODEX_HOME/skills/<skill-name>` 接入。
+- 只通过 `~/plugins/codex-memory`、`~/.agents/plugins/marketplace.json`、`$CODEX_HOME/config.toml`、`~/.codex/AGENTS.md`、PowerShell profile 和 `~/.agents/skills/<skill-name>` 接入。
 - 替换旧 `~/plugins/codex-memory` 必须显式使用 `--replace-existing` 或 `-ReplaceExisting`。
 - 卸载脚本默认不删除用户项目里的 `.codex/memories`。
-- 卸载脚本默认不删除 `$CODEX_HOME/skills` 中的技能目录。
+- 卸载脚本默认不删除 `~/.agents/skills` 中的技能目录。

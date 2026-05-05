@@ -37,7 +37,7 @@ sh ./install.sh --install-python
 
 安装器还会修复必要的官方 Codex 配置，确保 `$CODEX_HOME/config.toml` 中存在 `[features] codex_hooks = true`，让插件 hooks 走官方生命周期。
 
-安装器会默认离线安装随包附带的 openai/skills curated 技能到 `$CODEX_HOME/skills/<skill-name>`，包括：
+安装器会默认离线安装随包附带的 openai/skills curated 技能和本项目 release gate 技能到 `~/.agents/skills/<skill-name>`，包括：
 
 - `security-best-practices`
 - `security-threat-model`
@@ -45,6 +45,7 @@ sh ./install.sh --install-python
 - `migrate-to-codex`
 - `gh-fix-ci`
 - `gh-address-comments`
+- `harness-release-gate`
 
 这些技能已经 vendor 在发布包里，安装时不会联网拉取 GitHub。如果目标技能目录已存在，安装器会保留用户已有版本并跳过，不会覆盖。若只想安装 memory/harness 接入、不安装 bundled skills，可运行：
 
@@ -193,6 +194,12 @@ docs/MEMORY_RETRIEVAL_STRATEGY.md
 docs/EXTERNAL_BENCHMARK.md
 ```
 
+如果需要把官方 Codex 的推荐用法对齐到本项目的后续改造路线，可先看官方建议对齐文档。它把官方的 AGENTS.md、hooks、MCP、skills、SubAgent、安全 profile 和验证闭环建议，整理为本项目的优先级和验收标准：
+
+```text
+docs/CODEX_OFFICIAL_ALIGNMENT.md
+```
+
 如果需要按多角色方式执行复杂任务，当前应按文档里的角色协议记录 artifact，并可用 `codex workspace schedule` 生成 dispatch plan；不要假设项目会自动启动多个真实 SubAgent：
 
 ```text
@@ -327,7 +334,7 @@ sh ./install.sh
 ```
 
 发布包不会包含维护者本机的根目录 `.codex` 运行态；用户项目的 `.codex/memories` 和 `.codex/harness` 由 bootstrap 在目标机器上初始化。
-发布包会包含 `plugins/codex-memory/skills/openai-curated/` 和 `plugins/codex-memory/skills/bundled-skills.json`，用于目标机器离线安装 bundled Codex skills。
+发布包会包含 `plugins/codex-memory/skills/openai-curated/`、`plugins/codex-memory/skills/local/` 和 `plugins/codex-memory/skills/bundled-skills.json`，用于目标机器离线安装 bundled Codex skills。
 
 ## 验证安装
 
@@ -379,4 +386,4 @@ sh ./install.sh --uninstall
 ```
 
 卸载不会删除项目 memory。需要删除某个项目的 memory 时，由用户手动处理对应项目的 `.codex/memories`，不要由自动脚本递归删除。
-卸载也不会默认删除 `$CODEX_HOME/skills` 中已有的技能目录，避免误删用户自己安装或修改过的技能。
+卸载也不会默认删除 `~/.agents/skills` 中已有的技能目录，避免误删用户自己安装或修改过的技能。

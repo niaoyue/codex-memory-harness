@@ -417,7 +417,7 @@ def main() -> int:
     parser.add_argument(
         "--skip-skills",
         action="store_true",
-        help="Do not install bundled Codex skills into $CODEX_HOME/skills.",
+        help="Do not install bundled Codex skills into ~/.agents/skills.",
     )
     parser.add_argument(
         "--replace-existing",

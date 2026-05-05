@@ -6,5 +6,6 @@
 
 - `bundled-skills.json`：来源、固定 commit 和默认安装清单。
 - `openai-curated/`：从 `https://github.com/openai/skills` 的 `skills/.curated` 固定提取的技能文件。
+- `local/`：本项目自带的 install-propagated workflow skills。
 
-安装器默认把清单中的技能复制到 `$CODEX_HOME/skills/<skill-name>`。如果目标目录已存在，会跳过并保留用户已有版本；可用 `--skip-skills` 跳过该步骤。
+安装器默认把清单中的技能复制到 `~/.agents/skills/<skill-name>`。如果目标目录已存在，会跳过并保留用户已有版本；可用 `--skip-skills` 跳过该步骤。

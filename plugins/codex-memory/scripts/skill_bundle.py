@@ -5,7 +5,7 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-from install_support import codex_home_root
+from install_support import codex_home_root, home_root
 
 
 def _skills_root(plugin_root: Path) -> Path:
@@ -20,7 +20,15 @@ def bundled_source_root(plugin_root: Path) -> Path:
     return _skills_root(plugin_root) / "openai-curated"
 
 
-def codex_skills_root() -> Path:
+def local_source_root(plugin_root: Path) -> Path:
+    return _skills_root(plugin_root) / "local"
+
+
+def user_skills_root() -> Path:
+    return home_root() / ".agents" / "skills"
+
+
+def legacy_codex_skills_root() -> Path:
     return codex_home_root() / "skills"
 
 
@@ -47,6 +55,16 @@ def _skill_names(manifest: dict[str, Any]) -> list[str]:
     return names
 
 
+def _skill_source(plugin_root: Path, item: dict[str, Any]) -> Path:
+    source_path = item.get("path")
+    if isinstance(source_path, str) and source_path.strip():
+        return _skills_root(plugin_root) / source_path
+    source_group = item.get("source_group", "openai-curated")
+    if source_group == "local":
+        return local_source_root(plugin_root) / item["name"]
+    return bundled_source_root(plugin_root) / item["name"]
+
+
 def _copy_skill(src: Path, dst: Path) -> None:
     if not (src / "SKILL.md").exists():
         raise RuntimeError(f"Bundled skill source is missing SKILL.md: {src}")
@@ -60,14 +78,16 @@ def _copy_skill(src: Path, dst: Path) -> None:
 
 def ensure_bundled_skills(plugin_root: Path) -> dict[str, Any]:
     manifest = load_manifest(plugin_root)
-    source_root = bundled_source_root(plugin_root)
-    target_root = codex_skills_root()
+    target_root = user_skills_root()
     results: list[dict[str, Any]] = []
     installed = 0
     skipped = 0
 
-    for name in _skill_names(manifest):
-        src = source_root / name
+    for item in manifest.get("skills", []):
+        if not isinstance(item, dict) or not isinstance(item.get("name"), str):
+            continue
+        name = item["name"]
+        src = _skill_source(plugin_root, item)
         dst = target_root / name
         if dst.exists():
             skipped += 1
@@ -93,6 +113,7 @@ def ensure_bundled_skills(plugin_root: Path) -> dict[str, Any]:
 
     return {
         "target_root": str(target_root),
+        "legacy_target_root": str(legacy_codex_skills_root()),
         "source_ref": manifest.get("source_ref", ""),
         "installed": installed,
         "skipped_existing": skipped,
@@ -102,26 +123,32 @@ def ensure_bundled_skills(plugin_root: Path) -> dict[str, Any]:
 
 def bundled_skills_status(plugin_root: Path) -> dict[str, Any]:
     manifest = load_manifest(plugin_root)
-    source_root = bundled_source_root(plugin_root)
-    target_root = codex_skills_root()
+    target_root = user_skills_root()
+    legacy_target_root = legacy_codex_skills_root()
     skills: list[dict[str, Any]] = []
 
-    for name in _skill_names(manifest):
-        src = source_root / name
+    for item in manifest.get("skills", []):
+        if not isinstance(item, dict) or not isinstance(item.get("name"), str):
+            continue
+        name = item["name"]
+        src = _skill_source(plugin_root, item)
         dst = target_root / name
+        legacy_dst = legacy_target_root / name
         skills.append(
             {
                 "name": name,
                 "source_exists": (src / "SKILL.md").exists(),
                 "target_exists": dst.exists(),
                 "target_has_skill_md": (dst / "SKILL.md").exists(),
+                "legacy_target_exists": legacy_dst.exists(),
                 "path": str(dst),
             }
         )
 
     return {
         "target_root": str(target_root),
-        "source_root": str(source_root),
+        "legacy_target_root": str(legacy_target_root),
+        "source_root": str(_skills_root(plugin_root)),
         "source_repo": manifest.get("source_repo", ""),
         "source_ref": manifest.get("source_ref", ""),
         "installed_by_default": bool(manifest.get("installed_by_default", False)),
