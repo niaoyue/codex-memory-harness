@@ -26,6 +26,9 @@ PYTHON_LAUNCHER_CANDIDATES = (
 
 
 def home_root() -> Path:
+    configured = os.environ.get("CODEX_MEMORY_HOME", "").strip()
+    if configured:
+        return Path(configured).expanduser()
     return Path.home()
 
 

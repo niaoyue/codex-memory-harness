@@ -102,6 +102,100 @@ def run_installer_check() -> dict[str, object]:
     }
 
 
+def run_installer_smoke_test() -> dict[str, object]:
+    if os.name != "nt":
+        return {
+            "ok": True,
+            "skipped": True,
+            "reason": "install.bat smoke test is Windows-only.",
+        }
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_root = Path(temp_dir)
+        package_path = build_release.build(temp_root / "dist")
+        package_root = temp_root / "package"
+        with zipfile.ZipFile(package_path) as archive:
+            archive.extractall(package_root)
+
+        home = temp_root / "home"
+        codex_home = temp_root / "codex-home"
+        home.mkdir()
+        codex_home.mkdir()
+
+        env = os.environ.copy()
+        env.update(
+            {
+                "CODEX_MEMORY_HOME": str(home),
+                "CODEX_HOME": str(codex_home),
+                "USERPROFILE": str(home),
+                "HOME": str(home),
+                "CODEX_MEMORY_AUTO_INSTALL_PYTHON": "0",
+            }
+        )
+        completed = subprocess.run(
+            ["cmd", "/c", "install.bat", "--mode", "copy"],
+            cwd=package_root,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+
+        payload: dict[str, object] = {}
+        failures: list[str] = []
+        parse_error = ""
+        if completed.returncode == 0:
+            try:
+                parsed = json.loads(completed.stdout)
+                if isinstance(parsed, dict):
+                    payload = parsed
+                else:
+                    parse_error = "installer output is not a JSON object"
+            except json.JSONDecodeError as exc:
+                parse_error = str(exc)
+
+        def expect(condition: bool, message: str) -> None:
+            if not condition:
+                failures.append(message)
+
+        expect(completed.returncode == 0, "install.bat returned a non-zero exit code")
+        expect(not parse_error, f"install.bat stdout was not valid JSON: {parse_error}")
+        expect((home / "plugins" / "codex-memory" / ".mcp.json").exists(), "home plugin copy is missing")
+        expect((home / ".agents" / "plugins" / "marketplace.json").exists(), "home marketplace is missing")
+        profile_path = home / "Documents" / "PowerShell" / "Microsoft.PowerShell_profile.ps1"
+        profile_text = profile_path.read_text(encoding="utf-8", errors="replace") if profile_path.exists() else ""
+        expect("codex-memory codexm launcher" in profile_text, "PowerShell profile launcher block is missing")
+        expect((codex_home / "config.toml").exists(), "CODEX_HOME config.toml is missing")
+        expect((codex_home / "AGENTS.md").exists(), "CODEX_HOME AGENTS.md is missing")
+        expect(
+            (home / ".agents" / "skills" / "harness-release-gate" / "SKILL.md").exists(),
+            "bundled harness-release-gate skill is missing",
+        )
+        expect(
+            (package_root / ".agents" / "plugins" / "marketplace.json").exists(),
+            "package repo marketplace is missing",
+        )
+
+        bundled = payload.get("bundled_skills") if isinstance(payload, dict) else None
+        if isinstance(bundled, dict):
+            expect(bundled.get("installed") == 7, "fresh install did not install all 7 bundled skills")
+            expected_skills_root = home / ".agents" / "skills"
+            actual_skills_root = Path(str(bundled.get("target_root", "")))
+            expect(
+                actual_skills_root.resolve() == expected_skills_root.resolve(),
+                "skills target_root is outside temp home",
+            )
+
+        return {
+            "ok": not failures,
+            "skipped": False,
+            "exit_code": completed.returncode,
+            "failures": failures,
+            "stdout": completed.stdout[-3000:],
+            "stderr": completed.stderr[-3000:],
+        }
+
+
 def check_release_package() -> list[dict[str, object]]:
     failures: list[dict[str, object]] = []
     with tempfile.TemporaryDirectory() as output_dir:
@@ -142,6 +236,7 @@ def run_behavior_tests() -> dict[str, object]:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Verify Codex Memory Harness project health.")
     parser.add_argument("--skip-installer-check", action="store_true")
+    parser.add_argument("--skip-installer-smoke", action="store_true")
     parser.add_argument("--skip-behavior-tests", action="store_true")
     args = parser.parse_args()
 
@@ -152,6 +247,7 @@ def main() -> int:
         "release_package_failures": check_release_package(),
         "behavior_tests": None if args.skip_behavior_tests else run_behavior_tests(),
         "installer_check": None if args.skip_installer_check else run_installer_check(),
+        "installer_smoke": None if args.skip_installer_smoke else run_installer_smoke_test(),
     }
     ok = (
         not result["line_count_failures"]
@@ -160,6 +256,7 @@ def main() -> int:
         and not result["release_package_failures"]
         and (args.skip_behavior_tests or result["behavior_tests"]["ok"])
         and (args.skip_installer_check or result["installer_check"]["ok"])
+        and (args.skip_installer_smoke or result["installer_smoke"]["ok"])
     )
     result["ok"] = ok
     print(json.dumps(result, ensure_ascii=False, indent=2))

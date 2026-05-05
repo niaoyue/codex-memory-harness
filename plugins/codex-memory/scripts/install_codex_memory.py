@@ -19,6 +19,7 @@ from install_support import (
     ensure_agents,
     ensure_profile,
     home_agents_path,
+    home_root,
     profile_paths,
     profile_statuses,
     read_text,
@@ -51,7 +52,7 @@ def _repo_marketplace_path() -> Path:
 
 
 def _home_root() -> Path:
-    return Path.home()
+    return home_root()
 
 
 def _home_plugin_path() -> Path:
@@ -258,7 +259,7 @@ def _check_state() -> dict[str, Any]:
     plugin_root = _plugin_root()
     home_plugin = _home_plugin_path()
     dependencies = dependency_status()
-    codex_config = inspect_codex_config(plugin_root=plugin_root)
+    codex_config = inspect_codex_config(home=_home_root(), plugin_root=plugin_root)
     def _has_entry(path: Path) -> bool:
         if not path.exists():
             return False
@@ -342,7 +343,7 @@ def install(
             result["bundled_skills"] = {"skipped": True, "reason": "installed_elsewhere"}
             result["powershell_profiles"] = []
         else:
-            result["codex_config"] = ensure_codex_config(plugin_root=_plugin_root())
+            result["codex_config"] = ensure_codex_config(home=_home_root(), plugin_root=_plugin_root())
             result["mcp_config"] = _ensure_mcp_config(
                 _home_plugin_path(),
                 python_command=mcp_runtime["command"],

@@ -270,7 +270,7 @@ codex harness verify run --task-id <task-id> --profile primary
 codex package build
 ```
 
-运行项目健康检查、Python 编译、JSON 校验、行为测试和发布包边界检查：
+运行项目健康检查、Python 编译、JSON 校验、行为测试、发布包边界检查，以及隔离的 `install.bat` 普通安装 smoke test：
 
 ```powershell
 codex package verify

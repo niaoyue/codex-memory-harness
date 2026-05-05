@@ -86,6 +86,7 @@
 
 ```powershell
 python -X utf8 plugins\codex-memory\scripts\install_codex_memory.py --check
+python -X utf8 scripts\verify_project.py
 ```
 
 期望：
@@ -93,6 +94,7 @@ python -X utf8 plugins\codex-memory\scripts\install_codex_memory.py --check
 - `bundled_skills.target_root` 指向 `~/.agents/skills`。
 - `harness-release-gate`、安全、迁移、GitHub CI/PR 等技能在状态中可见。
 - 目标已存在时跳过，不覆盖用户版本。
+- `verify_project.py` 会从 release package 解压后的目录运行隔离 `install.bat --mode copy`，校验普通首次安装的写入路径。
 
 ### P1：项目模板传播
 
@@ -152,6 +154,29 @@ templates/project/.codex/agents/release-gate-runner.toml
 - 涉及发布包时，必须保持 `.codex/memories`、`.codex/harness/tasks`、数据库、JSONL、dist 和缓存排除。
 - 若官方文档更新，先更新本文的参考链接、路径差异和传播落点，再改运行时代码。
 
-## 8. 当前结论
+## 8. 验证缺口复盘
+
+这次 `install.bat` 问题暴露的核心不是单个脚本语法，而是验证矩阵缺了一条关键路径。
+
+之前的验证偏向这些项目：
+
+- `install_codex_memory.py --check`：只读检查当前环境状态，不会复制 home plugin、不写全局 AGENTS、不安装 bundled skills，也不碰 PowerShell profile。
+- `install.sh` 语法和 `--check`：覆盖 shell 包装入口和依赖检查，但仍不是普通安装。
+- Python 单元测试：主要 mock 安装函数和局部 helper，能证明函数契约，但不能证明 `install.bat`、release package、环境变量、真实文件写入组合起来一定可用。
+- `codex xhigh review --uncommitted`：能审查代码风险，但不能替代缺失的动态 smoke gate。
+
+因此，若普通首次安装路径里出现 batch 参数传递、home 目录解析、copy/junction、skills 复制、全局 AGENTS 写入或 marketplace 写入问题，旧 gate 不一定会发现。这属于验证设计缺陷，不应该只靠人工记得执行一次安装。
+
+修复后的验证要求：
+
+- `scripts/verify_project.py` 必须包含普通安装 smoke test。
+- smoke test 必须从 release package 解压目录运行，而不是直接调用源码里的 Python installer。
+- smoke test 必须使用临时 `CODEX_MEMORY_HOME`、`USERPROFILE`、`HOME` 和 `CODEX_HOME`，避免污染维护者真实用户目录。
+- smoke test 必须运行 `cmd /c install.bat --mode copy`，覆盖 batch 入口、Python runtime 解析、home plugin 复制、Codex config、全局 AGENTS、home marketplace、PowerShell profile 和 bundled skills。
+- smoke test 必须断言 `harness-release-gate` 等 7 个 bundled skills 完成首次安装。
+
+`CODEX_MEMORY_HOME` 是安装器和验证用的高级覆盖变量，用于把用户级安装目标重定向到隔离目录；正常用户不需要设置它。`CODEX_HOME` 仍按 Codex 官方语义控制 Codex 配置根目录。
+
+## 9. 当前结论
 
 原文列出的优化大多方向合理，但优先级需要调整：最先做的不是把更多配置写到维护者本机，而是把合理优化沉淀进安装器、随包 skills、模板和 bootstrap。这样新环境安装项目后，才能同步获得相同的规则、技能和验证入口。
