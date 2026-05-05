@@ -77,7 +77,7 @@ class InstallerTests(unittest.TestCase):
                 )
 
             self.assertEqual(result["status"], "installed_elsewhere")
-            self.assertIn("-UpdateExisting", result["recommended_action"])
+            self.assertIn("install.bat --update-existing", result["recommended_action"])
             self.assertTrue(home_plugin.exists())
 
     def test_install_script_reports_missing_python_dependency(self) -> None:
@@ -86,9 +86,39 @@ class InstallerTests(unittest.TestCase):
         self.assertIn("Resolve-PythonRuntime", script)
         self.assertIn("Get-Command $candidate.Name", script)
         self.assertIn("Python 3.11 or newer is required", script)
-        self.assertIn("winget install Python.Python.3.12", script)
+        self.assertIn("winget install --id Python.Python.3.12", script)
         self.assertIn("Add python.exe to PATH", script)
+        self.assertIn('Name = "python3.12"', script)
         self.assertIn("& $PythonRuntime.Command", script)
+
+    def test_batch_install_script_checks_python_and_can_offer_winget(self) -> None:
+        script = (PROJECT_ROOT / "install.bat").read_text(encoding="utf-8")
+
+        self.assertIn("install_codex_memory.py", script)
+        self.assertIn("Python 3.11 or newer is required", script)
+        self.assertIn("--install-python", script)
+        self.assertIn("winget install --id Python.Python.3.12", script)
+        self.assertIn("--mcp-python-command", script)
+        self.assertIn("--mcp-python-prefix-arg", script)
+        self.assertIn('call :try_python "python3.12"', script)
+        self.assertIn("-UpdateExisting", script)
+        self.assertIn("--update-existing", script)
+
+    def test_shell_install_script_checks_python_and_can_offer_package_managers(self) -> None:
+        script = (PROJECT_ROOT / "install.sh").read_text(encoding="utf-8")
+
+        self.assertIn("install_codex_memory.py", script)
+        self.assertIn("Python 3.11 or newer is required", script)
+        self.assertIn("--install-python", script)
+        self.assertIn("brew install python@3.12", script)
+        self.assertIn("apt-get install -y python3.12", script)
+        self.assertIn("dnf install -y python3.12", script)
+        self.assertIn("try_python python3.12", script)
+        self.assertIn("require_powershell_launcher", script)
+        self.assertIn("powershell command is available", script)
+        self.assertLess(script.index('try_python py "-3"'), script.index('try_python python3 ""'))
+        self.assertIn("--mcp-python-command", script)
+        self.assertIn("--mcp-python-prefix-arg", script)
 
     def test_check_state_reports_dependency_guidance(self) -> None:
         with (
@@ -125,6 +155,21 @@ class InstallerTests(unittest.TestCase):
         self.assertNotIn("python_launcher", status["missing"])
         self.assertNotIn("codex_cli", status["missing"])
 
+    def test_dependency_status_accepts_versioned_python_launcher(self) -> None:
+        def fake_which(command: str) -> str | None:
+            paths = {
+                "python3.12": "/usr/bin/python3.12",
+                "codex": "/usr/local/bin/codex",
+                "pwsh": "/usr/local/bin/pwsh",
+            }
+            return paths.get(command)
+
+        with mock.patch.object(install_support.shutil, "which", side_effect=fake_which):
+            status = install_support.dependency_status()
+
+        self.assertNotIn("python_launcher", status["missing"])
+        self.assertIn({"command": "python3.12", "path": "/usr/bin/python3.12"}, status["python"]["launchers"])
+
     def test_mcp_runtime_prefers_py_when_available(self) -> None:
         def fake_which(command: str) -> str | None:
             paths = {
@@ -160,6 +205,22 @@ class InstallerTests(unittest.TestCase):
             runtime = install_support.select_mcp_python_runtime()
 
         self.assertEqual(runtime["command"], "python")
+        self.assertEqual(runtime["prefix_args"], [])
+
+    def test_mcp_runtime_accepts_versioned_python_command(self) -> None:
+        def fake_which(command: str) -> str | None:
+            return "/usr/bin/python3.12" if command == "python3.12" else None
+
+        def fake_runtime_ok(command: str, prefix_args: list[str]) -> bool:
+            return command == "python3.12" and prefix_args == []
+
+        with (
+            mock.patch.object(install_support.shutil, "which", side_effect=fake_which),
+            mock.patch.object(install_support, "_python_runtime_ok", side_effect=fake_runtime_ok),
+        ):
+            runtime = install_support.select_mcp_python_runtime()
+
+        self.assertEqual(runtime["command"], "python3.12")
         self.assertEqual(runtime["prefix_args"], [])
 
     def test_mcp_config_uses_launcher_when_py_is_unavailable(self) -> None:
@@ -239,9 +300,20 @@ class InstallerTests(unittest.TestCase):
 
         self.assertIn('Name = "python"', launcher)
         self.assertIn('Name = "python3"', launcher)
+        self.assertIn('Name = "python3.12"', launcher)
         self.assertIn("$runtime = Resolve-PythonRuntime", launcher)
         self.assertIn('$pythonArgs = @($runtime.PrefixArgs) + @("-X", "utf8", $MemoryServer)', launcher)
         self.assertNotIn("& py -X utf8", launcher)
+
+    def test_runtime_launchers_accept_versioned_python_commands(self) -> None:
+        launcher_names = ["codexm.ps1", "hook_launcher.ps1", "mcp_launcher.ps1"]
+        for launcher_name in launcher_names:
+            with self.subTest(launcher=launcher_name):
+                launcher = (PLUGIN_SCRIPTS_DIR / launcher_name).read_text(encoding="utf-8")
+                self.assertIn('Name = "python3.14"', launcher)
+                self.assertIn('Name = "python3.13"', launcher)
+                self.assertIn('Name = "python3.12"', launcher)
+                self.assertIn('Name = "python3.11"', launcher)
 
     def test_install_enables_required_codex_config(self) -> None:
         with (

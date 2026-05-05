@@ -30,7 +30,11 @@ function Resolve-PythonRuntime {
     $candidates = @(
         [pscustomobject]@{ Name = "py"; PrefixArgs = @("-3") },
         [pscustomobject]@{ Name = "python"; PrefixArgs = @() },
-        [pscustomobject]@{ Name = "python3"; PrefixArgs = @() }
+        [pscustomobject]@{ Name = "python3"; PrefixArgs = @() },
+        [pscustomobject]@{ Name = "python3.14"; PrefixArgs = @() },
+        [pscustomobject]@{ Name = "python3.13"; PrefixArgs = @() },
+        [pscustomobject]@{ Name = "python3.12"; PrefixArgs = @() },
+        [pscustomobject]@{ Name = "python3.11"; PrefixArgs = @() }
     )
     foreach ($candidate in $candidates) {
         $command = Get-Command $candidate.Name -ErrorAction SilentlyContinue | Select-Object -First 1

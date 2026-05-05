@@ -22,16 +22,30 @@
 
 推荐从项目根目录安装：
 
-```powershell
-.\install.ps1
+```bat
+install.bat
 ```
+
+POSIX shell：
+
+```sh
+sh ./install.sh
+```
+
+`install.sh` 是 shell 入口包装；当前 hook/MCP 运行时仍依赖名为 `powershell` 的 PowerShell launcher，目标环境需要能调用 `powershell` 命令。
 
 如果当前版本已经安装，安装器会提示 `already_installed`，不会重复安装。
 
 如果已有旧安装指向其他项目，默认不会覆盖；显式更新到当前版本：
 
-```powershell
-.\install.ps1 -UpdateExisting
+```bat
+install.bat --update-existing
+```
+
+POSIX shell：
+
+```sh
+sh ./install.sh --update-existing
 ```
 
 安装完成后，也可以通过 Codex 入口检查或修复当前安装：

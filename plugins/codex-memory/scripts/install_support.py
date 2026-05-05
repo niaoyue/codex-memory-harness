@@ -14,6 +14,15 @@ AGENTS_START = "<!-- >>> codex-memory-harness global >>> -->"
 AGENTS_END = "<!-- <<< codex-memory-harness global <<< -->"
 MIN_PYTHON_VERSION = (3, 11)
 DEFAULT_PY_LAUNCHER_PREFIX_ARGS = ["-3"]
+PYTHON_LAUNCHER_CANDIDATES = (
+    ("py", list(DEFAULT_PY_LAUNCHER_PREFIX_ARGS)),
+    ("python", []),
+    ("python3", []),
+    ("python3.14", []),
+    ("python3.13", []),
+    ("python3.12", []),
+    ("python3.11", []),
+)
 
 
 def home_root() -> Path:
@@ -60,7 +69,7 @@ def dependency_status() -> dict[str, Any]:
     py_launcher_path = shutil.which("py")
     launchers = []
     seen: set[str] = set()
-    for command in ("py", "python", "python3"):
+    for command, _prefix_args in PYTHON_LAUNCHER_CANDIDATES:
         path = shutil.which(command)
         if not path:
             continue
@@ -85,7 +94,7 @@ def dependency_status() -> dict[str, Any]:
 
     python_hint = (
         "Install Python 3.11+ and enable 'Add python.exe to PATH'; "
-        "on Windows you can run: winget install Python.Python.3.12"
+        "on Windows you can run: winget install --id Python.Python.3.12 -e --source winget"
     )
     py_hint = (
         "Optional Windows Python launcher. Codex Memory hooks, wrappers, and MCP launcher also support "
@@ -139,12 +148,7 @@ def select_mcp_python_runtime(
 ) -> dict[str, Any]:
     if command:
         return {"command": command, "prefix_args": list(prefix_args or [])}
-    candidates = [
-        ("py", list(DEFAULT_PY_LAUNCHER_PREFIX_ARGS)),
-        ("python", []),
-        ("python3", []),
-    ]
-    for candidate, candidate_prefix_args in candidates:
+    for candidate, candidate_prefix_args in PYTHON_LAUNCHER_CANDIDATES:
         if shutil.which(candidate) and _python_runtime_ok(candidate, candidate_prefix_args):
             return {"command": candidate, "prefix_args": candidate_prefix_args}
     return {"command": sys.executable, "prefix_args": []}

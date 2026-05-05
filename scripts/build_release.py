@@ -74,7 +74,11 @@ def build(output_dir: Path) -> Path:
         "name": "codex-memory-harness",
         "version": version(),
         "built_at": datetime.now(timezone.utc).isoformat(),
-        "install": "Run install.ps1 for first install, install.ps1 -UpdateExisting for updating an existing install.",
+        "install": (
+            "Windows CMD: run install.bat. PowerShell: run .\\install.bat. "
+            "POSIX shell with powershell command available: run sh ./install.sh. "
+            "Use --update-existing to update an existing install. install.ps1 remains supported."
+        ),
     }
 
     with zipfile.ZipFile(package_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:

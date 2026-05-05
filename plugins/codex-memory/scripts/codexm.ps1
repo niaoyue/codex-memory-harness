@@ -48,7 +48,15 @@ function Test-PythonVersion {
 
 function Resolve-PythonRuntime {
     if ($script:ResolvedPythonRuntime) { return $script:ResolvedPythonRuntime }
-    $candidates = @([pscustomobject]@{ Name = "py"; PrefixArgs = @("-3") }, [pscustomobject]@{ Name = "python"; PrefixArgs = @() }, [pscustomobject]@{ Name = "python3"; PrefixArgs = @() })
+    $candidates = @(
+        [pscustomobject]@{ Name = "py"; PrefixArgs = @("-3") },
+        [pscustomobject]@{ Name = "python"; PrefixArgs = @() },
+        [pscustomobject]@{ Name = "python3"; PrefixArgs = @() },
+        [pscustomobject]@{ Name = "python3.14"; PrefixArgs = @() },
+        [pscustomobject]@{ Name = "python3.13"; PrefixArgs = @() },
+        [pscustomobject]@{ Name = "python3.12"; PrefixArgs = @() },
+        [pscustomobject]@{ Name = "python3.11"; PrefixArgs = @() }
+    )
     $detected = @()
     foreach ($candidate in $candidates) {
         $command = Get-Command $candidate.Name -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -69,7 +77,7 @@ function Write-PythonDependencyHint {
     Write-Host "Python 3.11 or newer is required to run Codex Memory commands." -ForegroundColor Yellow
     if ($Detected.Count -gt 0) { Write-Host "Detected Python command(s): $($Detected -join ', ')" }
     Write-Host "Install Python, then rerun the command."
-    Write-Host "Windows winget: winget install Python.Python.3.12"
+    Write-Host "Windows winget: winget install --id Python.Python.3.12 -e --source winget"
     Write-Host "Manual installer: https://www.python.org/downloads/windows/"
     Write-Host "During manual installation, enable 'Add python.exe to PATH'."
 }

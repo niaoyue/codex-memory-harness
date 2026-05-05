@@ -37,6 +37,7 @@ class BuildReleaseTests(unittest.TestCase):
             package_path = build_release.build(Path(output_dir))
             with zipfile.ZipFile(package_path) as archive:
                 names = archive.namelist()
+                manifest = json.loads(archive.read("PACKAGE_MANIFEST.json").decode("utf-8"))
 
         self.assertNotIn(".codex/harness/commands.json", names)
         self.assertNotIn(".codex/harness/project_profile.json", names)
@@ -48,6 +49,8 @@ class BuildReleaseTests(unittest.TestCase):
         self.assertFalse(any(name.endswith("events.jsonl") for name in names))
         self.assertIn("templates/project/.codex/harness/commands.json", names)
         self.assertIn("templates/project/.codex/shared/README.md", names)
+        self.assertIn("install.bat", manifest["install"])
+        self.assertIn("install.sh", manifest["install"])
 
 
 class LauncherEntrypointTests(unittest.TestCase):
@@ -383,7 +386,7 @@ class BootstrapTests(unittest.TestCase):
 
         self.assertFalse(result["ok"])
         self.assertFalse(result["checks"]["home_plugin_points_to_current"])
-        self.assertTrue(any("UpdateExisting" in item for item in result["recommendations"]))
+        self.assertTrue(any("install.bat --update-existing" in item for item in result["recommendations"]))
 
     def test_doctor_accepts_codex_memory_cli_guidance(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

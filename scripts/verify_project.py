@@ -13,7 +13,7 @@ import build_release
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 MAX_CODE_LINES = 500
-CODE_SUFFIXES = {".py", ".ps1"}
+CODE_SUFFIXES = {".py", ".ps1", ".bat", ".sh"}
 JSON_SUFFIXES = {".json"}
 
 

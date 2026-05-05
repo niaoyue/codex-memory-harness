@@ -233,7 +233,7 @@ def _ensure_home_plugin_install(mode: str, *, update_existing: bool) -> dict[str
                 "created": False,
                 "status": "installed_elsewhere",
                 "resolved_path": _safe_existing_target(dst),
-                "recommended_action": "Run install.ps1 -UpdateExisting to update this installation to the current package.",
+                "recommended_action": "Run install.bat --update-existing to update this installation to the current package.",
             }
         replacement = _remove_existing_home_plugin(dst)
     if mode == "copy":
