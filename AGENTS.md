@@ -6,6 +6,7 @@
 - 回复开头必须有“前置说明”；如果发生工具调用，末尾补“工具调用简报”。
 - 编码前先做 `Sequential-Thinking 分析`，并坚持最小必要改动边界。
 - 读写文件统一使用 UTF-8（无 BOM）。
+- DEBUG 日志是一等验证依据：新增或修改功能时必须补充足够可定位的 DEBUG 级日志，后续测试验证要能依赖这些日志判断关键分支、输入输出摘要、降级原因、状态转换和完成结果是否符合预期；日志必须最小化，不得记录密钥、令牌、隐私数据、内部链接或完整敏感载荷。
 - 禁止危险命令、泄露密钥、上传敏感信息。
 - 所有 SubAgent 都不得设置固定总时长；宿主 `wait_agent` 或类似 API 的 timeout 只能作为本次观察窗口，窗口到期后继续观察，不得仅因观察窗口到期而中断、关闭或判失败。只要 SubAgent 有输出、checkpoint、状态更新或可见进度，就视为仍在运行。
 - 代码审核优先使用 `codex xhigh review --uncommitted` 作为最终 review gate；大 diff 或长耗时审查优先派发 XHigh Review Runner SubAgent 作为并行命令执行器运行该 gate，等待策略按 stdout/stderr 进度输出观察，不使用固定总时长超时，也不得再用 10 分钟外层总时长包住 runner。通用 SubAgent reviewer 只做窄范围专题/旁路审查，不替代 Codex CLI xhigh review。
