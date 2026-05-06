@@ -245,6 +245,32 @@ def run_behavior_tests() -> dict[str, object]:
     }
 
 
+def run_grounded_docs_check() -> dict[str, object]:
+    script = PROJECT_ROOT / "scripts" / "verify_grounded_docs.py"
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-X",
+            "utf8",
+            str(script),
+            "--required",
+            "docs/LLM_AGENT_MEMORY_HANDBOOK.md",
+            "--required",
+            "docs/GROUNDED_FACT_WORKFLOW.md",
+        ],
+        cwd=PROJECT_ROOT,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    return {
+        "ok": completed.returncode == 0,
+        "exit_code": completed.returncode,
+        "stdout": completed.stdout[-3000:],
+        "stderr": completed.stderr[-3000:],
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Verify Codex Memory Harness project health.")
     parser.add_argument("--skip-installer-check", action="store_true")
@@ -257,6 +283,7 @@ def main() -> int:
         "compile_failures": compile_python(),
         "json_failures": validate_json(),
         "release_package_failures": check_release_package(),
+        "grounded_docs": run_grounded_docs_check(),
         "behavior_tests": None if args.skip_behavior_tests else run_behavior_tests(),
         "installer_check": None if args.skip_installer_check else run_installer_check(),
         "installer_smoke": None if args.skip_installer_smoke else run_installer_smoke_test(),
@@ -266,6 +293,7 @@ def main() -> int:
         and not result["compile_failures"]
         and not result["json_failures"]
         and not result["release_package_failures"]
+        and result["grounded_docs"]["ok"]
         and (args.skip_behavior_tests or result["behavior_tests"]["ok"])
         and (args.skip_installer_check or result["installer_check"]["ok"])
         and (args.skip_installer_smoke or result["installer_smoke"]["ok"])

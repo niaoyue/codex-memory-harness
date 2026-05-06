@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import queue
 import sys
 import tempfile
 import unittest
@@ -260,6 +261,33 @@ class ReviewGateRunnerTests(unittest.TestCase):
 
         self.assertEqual(buffer.snapshot(), ["x" * 8])
         self.assertEqual(len(buffer.partial), 8)
+
+    def test_pump_uses_chunked_reads_instead_of_byte_events(self) -> None:
+        class FakeStream:
+            def __init__(self, data: bytes) -> None:
+                self.data = data
+                self.calls: list[int] = []
+                self.closed = False
+
+            def read(self, size: int) -> bytes:
+                self.calls.append(size)
+                if not self.data:
+                    return b""
+                chunk = self.data[:size]
+                self.data = self.data[size:]
+                return chunk
+
+            def close(self) -> None:
+                self.closed = True
+
+        stream = FakeStream(b"x" * (review_gate_runner.PUMP_CHUNK_BYTES + 5))
+        events: queue.Queue[tuple[str, str]] = queue.Queue()
+
+        review_gate_runner._pump("stdout", stream, events)
+
+        self.assertIn(review_gate_runner.PUMP_CHUNK_BYTES, stream.calls)
+        self.assertLess(events.qsize(), 4)
+        self.assertTrue(stream.closed)
 
     def test_idle_timeout_terminates_silent_process(self) -> None:
         script = "import time; time.sleep(2)"
