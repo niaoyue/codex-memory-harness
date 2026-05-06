@@ -11,7 +11,7 @@ cd H:\dev\company\codex-memory-harness
 .\install.bat
 ```
 
-Git Bash、MSYS、Cygwin 或其他已能调用 `powershell` 命令的 POSIX shell 环境中运行：
+Linux/macOS shell，或 Git Bash、MSYS、Cygwin 等 POSIX shell 环境中运行：
 
 ```sh
 sh ./install.sh
@@ -19,7 +19,7 @@ sh ./install.sh
 
 安装脚本会先检查 Python 3.11+。如果缺少 Python、版本过低或未加入 PATH，它会提示 `winget install --id Python.Python.3.12 -e --source winget`、Homebrew/apt/dnf 等常见安装命令、手动安装地址和重新运行方式。
 
-当前 hook/MCP 运行时仍以名为 `powershell` 的 PowerShell launcher 为主；`install.sh` 是 shell 入口包装，不代表原生 macOS/Linux 或纯 `pwsh` 运行时已经完成。
+`install.sh` 会在 Linux/macOS 默认写入 POSIX hook/MCP launcher；在 Windows POSIX shell 中如检测到 `powershell`，默认仍写入 PowerShell launcher。可用 `CODEX_MEMORY_LAUNCHER_FAMILY=posix|powershell` 显式指定。
 
 如果希望脚本尝试代装 Python，可以显式运行：
 

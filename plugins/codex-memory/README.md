@@ -33,7 +33,7 @@ POSIX shell：
 sh ./install.sh
 ```
 
-`install.sh` 是 shell 入口包装；当前 hook/MCP 运行时仍依赖名为 `powershell` 的 PowerShell launcher，目标环境需要能调用 `powershell` 命令。
+`install.sh` 是 shell 入口包装；Linux/macOS 默认写入 POSIX hook/MCP launcher，不要求 `powershell` 命令。Windows POSIX shell 如需沿用 PowerShell launcher，可设置 `CODEX_MEMORY_LAUNCHER_FAMILY=powershell`。
 
 如果当前版本已经安装，安装器会提示 `already_installed`，不会重复安装。
 

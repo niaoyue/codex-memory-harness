@@ -112,10 +112,6 @@ def dependency_status() -> dict[str, Any]:
     if not codex_path:
         missing.append("codex_cli")
         _recommend("Install Codex CLI and make sure the codex command is on PATH.")
-    if not powershell_commands:
-        missing.append("powershell")
-        _recommend("Install PowerShell 7 with: winget install Microsoft.PowerShell")
-
     return {
         "python": {
             "ok": python_ok,
@@ -137,8 +133,12 @@ def dependency_status() -> dict[str, Any]:
         },
         "powershell": {
             "ok": bool(powershell_commands),
+            "required": False,
             "commands": powershell_commands,
-            "install_hint": "Install PowerShell 7 with: winget install Microsoft.PowerShell",
+            "install_hint": (
+                "Optional for PowerShell profile wrappers. POSIX hooks and MCP launchers "
+                "do not require a powershell command."
+            ),
         },
         "missing": missing,
         "recommendations": recommendations,

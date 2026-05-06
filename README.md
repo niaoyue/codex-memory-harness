@@ -97,7 +97,7 @@ PowerShell 中运行 batch 文件时使用：
 .\install.bat
 ```
 
-在 Git Bash、MSYS、Cygwin 或其他已能调用 `powershell` 命令的 POSIX shell 环境中：
+在 Linux/macOS shell，或 Git Bash、MSYS、Cygwin 等 POSIX shell 环境中：
 
 ```sh
 sh ./install.sh
@@ -107,7 +107,7 @@ sh ./install.sh
 
 - 先检查 Python 3.11+ 是否可用；缺少 Python、版本过低或未加入 PATH 时，会提示安装命令和重试方式。
 - 如果希望脚本代为尝试安装 Python，可显式运行 `install.bat --install-python` 或 `sh ./install.sh --install-python`。Windows 会使用 `winget`；POSIX shell 会按可用包管理器尝试 Homebrew、apt、dnf、yum 或 pacman。默认不会静默安装系统环境。
-- 当前 hook/MCP 运行时仍以名为 `powershell` 的 PowerShell launcher 为主；`install.sh` 是 shell 入口包装，不代表原生 macOS/Linux 或纯 `pwsh` 运行时已经完成。
+- `install.sh` 会在 Linux/macOS 默认写入 POSIX hook/MCP launcher；在 Windows POSIX shell 中如检测到 `powershell`，默认仍写入 PowerShell launcher。可用 `CODEX_MEMORY_LAUNCHER_FAMILY=posix|powershell` 显式指定。
 - 修复必要的官方 Codex 配置：确保 `$CODEX_HOME/config.toml` 中启用 `[features] codex_hooks = true`。
 - 安装 bundled Codex skills 到 `~/.agents/skills/<skill-name>`：`security-best-practices`、`security-threat-model`、`cli-creator`、`migrate-to-codex`、`gh-fix-ci`、`gh-address-comments`、`harness-release-gate`。这些技能已随包 vendor，安装时不联网下载；如果目标技能目录已存在，会保留用户已有版本并跳过。
 - 把 `~/plugins/codex-memory` 指向本仓库的 `plugins/codex-memory`。
@@ -312,7 +312,7 @@ POSIX shell：
 sh ./install.sh
 ```
 
-`install.sh` 仍要求目标环境可调用 `powershell` 命令；当前版本不提供原生 macOS/Linux 或纯 `pwsh` hook/MCP launcher。
+`install.sh` 不要求目标环境存在 `powershell` 命令；Linux/macOS 默认使用随包提供的 POSIX hook/MCP launcher。Windows POSIX shell 如需沿用 PowerShell launcher，可设置 `CODEX_MEMORY_LAUNCHER_FAMILY=powershell`。
 
 已有旧安装则运行：
 

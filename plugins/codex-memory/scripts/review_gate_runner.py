@@ -72,9 +72,16 @@ def normalize_command_for_windows(command: list[str]) -> list[str]:
     if os.name != "nt" or not command:
         return command
     executable = command[0]
-    if Path(executable).suffix.lower() != ".ps1":
+    if _path_suffix(executable) != ".ps1":
         return command
     return ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", executable, *command[1:]]
+
+
+def _path_suffix(value: str) -> str:
+    name = str(value).replace("\\", "/").rsplit("/", 1)[-1]
+    if "." not in name:
+        return ""
+    return "." + name.rsplit(".", 1)[-1].lower()
 
 
 def idle_timed_out(last_output: float, now: float, idle_seconds: float) -> bool:

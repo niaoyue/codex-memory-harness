@@ -91,7 +91,7 @@ def build(output_dir: Path) -> Path:
         "built_at": datetime.now(timezone.utc).isoformat(),
         "install": (
             "Windows CMD: run install.bat. PowerShell: run .\\install.bat. "
-            "POSIX shell with powershell command available: run sh ./install.sh. "
+            "POSIX shell: run sh ./install.sh. "
             "Bundled Codex skills install into ~/.agents/skills by default; use --skip-skills to skip them. "
             "Use --update-existing to update an existing install. install.ps1 remains supported."
         ),
