@@ -179,7 +179,7 @@ AI 诊断日志只存在于实现和验证循环中。
 
 它不能进入最终发布包，也不能把原始日志写入 memory。
 
-Release gate 必须检查：
+完整目标态的 Release gate 必须检查；当前 runtime 只内建基础 AI 诊断日志 release gate，构建、版本、热更、回滚材料和平台配置仍需要业务项目自己的 release profile 覆盖：
 
 - 诊断开关已关闭。
 - 调试宏或 define 未启用。
@@ -195,7 +195,7 @@ Release gate 必须检查：
 |---|---|---|
 | Specialist 验证 | 验证单项目改动 | `client_quick`、`server_unit`、`admin_lint_test` |
 | Coordinator 聚合 | 验证跨项目契约和顺序 | contract test、integration、docs consistency |
-| Release gate | 验证发布边界 | 构建、版本、热更、回滚、诊断日志关闭、敏感扫描 |
+| Release gate | 验证发布边界 | 目标态覆盖构建、版本、热更、回滚、诊断日志关闭、敏感扫描；当前本仓库只提供基础诊断日志 gate 和验证聚合能力 |
 
 任何一层失败，都不能假装完成。最终答复必须说明失败项、阻断程度和下一步。
 

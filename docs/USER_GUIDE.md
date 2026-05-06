@@ -115,9 +115,12 @@ codex memory init
 - `.codex/memories/`
 - `.codex/harness/commands.json`
 - `.codex/harness/project_profile.json`
+- `.codex/harness/workspace-routing.json`
 - `.codex/shared/README.md`
 - `.codex/shared/index.json`
 - `.codex/shared/decisions/`、`facts/`、`workflows/`、`routes/`
+
+注意：当前 wrapper 的普通启动会在缺少项目 memory、`commands.json`、`project_profile.json`、`.codex/shared` 或 `.codex/shared/index.json` 时自动补齐项目配置；如果旧项目只缺 `.codex/harness/workspace-routing.json`，`codex memory doctor` 会提示，需显式运行 `codex memory init` 补齐。
 
 ## 记忆分层
 
@@ -278,6 +281,8 @@ codex workspace game-client init --engine unity --project-cwd client
 - `before_task` 自动生成 route plan 和 SubAgent bindings，并写入 task metadata。
 - `after_tool` 根据 touched paths 重算 route/bindings，并执行 scope guard；多项目时会按 specialist assigned scope 分发路径，避免误报未触达 specialist。
 - `before_response` 输出 `workspace_routing_review`，报告低置信路由、routing 降级、verification gap 和 scope gap。
+
+当前软集成只把 route plan、bindings、scope guard 和 runtime decision 写入 task metadata / artifact；不会自动把 workspace summary 与子项目事实分层写入 `.codex/shared` 或长期 memory。自动分层写入已进入计划列表，现阶段仍需通过 summary 与 `codex memory promote` 做人工审查式提升。
 
 生命周期 metadata 还会写入 `workspace_routing.subagent_runtime`，并在 `workspace_routing_review.subagent_runtime` 中回显当前决策：单项目串行、建议但未启动、用户要求但未启动，或已经观察到 route-bound/SubAgent-style artifact。该字段用于解释主 agent 直接执行或未启动 SubAgent 的原因。
 

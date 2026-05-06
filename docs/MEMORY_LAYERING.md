@@ -184,15 +184,15 @@ updated_at: 2026-04-28
 | `.codex/memories/events.jsonl` | 项目私有事件流，不提交 |
 | `.codex/harness/tasks/**` | 项目私有运行态，不提交 |
 | `.codex/harness/*.json` | 可作为项目配置提交，需 review |
-| `.codex/shared/**/*.md` | 可提交，按 PR review 和 schema 校验 |
+| `.codex/shared/**/*.md` | 可提交，按 PR review 和当前 front matter/敏感内容校验；严格 JSON Schema 校验仍是后续项 |
 | `.codex/shared/index.json` | 建议生成，冲突时重建 |
 
 ## 7. 提升流程
 
-项目私有层中的内容不能自动变成团队事实。推荐后续提供提升命令：
+项目私有层中的内容不能自动变成团队事实。当前最小提升命令如下：
 
 ```powershell
-codex memory promote --task-id <task-id> --to shared
+codex memory promote --task-id <task-id> --kind fact
 codex memory shared validate
 codex memory shared index rebuild
 ```
@@ -201,7 +201,7 @@ codex memory shared index rebuild
 
 1. 本地任务完成后写入 `.codex/memories`。
 2. agent 从 summary、decision、verification 中提取候选共享记忆。
-3. 执行敏感信息扫描和 schema 校验。
+3. 执行敏感信息扫描和当前 front matter 字段/枚举校验。
 4. 生成 `.codex/shared/**/*.md`。
 5. 通过 Git PR review。
 6. 合并后团队成员自动读取项目共享层。

@@ -71,6 +71,16 @@
 | T53 | 18 | 实现 SubAgent dispatch plan | `subagent_scheduler.py` 与 `codex workspace schedule` | T42,T52 | done |
 | T54 | 18 | 实现游戏客户端 profile 模板生成器 | `game_client_profiles.py` 与 `codex workspace game-client init/template` | T34,T52 | done |
 | T55 | 19 | 实现发布级完整验证平台 | 渠道包、热更、构建产物、平台配置和回滚材料 gate | T50,T54 | todo |
+| T56 | 19 | 补服务器/后台/文档/美术业务模板 | workspace routing rules、profile 示例和模板生成策略 | T54,WR-26,WR-27,WR-28 | todo |
+| T57 | 19 | 补 workspace routing 发布与迁移说明 | 普通 harness 到 workspace routing 的升级说明和兼容边界 | T52,WR-30 | todo |
+| T58 | 20 | 实现 workspace memory 自动分层写入 | 根据 `memory_plan` 写入 workspace summary 与子项目 fact | T43,WR-34 | todo |
+| T59 | 20 | 实现真实 SubAgent 自动执行器 | 在宿主支持时消费 `host_spawn_requests` 并回写状态 | T53 | todo |
+| T60 | 20 | 补本仓库 dogfood workspace routing 配置 | 当前仓库根 `.codex/harness/workspace-routing.json` 与源码布局对齐 | WR-33 | todo |
+| T61 | 20 | 实现安装器 dry-run | 安装前输出将写入的 profile、AGENTS、marketplace、skills 和 Codex config 变更 | T20 | todo |
+| T62 | 20 | 实现旧全局 memory marker 迁移工具 | `migrate-legacy-global --dry-run/--confirm`，含 manifest、checksum 和回滚说明 | T21 | todo |
+| T63 | 20 | 提供 custom agents 模板 | `.codex/agents` 模板对齐 dispatch plan，不默认写入用户全局 | T53 | todo |
+| T64 | 20 | 平台化 eval replay | `.codex/evals` 或等价结构，把失败和高价值任务转为可回放评测 | T24,T55 | todo |
+| T65 | 20 | 实现 memory archive/cleanup 与 retention policy | 提供正式归档、清理、按 `task_id` 删除和索引规模控制命令，作为语义检索前置条件 | T31,T58 | todo |
 
 ## 3. 当前推荐执行步
 
@@ -452,10 +462,17 @@
 - 自动启动/调度真实 SubAgent
 - 发布级完整 workspace 验证平台
 - workspace memory 自动分层写入
+- 服务器/后台/文档/美术完整业务模板
+- 本仓库 dogfood workspace routing 配置
+- 安装器 dry-run
+- 官方 custom agents 模板
+- 旧全局 memory marker 迁移工具
+- 平台化 eval replay
+- memory archive/cleanup 与 retention policy
 
 ## 6. 当前状态与下一步
 
-当前已完成至 Step 28，状态如下：
+当前已完成至 Step 28，状态如下；Step 29 起是本轮文档审计确认后的计划项，尚未实现：
 
 - Step 6 已完成
 - Step 7 已完成
@@ -483,4 +500,9 @@
 - Step 26 已完成：SubAgent dispatch plan 与 `codex workspace schedule`
 - Step 27 已完成：游戏客户端 Unity/Laya/Cocos profile 模板生成器
 - Step 28 已完成：基础 AI 诊断日志 release gate runtime
-- 如需继续增强，下一轮优先进入服务器/后台/文档/美术业务模板、发布级完整验证平台、发布与迁移说明、eval suite、workspace memory 自动分层写入、语义检索 provider、记忆迁移或更强的上下文编排
+- Step 29 计划：服务器/后台/文档/美术业务模板
+- Step 30 计划：本仓库 dogfood workspace routing 配置与发布迁移说明
+- Step 31 计划：workspace memory 自动分层写入
+- Step 32 计划：真实 SubAgent 自动执行器
+- Step 33 计划：发布级完整验证平台与 eval replay
+- Step 34 计划：安装器 dry-run、旧全局 memory marker 迁移工具、custom agents 模板、memory archive/cleanup 与可选语义检索 provider

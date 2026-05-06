@@ -226,9 +226,16 @@ codex memory init
 <PROJECT_ROOT>/.codex/memories/
 <PROJECT_ROOT>/.codex/harness/commands.json
 <PROJECT_ROOT>/.codex/harness/project_profile.json
+<PROJECT_ROOT>/.codex/harness/workspace-routing.json
+<PROJECT_ROOT>/.codex/shared/README.md
+<PROJECT_ROOT>/.codex/shared/index.json
+<PROJECT_ROOT>/.codex/shared/decisions/
+<PROJECT_ROOT>/.codex/shared/facts/
+<PROJECT_ROOT>/.codex/shared/workflows/
+<PROJECT_ROOT>/.codex/shared/routes/
 ```
 
-不会覆盖已有 harness 配置。
+不会覆盖已有 harness 或 shared 配置。普通 wrapper 启动会在缺少项目 memory、`commands.json`、`project_profile.json`、`.codex/shared` 或 `.codex/shared/index.json` 时自动补齐；如果旧项目只缺 `.codex/harness/workspace-routing.json`，doctor 会提示，需显式运行 `codex memory init`。
 
 ## 8. Memory 插件
 
@@ -602,7 +609,7 @@ docs/AI_DIAGNOSTIC_LOGGING.md
 - 当前检索是本地 MVP，尚未接入 embedding。
 - 当前没有内建真实 SubAgent 自动执行器；已提供角色协作协议、artifact 记录、route binding、scope guard、coordinator summary 和 dispatch plan。
 - 当前已内建 `codex workspace game-client init/template`，但没有顶层 `codex game-client ...` 独立入口，也不内置具体业务项目的引擎脚本。
-- 当前没有内建发布级 workspace 平台；已提供只读 workspace scanner、只读 route planner、最小 workspace verification aggregation、SubAgent route binding、scope guard、coordinator summary、dispatch plan、memory lifecycle 软集成、project inventory、routing config、route plan 和验证聚合 schema，以及 `.codex/harness/workspace-routing.json` 模板。
+- 当前没有内建发布级 workspace 平台；已提供只读 workspace scanner、只读 route planner、最小 workspace verification aggregation、SubAgent route binding、scope guard、coordinator summary、dispatch plan、memory lifecycle 软集成、project inventory、routing config、route plan 和验证聚合 schema，以及 `templates/project/.codex/harness/workspace-routing.json` 用户项目模板。当前 checkout 的根 `.codex/harness/workspace-routing.json` 尚未补齐，属于 dogfood 配置缺口。
 - 当前已内建基础敏感信息扫描器和基础 AI 诊断日志 release gate；release gate 不覆盖所有平台构建配置和完整发布流水线。
 - 当前已实现项目共享 memory 初始化模板、promote、validate 和索引重建的最小 runtime；严格 JSON Schema 校验和多人冲突自动处理尚未实现。
 - 当前 workspace verifier 已支持每个 route 使用自己的 cwd/profile 聚合执行；发布级完整验证平台仍未实现。
@@ -624,6 +631,10 @@ docs/AI_DIAGNOSTIC_LOGGING.md
 8. 发布级完整验证平台：覆盖渠道包、热更、构建产物、回滚材料和平台配置。
 9. 可选本地语义检索：在不开启网络的前提下增强召回。
 10. 安装器 dry-run：让用户安装前预览所有写入。
+11. 旧全局 memory marker 迁移工具：提供 dry-run/confirm、manifest、checksum 和回滚说明。
+12. Custom agents 模板：提供 `.codex/agents` 模板对齐 dispatch plan，但不默认写入用户全局。
+13. 本仓库 dogfood workspace routing 配置：补齐根 `.codex/harness/workspace-routing.json`，让维护者仓库自检与模板能力一致。
+14. Memory archive/cleanup 与 retention policy：提供正式归档、清理、按 `task_id` 删除和索引规模控制命令，作为后续语义索引前置条件。
 
 ## 24. 一句话总结
 

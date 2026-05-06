@@ -103,7 +103,7 @@
 建议满足以下条件后再引入：
 
 - 写入前敏感信息扫描已经落地。
-- memory archive/cleanup 已经落地，能控制索引规模。
+- memory archive/cleanup 与 retention policy 已经落地，能控制索引规模；当前尚未实现，必须先进入计划列表。
 - 每条可索引内容都有来源、时间、scope、task_id 和可删除标识。
 - 多项目 workspace 中，每条可索引内容都有 `workspace_id`、`project_id`、`domain`、`scope`、`task_id` 和可删除标识。
 - 有清晰的 rebuild/reindex 命令。
@@ -181,3 +181,5 @@ Semantic retrieval is not implemented in the local MVP.
 ```
 
 这条状态应继续保留，直到真正完成 provider、索引、安全过滤和验证闭环。文档上需要明确：当前没有向量数据库，是为了先保证本地、可审计、低依赖和安全默认值。
+
+当前尚未实现正式的 `codex memory archive/cleanup`、retention policy 或按 `task_id` 删除长期索引的用户命令。现有 demo cleanup 只用于测试/演示数据清理，不能当作正式记忆归档能力。该能力应在接入语义索引前先补齐。
