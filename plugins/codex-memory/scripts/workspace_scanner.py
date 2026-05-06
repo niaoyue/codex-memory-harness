@@ -404,14 +404,25 @@ def read_small_text(path: Path, max_chars: int = 4000) -> str:
 
 
 def detect_framework(package_json: Path) -> str | None:
-    text = read_small_text(package_json).lower()
-    if "vue" in text:
+    dependencies = package_dependency_names(read_json_object(package_json))
+    if "next" in dependencies:
+        return "next"
+    if "vue" in dependencies:
         return "vue"
-    if "react" in text:
+    if "react" in dependencies:
         return "react"
-    if "angular" in text:
+    if "angular" in dependencies or "@angular/core" in dependencies:
         return "angular"
     return None
+
+
+def package_dependency_names(package: dict[str, Any]) -> set[str]:
+    names: set[str] = set()
+    for section in ("dependencies", "devDependencies", "peerDependencies", "optionalDependencies"):
+        dependencies = package.get(section)
+        if isinstance(dependencies, dict):
+            names.update(str(name).lower() for name in dependencies)
+    return names
 
 
 def string_list(value: Any) -> list[str]:

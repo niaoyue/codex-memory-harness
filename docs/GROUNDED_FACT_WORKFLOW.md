@@ -122,7 +122,15 @@ API authority plan 示例：
 6. 本地版本与外部文档冲突时，以本地 dependency/version + 编译测试结果为完成 gate；正文要说明外部文档适用版本。
 7. 查不到权威 API 来源时，不能凭模型补全 API 名称；应改为本地搜索已有调用、读取类型定义、生成最小编译探针，或停止并标注 blocked。
 
-资料核验记录：本节规则来源于 Unity 官方文档、OpenAI Codex MCP、OpenAI Docs MCP、Context7 官方 README/API Guide 与本项目 workspace routing 设计：`https://docs.unity3d.com/ScriptReference/index.html`
+当前 Phase 1 已落地只读 `api_authority_router.py`。它复用 workspace scanner 识别 Unity、Web、服务器和本仓库工具项目，输出 `ecosystem`、`detected_version`、`api_surfaces`、`authority_channels`、`locators`、`verification` 和 MCP 缺口状态。该阶段不联网、不安装 MCP，只生成计划；自动安装和真实 MCP 调用应在后续 policy gate 中单独接入。
+
+推荐本地入口：
+
+```powershell
+py -X utf8 plugins\codex-memory\scripts\api_authority_router.py --workspace-root . --objective "OpenAI Responses API" plan
+```
+
+资料核验记录：本节规则来源于 Unity 官方文档、OpenAI Codex MCP、OpenAI Docs MCP、Context7 官方 README/API Guide、本项目 workspace routing 设计和 Phase 1 实现：`https://docs.unity3d.com/ScriptReference/index.html`、`plugins/codex-memory/scripts/api_authority_router.py`、`plugins/codex-memory/scripts/api_authority_sources.py`、`tests/test_api_authority_router.py`
 
 ## 6. MCP 与 Context7 接入策略
 
@@ -224,7 +232,7 @@ Context7 的正确定位：
 
 后续应增加的 API 专项 gate：
 
-- 对代码 diff 中新增的外部 namespace/package/import 做 API authority plan 检查。
+- 对代码 diff 中新增的外部 namespace/package/import 做 API authority plan 检查；Phase 1 可先使用 `plugins/codex-memory/scripts/api_authority_router.py` 生成只读计划。
 - 对 Unity route 检查 `ProjectSettings/ProjectVersion.txt`、`Packages/manifest.json` 和 batchmode 验证记录。
 - 对服务器 route 检查 lockfile、OpenAPI/protobuf/schema、build/test/contract test 记录。
 - 对 MCP/Context7 使用记录 `libraryId`、版本、query、source type 和 fallback 状态。
