@@ -4,7 +4,7 @@
 
 本文把 `docs/WORKSPACE_ADAPTIVE_ROUTING.md` 的设计拆成可执行任务，并同步当前项目进度。
 
-当前状态：已完成文档设计、设计审查、隐私边界、检索作用域同步、workspace routing schema 与项目配置模板、只读 workspace scanner、最小只读 route planner、最小 workspace verification aggregation、SubAgent route binding、scope guard、coordinator summary、dispatch plan、memory lifecycle 软集成、游戏客户端自动扫描默认规则、游戏客户端 profile 模板生成器和基础 AI 诊断日志 release gate；尚未实现真实 SubAgent 自动执行器、发布级完整验证平台、workspace memory 自动分层写入、服务器/后台/文档/美术完整业务模板，也尚未把本仓库 dogfood `.codex/harness/workspace-routing.json` 补齐到当前 checkout。
+当前状态：已完成文档设计、设计审查、隐私边界、检索作用域同步、workspace routing schema 与项目配置模板、只读 workspace scanner、最小只读 route planner、最小 workspace verification aggregation、SubAgent route binding、scope guard、coordinator summary、dispatch plan、memory lifecycle 软集成、游戏客户端自动扫描默认规则、游戏客户端 profile 模板生成器、服务器/后台/文档/美术业务模板、本仓库 dogfood workspace routing 配置、workspace routing 发布迁移说明和基础 AI 诊断日志 release gate；尚未实现真实 SubAgent 自动执行器、发布级完整验证平台和 workspace memory 自动分层写入。
 
 ## 2. 进度状态
 
@@ -25,7 +25,7 @@
 | WR-M3 | 验证聚合 | 按 route plan 聚合多个项目的 verification profile | done |
 | WR-M4 | SubAgent 集成 | 为每个 SubAgent 绑定 project/domain/scope/rules/profile ids | done |
 | WR-M5 | 生命周期集成 | 在 before_task/after_tool/before_response 中自动使用路由结果 | done |
-| WR-M6 | 业务模板 | 为游戏客户端、服务器、后台、文档、美术工程提供可配置模板 | doing |
+| WR-M6 | 业务模板 | 为游戏客户端、服务器、后台、文档、美术工程提供可配置模板 | done |
 
 ## 4. 详细任务
 
@@ -59,14 +59,14 @@
 | WR-24 | before_response 集成 | 输出 routing review，报告低置信、routing 降级、verification gap 和 scope gap | WR-23 | done |
 | WR-25 | 游戏客户端模板 | `codex workspace game-client init/template` 生成 Unity/Laya/Cocos profile 模板 | WR-10 | done |
 | WR-25A | 游戏客户端自动路由默认规则 | 自动扫描到 Unity/Laya/Cocos 时补充 `game_client/<engine>` 和任务类型规则 | WR-12 | done |
-| WR-26 | 游戏服务器模板 | Go/Java/C#/Node 服务端 rules 和 profile 示例 | WR-10 | todo |
-| WR-27 | 后台/Web 模板 | 管理端、GM、运营后台 rules 和 profile 示例 | WR-10 | todo |
-| WR-28 | 文档与美术工程模板 | docs/art/asset pipeline rules 和 profile 示例 | WR-10 | todo |
+| WR-26 | 游戏服务器模板 | `codex workspace project-template init --domain game_server` 生成 Go/Java/C#/Node 服务端 rules 和 profile 示例 | WR-10 | done |
+| WR-27 | 后台/Web 模板 | `codex workspace project-template init --domain backoffice_web` 生成管理端、GM、运营后台 rules 和 profile 示例 | WR-10 | done |
+| WR-28 | 文档与美术工程模板 | `codex workspace project-template init --domain design_docs|art_pipeline` 生成 docs/art/asset pipeline rules 和 profile 示例 | WR-10 | done |
 | WR-29 | 测试覆盖 | scanner、route planner、aggregation、scope guard 和 lifecycle hook 行为测试 | WR-09,WR-12,WR-15,WR-18 | done |
-| WR-30 | 发布与迁移说明 | 用户如何从普通 harness 升级到 workspace routing | WR-29 | todo |
+| WR-30 | 发布与迁移说明 | `docs/WORKSPACE_ROUTING_MIGRATION.md` 说明用户如何从普通 harness 升级到 workspace routing | WR-29 | done |
 | WR-31 | SubAgent dispatch plan | `codex workspace schedule` 生成 coordinator/specialist 调度计划 | WR-17,WR-19 | done |
 | WR-32 | AI 诊断日志 release gate | release route 阻断诊断开关、临时 sink 和裸日志绕过 | WR-15,WR-25A | done |
-| WR-33 | 本仓库 workspace routing dogfood 配置 | 当前仓库根 `.codex/harness/workspace-routing.json` 对齐模板和当前源码布局 | WR-10 | todo |
+| WR-33 | 本仓库 workspace routing dogfood 配置 | 当前仓库根 `.codex/harness/workspace-routing.json` 对齐模板和当前源码布局 | WR-10 | done |
 | WR-34 | workspace memory 自动分层写入 | 按 route plan `memory_plan` 把 workspace summary 与子项目事实分层沉淀 | WR-21 | todo |
 
 ## 5. 当前项目进度同步
@@ -78,7 +78,7 @@
 - `codex harness verify run --profile primary`。
 - 本地 memory、summary、distillation。
 - 项目级 `.codex/harness/commands.json` 与 `project_profile.json`。
-- 显式 workspace 配置模板 `templates/project/.codex/harness/workspace-routing.json`；当前 checkout 的根 `.codex/harness/workspace-routing.json` 尚未补齐，属于 dogfood 配置缺口。
+- 显式 workspace 配置模板 `templates/project/.codex/harness/workspace-routing.json`，以及本仓库根 `.codex/harness/workspace-routing.json` dogfood 配置。
 - Workspace project inventory、routing config、route plan、SubAgent route binding 和 verification aggregation schema。
 - `codex workspace doctor/scan` 只读 workspace scanner。
 - `codex workspace route` 只读 route planner。
@@ -86,6 +86,7 @@
 - `codex workspace bind/scope-check/summarize` 最小 SubAgent binding、scope guard、coordinator summary 和冲突检测。
 - `codex workspace schedule` 最小 SubAgent dispatch plan 生成。
 - `codex workspace game-client init/template` Unity、LayaBox/LayaAir、Cocos Creator profile 模板生成。
+- `codex workspace project-template init/template` 服务器、后台/Web、文档和美术工程业务模板生成。
 - workspace verifier 的基础 AI 诊断日志 release gate。
 - `before_task` / `after_tool` / `before_response` 的 workspace routing 软集成。
 - `workspace_meta` 根工具工程识别和根路径路由。
@@ -98,16 +99,13 @@
 - workspace 级 memory 与子项目 memory 的自动分层写入；当前只在 route plan metadata 中记录 `memory_plan`。
 - 发布级完整验证闭环和 release gate 平台。
 - 自动启动/调度真实 SubAgent；当前只有 dispatch plan，不负责启动宿主 agent 或子进程。
-- 服务器、后台、文档和美术工程的完整业务模板。
-- 本仓库 dogfood `.codex/harness/workspace-routing.json`。
 
 ## 6. 推荐下一步
 
 下一步优先级：
 
-1. WR-26 到 WR-28：补服务器、后台、文档和美术工程业务模板。
-2. WR-33：补本仓库 dogfood `.codex/harness/workspace-routing.json`，避免维护者本仓库 doctor 持续提示缺路由配置。
-3. WR-30：补发布与迁移说明。
-4. WR-34 及后续：实现 workspace memory 自动分层写入、真实 SubAgent 自动执行器和更完整的发布验证平台。
+1. WR-34：实现 workspace memory 自动分层写入。
+2. 后续主线：实现真实 SubAgent 自动执行器。
+3. 后续主线：实现更完整的发布验证平台。
 
-这个顺序可以降低风险：已完成只读发现、计划、验证、SubAgent binding、dispatch plan、游戏客户端模板、基础 release gate 和 lifecycle 软集成；接下来先补剩余业务模板，再考虑真实自动执行与发布级平台。
+这个顺序可以降低风险：已完成只读发现、计划、验证、SubAgent binding、dispatch plan、游戏客户端模板、业务模板、dogfood 配置、发布迁移说明、基础 release gate 和 lifecycle 软集成；接下来再进入自动分层写入、真实自动执行与发布级平台。

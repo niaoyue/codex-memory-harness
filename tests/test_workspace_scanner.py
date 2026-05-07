@@ -73,6 +73,7 @@ class WorkspaceScannerTests(unittest.TestCase):
                             "id": "configured-client",
                             "path": "./client",
                             "cwd": "client/.",
+                            "verification_cwd": ".",
                             "domain": "game_client",
                             "engine": "unity",
                             "rules": ["workspace/base", "game_client/unity"],
@@ -104,6 +105,7 @@ class WorkspaceScannerTests(unittest.TestCase):
         self.assertEqual(projects["configured-client"]["source"], "explicit_config")
         self.assertEqual(projects["configured-client"]["path"], "client")
         self.assertEqual(projects["configured-client"]["cwd"], "client")
+        self.assertEqual(projects["configured-client"]["verification_cwd"], ".")
         self.assertEqual(len([item for item in projects.values() if item["cwd"] == "client"]), 1)
         self.assertNotIn("read_scopes", projects["configured-client"]["memory_binding"])
 
@@ -127,6 +129,39 @@ class WorkspaceScannerTests(unittest.TestCase):
         project_ids = {project["id"] for project in inventory["projects"]}
         self.assertNotIn("outside-relative", project_ids)
         self.assertNotIn("outside-absolute", project_ids)
+
+    def test_explicit_workspace_config_rejects_verification_cwd_outside_workspace(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir) / "workspace"
+            outside = Path(temp_dir) / "shared"
+            _write_json(
+                root / ".codex" / "harness" / "workspace-routing.json",
+                {
+                    "version": 1,
+                    "projects": [
+                        {
+                            "id": "outside-verification-relative",
+                            "path": "client",
+                            "cwd": "client",
+                            "verification_cwd": "../shared",
+                            "domain": "game_client",
+                        },
+                        {
+                            "id": "outside-verification-absolute",
+                            "path": "server",
+                            "cwd": "server",
+                            "verification_cwd": str(outside),
+                            "domain": "game_server",
+                        },
+                    ],
+                },
+            )
+
+            inventory = workspace_scanner.scan_workspace(root, max_depth=1)
+
+        project_ids = {project["id"] for project in inventory["projects"]}
+        self.assertNotIn("outside-verification-relative", project_ids)
+        self.assertNotIn("outside-verification-absolute", project_ids)
 
     def test_scanner_detects_workspace_meta_root_project(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

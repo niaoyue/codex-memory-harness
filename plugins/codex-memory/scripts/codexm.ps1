@@ -24,6 +24,7 @@ $WorkspaceSubagentsScript = Join-Path $ScriptRoot "workspace_subagents.py"
 $SubagentSchedulerScript = Join-Path $ScriptRoot "subagent_scheduler.py"
 $ReviewGateScript = Join-Path $ScriptRoot "review_gate_runner.py"
 $GameClientProfilesScript = Join-Path $ScriptRoot "game_client_profiles.py"
+$WorkspaceBusinessTemplatesScript = Join-Path $ScriptRoot "workspace_business_templates.py"
 $HookBridgeScript = Join-Path $ScriptRoot "hook_bridge.py"
 $RequiredPythonMajor = 3
 $RequiredPythonMinor = 11
@@ -159,6 +160,7 @@ function Write-WorkspaceHelp {
 Codex Workspace 命令：
   doctor|scan|route|verify|bind|schedule|scope-check|summarize
   game-client init --engine unity|laya|cocos
+  project-template init --domain game_server|backoffice_web|design_docs|art_pipeline
 "@
 }
 
@@ -322,6 +324,7 @@ function Invoke-WorkspaceCommand {
         }
         "schedule" { Invoke-PythonScriptAndExit -ScriptPath $SubagentSchedulerScript -Arguments (@("--project-root", $cwd) + $remaining) }
         "game-client" { Invoke-PythonScriptAndExit -ScriptPath $GameClientProfilesScript -Arguments (@("--project-root", $cwd) + $remaining) }
+        "project-template" { Invoke-PythonScriptAndExit -ScriptPath $WorkspaceBusinessTemplatesScript -Arguments (@("--project-root", $cwd) + $remaining) }
         "scope-check" {
             Invoke-PythonScriptAndExit -ScriptPath $WorkspaceSubagentsScript -Arguments (@("--project-root", $cwd, "scope-check") + $remaining)
         }

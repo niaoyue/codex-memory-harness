@@ -35,6 +35,7 @@ def aggregate_verification(
     for target in [item for item in plan if isinstance(item, dict)]:
         project_id = str(target.get("project_id") or "")
         cwd = str(target.get("cwd") or "")
+        verification_cwd = str(target.get("verification_cwd") or cwd)
         domain = str(target.get("domain") or "")
         blocking = bool(target.get("blocking", True))
         for profile_id in string_list(target.get("verification_profile_ids")):
@@ -48,9 +49,9 @@ def aggregate_verification(
                     gaps.append(gap(project_id, profile_id, f"verification command not found: {command_name}", blocking))
                     continue
                 if no_run:
-                    results.append(skipped_result(project_id, domain, cwd, profile_id, command_name, blocking))
+                    results.append(skipped_result(project_id, domain, verification_cwd, profile_id, command_name, blocking))
                     continue
-                command_spec = replace(spec, cwd=spec.cwd or cwd)
+                command_spec = replace(spec, cwd=spec.cwd or verification_cwd)
                 try:
                     result = verification_runner.run_command(command_spec, project_root, max_output_chars)
                 except (OSError, RuntimeError, ValueError) as exc:
@@ -103,6 +104,7 @@ def normalize_verification_plan(value: Any) -> list[dict[str, Any]]:
                 "project_id": str(item.get("project_id") or ""),
                 "domain": str(item.get("domain") or ""),
                 "cwd": str(item.get("cwd") or ""),
+                "verification_cwd": str(item.get("verification_cwd") or item.get("cwd") or ""),
                 "verification_profile_ids": string_list(item.get("verification_profile_ids")),
                 "blocking": bool(item.get("blocking", True)),
             }

@@ -104,6 +104,9 @@
         "cwd": {
           "type": "string"
         },
+        "verification_cwd": {
+          "type": "string"
+        },
         "domain": {
           "type": "string"
         },

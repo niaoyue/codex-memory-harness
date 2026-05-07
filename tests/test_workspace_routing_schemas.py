@@ -80,6 +80,14 @@ class WorkspaceRoutingSchemaTests(unittest.TestCase):
         self.assertEqual(recovery["properties"]["pass_condition"]["enum"], ["review_gate_must_complete_cleanly"])
         self.assertIn("overall_status", aggregation["required"])
         self.assertIn("verification_plan", aggregation["required"])
+        self.assertIn(
+            "verification_cwd",
+            routing_config["$defs"]["project_config"]["properties"],
+        )
+        self.assertIn("verification_cwd", inventory["$defs"]["project"]["properties"])
+        self.assertIn("verification_cwd", route_plan["$defs"]["route"]["properties"])
+        self.assertIn("verification_cwd", route_plan["$defs"]["verification_target"]["properties"])
+        self.assertIn("verification_cwd", aggregation["$defs"]["verification_target"]["properties"])
         gate_properties = aggregation["$defs"]["gate_result"]["properties"]
         self.assertIn("scanned_files", gate_properties)
         self.assertIn("findings", gate_properties)

@@ -272,9 +272,19 @@ codex workspace schedule --route-file route.json
 codex workspace scope-check --binding-file binding.json --touched-path client/Assets/App.cs
 codex workspace summarize --bindings-file bindings.json --artifact-file agent-result.json
 codex workspace game-client init --engine unity --project-cwd client
+codex workspace project-template init --domain game_server --project-cwd server --language go
+codex workspace project-template init --domain backoffice_web --project-cwd admin --framework vue
+codex workspace project-template init --domain design_docs --project-cwd docs
+codex workspace project-template init --domain art_pipeline --project-cwd art
 ```
 
-`doctor/scan` 会读取 `.codex/harness/workspace-routing.json`，再扫描当前 workspace 中常见的 Unity、LayaBox/LayaAir、Cocos Creator、服务器、后台、文档、美术和发布工程信号，输出 project inventory。`route` 会根据任务文件、working set、cwd 或 `--changed` 的 Git diff 生成 route plan。`verify` 会按 route plan 聚合多项目 verification profile，缺失 profile 或 command 会记录 gap，release route 会执行基础 AI 诊断日志 gate。`bind/scope-check/summarize` 用于生成 SubAgent route binding、检查 touched paths 是否越权，并汇总冲突。`schedule` 用于生成 coordinator/specialist dispatch plan。`game-client init/template` 会写入或输出 Unity/Laya/Cocos verification profile 模板，是少数会按用户命令修改业务项目 `.codex/harness` 配置的 workspace 子命令。
+`doctor/scan` 会读取 `.codex/harness/workspace-routing.json`，再扫描当前 workspace 中常见的 Unity、LayaBox/LayaAir、Cocos Creator、服务器、后台、文档、美术和发布工程信号，输出 project inventory。`route` 会根据任务文件、working set、cwd 或 `--changed` 的 Git diff 生成 route plan。`verify` 会按 route plan 聚合多项目 verification profile，缺失 profile 或 command 会记录 gap，release route 会执行基础 AI 诊断日志 gate。`bind/scope-check/summarize` 用于生成 SubAgent route binding、检查 touched paths 是否越权，并汇总冲突。`schedule` 用于生成 coordinator/specialist dispatch plan。`game-client init/template` 会写入或输出 Unity/Laya/Cocos verification profile 模板；`project-template init/template` 会写入或输出服务器、后台/Web、文档和美术工程 profile 模板。它们都是少数会按用户命令修改业务项目 `.codex/harness` 配置的 workspace 子命令。
+
+从普通 harness 升级到 workspace routing 的步骤、边界和回退方式见：
+
+```text
+docs/WORKSPACE_ROUTING_MIGRATION.md
+```
 
 在 memory 生命周期中，workspace routing 已做软集成：
 

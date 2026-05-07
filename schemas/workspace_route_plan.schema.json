@@ -148,6 +148,9 @@
         "cwd": {
           "type": "string"
         },
+        "verification_cwd": {
+          "type": "string"
+        },
         "engine": {
           "type": "string"
         },
@@ -232,6 +235,9 @@
           "type": "string"
         },
         "cwd": {
+          "type": "string"
+        },
+        "verification_cwd": {
           "type": "string"
         },
         "domain": {

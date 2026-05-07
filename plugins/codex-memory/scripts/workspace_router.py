@@ -272,6 +272,7 @@ def route_entry(
         "project_id": project_id,
         "domain": domain,
         "cwd": cwd,
+        "verification_cwd": project.get("verification_cwd"),
         "engine": project.get("engine"),
         "task_type": task_type,
         "assigned_scope": scope,
@@ -348,6 +349,7 @@ def verification_plan(routes: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "project_id": str(route["project_id"]),
             "domain": str(route["domain"]),
             "cwd": str(route["cwd"]),
+            "verification_cwd": str(route.get("verification_cwd") or route["cwd"]),
             "verification_profile_ids": string_list(route.get("verification_profile_ids")),
             "blocking": True,
         }

@@ -75,6 +75,8 @@ class WorkspaceRouterTests(unittest.TestCase):
         self.assertEqual(plan["mode"], "single_project")
         self.assertEqual(plan["affected_projects"], ["configured-admin"])
         self.assertEqual(plan["routes"][0]["verification_profile_ids"], ["admin_lint"])
+        self.assertEqual(plan["routes"][0]["verification_cwd"], ".")
+        self.assertEqual(plan["verification_plan"][0]["verification_cwd"], ".")
         self.assertNotIn("read_scopes", plan["routes"][0]["memory_binding"])
 
     def test_configured_game_client_rules_get_task_rule_enrichment(self) -> None:
@@ -105,6 +107,7 @@ class WorkspaceRouterTests(unittest.TestCase):
                             "id": "configured-admin",
                             "path": "admin",
                             "cwd": "admin",
+                            "verification_cwd": ".",
                             "domain": "backoffice_web",
                             "rules": ["workspace/base", "web/vue"],
                             "verification_profiles": {"ui": "admin_ui"},
@@ -449,6 +452,7 @@ def _workspace_config(root: Path) -> None:
                     "id": "configured-admin",
                     "path": "admin",
                     "cwd": "admin",
+                    "verification_cwd": ".",
                     "domain": "backoffice_web",
                     "rules": ["workspace/base", "web/vue"],
                     "verification_profiles": {"quick": "admin_lint", "release": "admin_build"},

@@ -17,6 +17,7 @@ WORKSPACE_SUBAGENTS_SCRIPT="$SCRIPT_DIR/workspace_subagents.py"
 SUBAGENT_SCHEDULER_SCRIPT="$SCRIPT_DIR/subagent_scheduler.py"
 REVIEW_GATE_SCRIPT="$SCRIPT_DIR/review_gate_runner.py"
 GAME_CLIENT_PROFILES_SCRIPT="$SCRIPT_DIR/game_client_profiles.py"
+WORKSPACE_BUSINESS_TEMPLATES_SCRIPT="$SCRIPT_DIR/workspace_business_templates.py"
 HOOK_BRIDGE_SCRIPT="$SCRIPT_DIR/hook_bridge.py"
 REVIEW_GATE_IDLE_SECONDS=1800
 SKIP_BOOTSTRAP=0
@@ -239,6 +240,7 @@ write_workspace_help() {
 Codex Workspace commands:
   doctor|scan|route|verify|bind|schedule|scope-check|summarize
   game-client init --engine unity|laya|cocos
+  project-template init --domain game_server|backoffice_web|design_docs|art_pipeline
 EOF
 }
 
@@ -329,6 +331,7 @@ invoke_workspace() {
         bind|scope-check|summarize) run_py "$WORKSPACE_SUBAGENTS_SCRIPT" --project-root "$cwd" "$command_name" "$@" ;;
         schedule) run_py "$SUBAGENT_SCHEDULER_SCRIPT" --project-root "$cwd" "$@" ;;
         game-client) run_py "$GAME_CLIENT_PROFILES_SCRIPT" --project-root "$cwd" "$@" ;;
+        project-template) run_py "$WORKSPACE_BUSINESS_TEMPLATES_SCRIPT" --project-root "$cwd" "$@" ;;
         *) echo "Unknown Codex Workspace command: $command_name. Run 'codex workspace help' for usage." >&2; exit 64 ;;
     esac
 }

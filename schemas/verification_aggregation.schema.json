@@ -89,6 +89,9 @@
         "cwd": {
           "type": "string"
         },
+        "verification_cwd": {
+          "type": "string"
+        },
         "verification_profile_ids": {
           "type": "array",
           "items": {

@@ -39,6 +39,7 @@ class ProjectCandidate:
     engine: str | None = None
     language: str | None = None
     framework: str | None = None
+    verification_cwd: str | None = None
     rules: list[str] = field(default_factory=list)
     verification_profiles: dict[str, str] = field(default_factory=dict)
     memory_binding: dict[str, Any] = field(default_factory=dict)
@@ -102,8 +103,10 @@ def configured_projects(root: Path, config: dict[str, Any]) -> list[ProjectCandi
         project_id = str(item.get("id") or "").strip()
         path = normalize_config_path(root, str(item.get("path") or item.get("cwd") or ""))
         cwd = normalize_config_path(root, str(item.get("cwd") or path or ""))
+        has_verification_cwd = bool(str(item.get("verification_cwd") or "").strip())
+        verification_cwd = normalize_config_path(root, str(item.get("verification_cwd") or ""))
         domain = str(item.get("domain") or "unknown").strip()
-        if not project_id or not cwd:
+        if not project_id or not cwd or has_verification_cwd and verification_cwd is None:
             continue
         profiles = configured_verification_profiles(root, cwd, domain, item)
         projects.append(
@@ -118,6 +121,7 @@ def configured_projects(root: Path, config: dict[str, Any]) -> list[ProjectCandi
                 engine=_optional_str(item.get("engine")),
                 language=_optional_str(item.get("language")),
                 framework=_optional_str(item.get("framework")),
+                verification_cwd=verification_cwd or None,
                 rules=string_list(item.get("rules")),
                 verification_profiles=profiles,
                 memory_binding=runtime_memory_binding(item.get("memory_binding"), project_id),

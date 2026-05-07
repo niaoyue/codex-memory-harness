@@ -1,0 +1,172 @@
+{
+  "$schema": "local://codex-memory-harness/schemas/workspace_routing_config.schema.json",
+  "version": 1,
+  "workspace": {
+    "name": "codex-memory-harness"
+  },
+  "routing_priority": [
+    "user_explicit",
+    "subagent_explicit",
+    "explicit_config",
+    "scanner",
+    "fallback"
+  ],
+  "subagent_runtime_policy": {
+    "execution_model": "host_subagent_or_manual",
+    "autostart": false,
+    "task_types": [
+      "implementation",
+      "docs",
+      "release"
+    ],
+    "risk_levels": [
+      "medium",
+      "high",
+      "release_blocking"
+    ],
+    "reason": "Dogfood config authorizes Harness SubAgent dispatch metadata for this repository when the host supports it."
+  },
+  "diagnostic_logging": {
+    "default_allowed": false,
+    "release_must_be_disabled": true,
+    "allowed_scopes": [
+      "flow",
+      "state",
+      "validation"
+    ]
+  },
+  "projects": [
+    {
+      "id": "workspace-meta-root",
+      "path": ".",
+      "cwd": ".",
+      "domain": "workspace_meta",
+      "rules": [
+        "workspace/base"
+      ],
+      "verification_profiles": {
+        "quick": "primary",
+        "release": "primary"
+      },
+      "memory_binding": {
+        "storage_scope": "project",
+        "semantic_scope": "project",
+        "project_id": "workspace-meta-root",
+        "shared_memory_allowed": true
+      }
+    },
+    {
+      "id": "plugin-runtime",
+      "path": "plugins/codex-memory",
+      "cwd": "plugins/codex-memory",
+      "verification_cwd": ".",
+      "domain": "workspace_meta",
+      "rules": [
+        "workspace/base",
+        "codex_memory/plugin"
+      ],
+      "verification_profiles": {
+        "quick": "primary",
+        "release": "primary"
+      },
+      "memory_binding": {
+        "storage_scope": "project",
+        "semantic_scope": "project",
+        "project_id": "plugin-runtime",
+        "shared_memory_allowed": true
+      }
+    },
+    {
+      "id": "design-docs",
+      "path": "docs",
+      "cwd": "docs",
+      "verification_cwd": ".",
+      "domain": "design_docs",
+      "rules": [
+        "workspace/base",
+        "docs/design"
+      ],
+      "verification_profiles": {
+        "quick": "primary",
+        "release": "primary"
+      },
+      "memory_binding": {
+        "storage_scope": "project",
+        "semantic_scope": "workspace",
+        "project_id": "design-docs",
+        "shared_memory_allowed": true
+      }
+    },
+    {
+      "id": "test-suite",
+      "path": "tests",
+      "cwd": "tests",
+      "verification_cwd": ".",
+      "domain": "workspace_meta",
+      "rules": [
+        "workspace/base",
+        "test/python"
+      ],
+      "verification_profiles": {
+        "quick": "primary",
+        "release": "primary"
+      },
+      "memory_binding": {
+        "storage_scope": "project",
+        "semantic_scope": "project",
+        "project_id": "test-suite",
+        "shared_memory_allowed": true
+      }
+    },
+    {
+      "id": "project-templates",
+      "path": "templates",
+      "cwd": "templates",
+      "verification_cwd": ".",
+      "domain": "workspace_meta",
+      "rules": [
+        "workspace/base",
+        "codex_memory/templates"
+      ],
+      "verification_profiles": {
+        "quick": "primary",
+        "release": "primary"
+      },
+      "memory_binding": {
+        "storage_scope": "project",
+        "semantic_scope": "project",
+        "project_id": "project-templates",
+        "shared_memory_allowed": true
+      }
+    },
+    {
+      "id": "release-tooling",
+      "path": "scripts",
+      "cwd": "scripts",
+      "verification_cwd": ".",
+      "domain": "build_release",
+      "rules": [
+        "workspace/base",
+        "release/train"
+      ],
+      "verification_profiles": {
+        "quick": "primary",
+        "release": "primary"
+      },
+      "memory_binding": {
+        "storage_scope": "project",
+        "semantic_scope": "project",
+        "project_id": "release-tooling",
+        "shared_memory_allowed": true
+      }
+    }
+  ],
+  "fallback": {
+    "rules": [
+      "workspace/generic"
+    ],
+    "verification_profiles": [
+      "primary"
+    ]
+  }
+}

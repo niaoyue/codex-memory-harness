@@ -9,6 +9,9 @@ build/
 /.codex/*
 !/.codex/shared/
 !/.codex/shared/**
+!/.codex/harness/
+/.codex/harness/*
+!/.codex/harness/workspace-routing.json
 /.codex/memories/
 /.codex/harness/tasks/
 /.codex/shared/**/*.db

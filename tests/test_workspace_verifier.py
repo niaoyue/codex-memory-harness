@@ -87,6 +87,25 @@ class WorkspaceVerifierTests(unittest.TestCase):
 
         self.assertEqual(aggregation["results"][0]["cwd"], str(root / "tools"))
 
+    def test_workspace_verifier_uses_route_verification_cwd_when_command_has_no_cwd(self) -> None:
+        captured_cwds: list[str] = []
+
+        def fake_run(spec: object, project_root: Path, max_output_chars: int) -> dict[str, object]:
+            captured_cwds.append(getattr(spec, "cwd"))
+            return {"ok": True, "exit_code": 0, "duration_seconds": 0.01}
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            _write_harness_config(root)
+            _mkdir(root / "plugins" / "codex-memory")
+            route_plan = _route_plan("plugins/codex-memory", ["client_quick"], verification_cwd=".")
+
+            with mock.patch.object(workspace_verifier.verification_runner, "run_command", side_effect=fake_run):
+                aggregation = workspace_verifier.aggregate_verification(root, route_plan)
+
+        self.assertEqual(aggregation["overall_status"], "passed")
+        self.assertEqual(captured_cwds, ["."])
+
     def test_workspace_verifier_normalizes_plan_blocking_default(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -233,7 +252,16 @@ class WorkspaceVerifierTests(unittest.TestCase):
         self.assertEqual(checkpoint.call_args.args[1], "verify-task")
 
 
-def _route_plan(cwd: str, profiles: list[str]) -> dict[str, object]:
+def _route_plan(cwd: str, profiles: list[str], *, verification_cwd: str | None = None) -> dict[str, object]:
+    target: dict[str, object] = {
+        "project_id": "client",
+        "domain": "game_client",
+        "cwd": cwd,
+        "verification_profile_ids": profiles,
+        "blocking": True,
+    }
+    if verification_cwd is not None:
+        target["verification_cwd"] = verification_cwd
     return {
         "version": 1,
         "task_id": "verify-task",
@@ -244,15 +272,7 @@ def _route_plan(cwd: str, profiles: list[str]) -> dict[str, object]:
         "risk_level": "medium",
         "confidence": 0.8,
         "reasons": ["test"],
-        "verification_plan": [
-            {
-                "project_id": "client",
-                "domain": "game_client",
-                "cwd": cwd,
-                "verification_profile_ids": profiles,
-                "blocking": True,
-            }
-        ],
+        "verification_plan": [target],
     }
 
 
