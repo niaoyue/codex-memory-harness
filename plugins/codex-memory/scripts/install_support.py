@@ -10,6 +10,8 @@ from typing import Any
 
 PROFILE_START = "# >>> codex-memory codexm launcher >>>"
 PROFILE_END = "# <<< codex-memory codexm launcher <<<"
+POSIX_PROFILE_START = "# >>> codex-memory posix launcher >>>"
+POSIX_PROFILE_END = "# <<< codex-memory posix launcher <<<"
 AGENTS_START = "<!-- >>> codex-memory-harness global >>> -->"
 AGENTS_END = "<!-- <<< codex-memory-harness global <<< -->"
 MIN_PYTHON_VERSION = (3, 11)
@@ -51,9 +53,28 @@ def profile_paths(shells: str) -> list[Path]:
     }
     if shells == "none":
         return []
+    if shells == "auto":
+        return [candidates["pwsh"]]
     if shells == "all":
         return [candidates["pwsh"], candidates["windows"]]
-    return [candidates[shells]]
+    if shells in candidates:
+        return [candidates[shells]]
+    return []
+
+
+def posix_profile_paths(shells: str = "auto") -> list[Path]:
+    candidates = {
+        "profile": home_root() / ".profile",
+        "bash": home_root() / ".bashrc",
+        "zsh": home_root() / ".zshrc",
+    }
+    if shells == "none":
+        return []
+    if shells in ("auto", "all"):
+        return [candidates["profile"], candidates["bash"], candidates["zsh"]]
+    if shells in candidates:
+        return [candidates[shells]]
+    return []
 
 
 def read_text(path: Path) -> str:
@@ -195,34 +216,6 @@ def replace_marked_block(
     return normalized_block, "created"
 
 
-def profile_block(home_plugin: Path) -> str:
-    launcher = home_plugin / "scripts" / "codexm.ps1"
-    return f"""
-{PROFILE_START}
-function codexm {{
-    & "{launcher}" @args
-}}
-
-function codex {{
-    & "{launcher}" @args
-}}
-
-function codex-raw {{
-    $env:CODEX_MEMORY_DISABLE_WRAPPER = "1"
-    try {{
-        & "{launcher}" -SkipBootstrap @args
-    }} finally {{
-        Remove-Item Env:\\CODEX_MEMORY_DISABLE_WRAPPER -ErrorAction SilentlyContinue
-    }}
-}}
-
-function codex-memory-doctor {{
-    & "{launcher}" memory doctor
-}}
-{PROFILE_END}
-"""
-
-
 def agents_block(home_plugin: Path) -> str:
     official_memory = codex_home_root() / "memories"
     global_memory = codex_home_root() / "codex-memory-harness" / "memories"
@@ -233,7 +226,7 @@ def agents_block(home_plugin: Path) -> str:
 - 默认写入项目记忆：`<项目根目录>\\.codex\\memories`。
 - 只有跨项目偏好、长期通用规则、用户明确要求全局沉淀时，才写入全局记忆：`{global_memory}`。
 - 官方 Codex Memories 使用 `{official_memory}`；该目录保留给 Codex 官方自动记忆，不写入本插件的 SQLite/JSONL 运行态。
-- 推荐优先通过官方 Codex config/hooks/MCP 接入；PowerShell wrapper 作为兼容入口、诊断入口和旧环境兜底。
+- 推荐优先通过官方 Codex config/hooks/MCP 接入；PowerShell/POSIX wrapper 作为兼容入口、诊断入口和旧环境兜底。
 - 本包默认随安装写入 bundled Codex skills：安全最佳实践、威胁模型、CLI 创建、迁移到 Codex、GitHub CI 修复、PR 评论处理和 Harness release gate；目标位置为 `~/.agents/skills`。
 - 不要求用户手动调用记忆命令；官方 hooks 可用时自动桥接 `UserPromptSubmit`、`PostToolUse`、`Stop`，不可用时代理应在任务生命周期内自动调用 `before_task`、`after_tool`、`before_response`、`on_task_complete`。
 - `codex memory doctor` 会检查 `features.codex_hooks`、sandbox/approval、AGENTS.override、官方 Memories 和插件 hook 覆盖情况。
@@ -300,11 +293,32 @@ PowerShell 中优先使用 `--payload-file`，避免内联 JSON 转义问题。
 
 
 def ensure_profile(home_plugin: Path, shells: str) -> list[dict[str, Any]]:
+    from profile_blocks import profile_block
+
     results: list[dict[str, Any]] = []
     block = profile_block(home_plugin)
     for path in profile_paths(shells):
         current = read_text(path)
         updated, status = replace_marked_block(current, PROFILE_START, PROFILE_END, block)
+        if updated != current:
+            write_text(path, updated)
+        results.append({"path": str(path), "status": status})
+    return results
+
+
+def ensure_posix_profile(home_plugin: Path, shells: str = "auto") -> list[dict[str, Any]]:
+    from profile_blocks import posix_profile_block
+
+    results: list[dict[str, Any]] = []
+    block = posix_profile_block(home_plugin)
+    for path in posix_profile_paths(shells):
+        current = read_text(path)
+        updated, status = replace_marked_block(
+            current,
+            POSIX_PROFILE_START,
+            POSIX_PROFILE_END,
+            block,
+        )
         if updated != current:
             write_text(path, updated)
         results.append({"path": str(path), "status": status})
@@ -342,4 +356,15 @@ def profile_statuses(shells: str) -> list[dict[str, Any]]:
             "has_launcher": PROFILE_START in read_text(path),
         }
         for path in profile_paths(shells)
+    ]
+
+
+def posix_profile_statuses(shells: str = "auto") -> list[dict[str, Any]]:
+    return [
+        {
+            "path": str(path),
+            "exists": path.exists(),
+            "has_launcher": POSIX_PROFILE_START in read_text(path),
+        }
+        for path in posix_profile_paths(shells)
     ]

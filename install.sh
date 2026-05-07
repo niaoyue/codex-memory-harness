@@ -222,7 +222,7 @@ while [ "$remaining" -gt 0 ]; do
             ;;
         -ProfileShells)
             if [ "$remaining" -eq 0 ]; then
-                echo "-ProfileShells requires a value: pwsh, windows, all, or none." >&2
+                echo "-ProfileShells requires a value: auto, pwsh, windows, all, none, profile, bash, or zsh." >&2
                 exit 2
             fi
             value=$1

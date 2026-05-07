@@ -27,7 +27,7 @@
 
 | 层级 | 第一动作 | 当前处理状态 | 说明 |
 |---|---|---|---|
-| Codex 窗口启动 | PowerShell wrapper 执行 bootstrap / doctor，必要时初始化缺失项目配置 | 已自动处理 | 仅限经过 `codex` / `codexm` wrapper 的 PowerShell 启动；`codex-raw` 或非 wrapper 启动不会自动执行 |
+| Codex 窗口启动 | PowerShell/POSIX shell wrapper 执行 bootstrap / doctor，必要时初始化缺失项目配置 | 已自动处理 | 仅限经过 `codex` / `codexm` wrapper 的 shell 启动；`codex-raw` 或非 wrapper 启动不会自动执行 |
 | Harness 任务生命周期 | `codex harness start` 触发 `before_task` | 已实现运行时能力 | wrapper 只负责窗口启动，不能单独理解每条用户任务；任务开始仍需要 agent、hook 或自动化调用 harness/controller |
 | Workspace 路由 | `before_task` 生成 route plan 和 SubAgent bindings | 已做 lifecycle 软集成 | route plan/bindings 写入 task metadata；低置信度会降级为只读分析或提示确认 |
 | SubAgent 执行 | 按 binding 绑定 project/domain/cwd/scope/rules/profile | 已实现 binding 和 dispatch plan，不自动执行 | 当前不会自动创建真实 SubAgent；`codex workspace schedule` 只生成可执行计划，宿主或主 agent 使用 SubAgent 时必须带上对应 binding |

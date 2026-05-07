@@ -20,6 +20,7 @@ if str(PLUGIN_SCRIPTS_DIR) not in sys.path:
 import install_codex_memory
 import install_status
 import install_support
+import profile_install
 import skill_bundle
 
 
@@ -77,6 +78,61 @@ class InstallerTests(unittest.TestCase):
         self.assertIn("-SkipSkills", script)
         self.assertIn("--skip-skills", script)
 
+    def test_install_writes_posix_profile_for_posix_launcher_family(self) -> None:
+        with (
+            mock.patch.object(install_codex_memory, "_ensure_home_plugin_install", return_value={"status": "already_installed"}),
+            mock.patch.object(install_codex_memory, "ensure_codex_config", return_value={"modified": True}),
+            mock.patch.object(install_codex_memory, "_upsert_marketplace_entry", return_value={"updated": True}),
+            mock.patch.object(install_codex_memory, "ensure_agents", return_value={"status": "updated"}),
+            mock.patch.object(profile_install, "ensure_profile", return_value=[]) as ensure_profile,
+            mock.patch.object(profile_install, "ensure_posix_profile", return_value=[{"status": "updated"}]) as ensure_posix_profile,
+            mock.patch.object(install_codex_memory, "_ensure_hooks_config", return_value={"modified": True}),
+            mock.patch.object(install_codex_memory, "_ensure_mcp_config", return_value={"modified": True}),
+            mock.patch.object(install_codex_memory, "_check_state", return_value={}),
+        ):
+            result = install_codex_memory.install(
+                "auto",
+                "home",
+                "none",
+                install_agents=True,
+                update_existing=False,
+                install_skills=False,
+                mcp_python_command="python3",
+                mcp_python_prefix_args=[],
+                launcher_family="posix",
+            )
+
+        ensure_profile.assert_not_called()
+        ensure_posix_profile.assert_called_once()
+        self.assertEqual(ensure_posix_profile.call_args.args[1], "none")
+        self.assertEqual(result["powershell_profiles"]["reason"], "launcher_family_posix")
+        self.assertEqual(result["posix_profiles"], [{"status": "updated"}])
+
+    def test_install_skips_posix_profile_for_powershell_launcher_family(self) -> None:
+        with (
+            mock.patch.object(install_codex_memory, "_ensure_home_plugin_install", return_value={"status": "already_installed"}),
+            mock.patch.object(install_codex_memory, "ensure_codex_config", return_value={"modified": True}),
+            mock.patch.object(install_codex_memory, "_upsert_marketplace_entry", return_value={"updated": True}),
+            mock.patch.object(install_codex_memory, "ensure_agents", return_value={"status": "updated"}),
+            mock.patch.object(profile_install, "ensure_profile", return_value=[]),
+            mock.patch.object(profile_install, "ensure_posix_profile") as ensure_posix_profile,
+            mock.patch.object(install_codex_memory, "_ensure_hooks_config", return_value={"modified": True}),
+            mock.patch.object(install_codex_memory, "_ensure_mcp_config", return_value={"modified": True}),
+            mock.patch.object(install_codex_memory, "_check_state", return_value={}),
+        ):
+            result = install_codex_memory.install(
+                "auto",
+                "home",
+                "none",
+                install_agents=True,
+                update_existing=False,
+                install_skills=False,
+                launcher_family="powershell",
+            )
+
+        ensure_posix_profile.assert_not_called()
+        self.assertEqual(result["posix_profiles"]["reason"], "launcher_family_not_posix")
+
     @unittest.skipIf(shutil.which("powershell"), "This check requires powershell to be absent.")
     @unittest.skipUnless(shutil.which("sh"), "POSIX shell is required for install.sh validation.")
     def test_shell_install_script_rejects_explicit_powershell_launcher_without_powershell(self) -> None:
@@ -106,6 +162,7 @@ class InstallerTests(unittest.TestCase):
             mock.patch.object(install_codex_memory, "_home_plugin_path", return_value=Path("missing-home-plugin")),
             mock.patch.object(install_status, "home_agents_path", return_value=Path("missing-agents.md")),
             mock.patch.object(install_status, "profile_statuses", return_value=[]),
+            mock.patch.object(install_status, "posix_profile_statuses", return_value=[{"has_launcher": False}]),
             mock.patch.object(install_status, "bundled_skills_status", return_value={"skills": []}),
         ):
             state = install_codex_memory._check_state()
@@ -115,6 +172,7 @@ class InstallerTests(unittest.TestCase):
         self.assertIn("python_launcher", state["missing_dependencies"])
         self.assertIn("codex_cli", state["missing_dependencies"])
         self.assertNotIn("powershell", state["missing_dependencies"])
+        self.assertEqual(state["posix_profiles"], [{"has_launcher": False}])
         self.assertTrue(any("Python 3.11+" in item for item in state["dependency_recommendations"]))
 
     def test_dependency_status_accepts_python_launcher_without_py(self) -> None:
@@ -209,7 +267,7 @@ class InstallerTests(unittest.TestCase):
             mock.patch.object(install_codex_memory, "_ensure_home_plugin_install", return_value={"status": "already_installed"}),
             mock.patch.object(install_codex_memory, "_upsert_marketplace_entry", return_value={"updated": True}),
             mock.patch.object(install_codex_memory, "ensure_agents", return_value={"status": "updated"}),
-            mock.patch.object(install_codex_memory, "ensure_profile", return_value=[]),
+            mock.patch.object(install_codex_memory, "ensure_launcher_profiles", return_value={"powershell_profiles": [], "posix_profiles": []}),
             mock.patch.object(install_codex_memory, "_ensure_hooks_config", return_value={"modified": True}) as ensure_hooks_config,
             mock.patch.object(install_codex_memory, "_ensure_mcp_config", return_value={"modified": True}) as ensure_mcp_config,
             mock.patch.object(install_codex_memory, "ensure_bundled_skills", return_value={"installed": 0}) as ensure_skills,
@@ -236,7 +294,7 @@ class InstallerTests(unittest.TestCase):
             mock.patch.object(install_codex_memory, "ensure_codex_config", return_value={"modified": True}),
             mock.patch.object(install_codex_memory, "_upsert_marketplace_entry", return_value={"updated": True}),
             mock.patch.object(install_codex_memory, "ensure_agents", return_value={"status": "updated"}),
-            mock.patch.object(install_codex_memory, "ensure_profile", return_value=[]),
+            mock.patch.object(install_codex_memory, "ensure_launcher_profiles", return_value={"powershell_profiles": [], "posix_profiles": []}),
             mock.patch.object(install_codex_memory, "_ensure_hooks_config", return_value={"modified": True}) as ensure_hooks_config,
             mock.patch.object(install_codex_memory, "_ensure_mcp_config", return_value={"modified": True}) as ensure_mcp_config,
             mock.patch.object(install_codex_memory, "_check_state", return_value={}),
@@ -264,7 +322,7 @@ class InstallerTests(unittest.TestCase):
             mock.patch.object(install_codex_memory, "ensure_codex_config", return_value={"modified": True}),
             mock.patch.object(install_codex_memory, "_upsert_marketplace_entry", return_value={"updated": True}),
             mock.patch.object(install_codex_memory, "ensure_agents", return_value={"status": "updated"}),
-            mock.patch.object(install_codex_memory, "ensure_profile", return_value=[]),
+            mock.patch.object(install_codex_memory, "ensure_launcher_profiles", return_value={"powershell_profiles": [], "posix_profiles": []}),
             mock.patch.object(install_codex_memory, "_ensure_hooks_config", return_value={"modified": True}) as ensure_hooks_config,
             mock.patch.object(install_codex_memory, "_ensure_mcp_config", return_value={"modified": True}) as ensure_mcp_config,
             mock.patch.object(install_codex_memory, "_check_state", return_value={}),
@@ -319,7 +377,7 @@ class InstallerTests(unittest.TestCase):
             mock.patch.object(install_codex_memory, "ensure_codex_config", return_value={"modified": True}),
             mock.patch.object(install_codex_memory, "_upsert_marketplace_entry", return_value={"updated": True}),
             mock.patch.object(install_codex_memory, "ensure_agents", return_value={"status": "updated"}),
-            mock.patch.object(install_codex_memory, "ensure_profile", return_value=[]),
+            mock.patch.object(install_codex_memory, "ensure_launcher_profiles", return_value={"powershell_profiles": [], "posix_profiles": []}),
             mock.patch.object(install_codex_memory, "_ensure_hooks_config", return_value={"modified": True}),
             mock.patch.object(install_codex_memory, "_ensure_mcp_config", return_value={"modified": True}),
             mock.patch.object(install_codex_memory, "ensure_bundled_skills") as ensure_skills,

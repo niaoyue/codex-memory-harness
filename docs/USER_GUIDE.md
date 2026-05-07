@@ -19,7 +19,7 @@ sh ./install.sh
 
 安装脚本会先检查 Python 3.11+。如果缺少 Python、版本过低或未加入 PATH，它会提示 `winget install --id Python.Python.3.12 -e --source winget`、Homebrew/apt/dnf 等常见安装命令、手动安装地址和重新运行方式。
 
-`install.sh` 会在 Linux/macOS 默认写入 POSIX hook/MCP launcher；在 Windows POSIX shell 中如检测到 `powershell`，默认仍写入 PowerShell launcher。可用 `CODEX_MEMORY_LAUNCHER_FAMILY=posix|powershell` 显式指定。
+`install.sh` 会在 Linux/macOS 默认写入 POSIX hook/MCP launcher，并向 `~/.profile`、`~/.bashrc`、`~/.zshrc` 写入带标记块的 `codex`/`codexm` shell wrapper；在 Windows POSIX shell 中如检测到 `powershell`，默认仍写入 PowerShell launcher。可用 `CODEX_MEMORY_LAUNCHER_FAMILY=posix|powershell` 显式指定。
 
 如果希望脚本尝试代装 Python，可以显式运行：
 
@@ -81,7 +81,7 @@ sh ./install.sh --update-existing
 codex
 ```
 
-推荐主路径是官方 Codex config/hooks/MCP；PowerShell profile 注册的 wrapper 负责兼容旧环境、诊断入口和命令分流。当前 shell 中输入 `codex` 仍会先经过 wrapper 执行 bootstrap/doctor，然后启动真实 Codex；不经过 wrapper 的 Codex 客户端应依赖官方 hooks/MCP。
+推荐主路径是官方 Codex config/hooks/MCP；PowerShell/POSIX shell profile 注册的 wrapper 负责兼容旧环境、诊断入口和命令分流。当前 shell 中输入 `codex` 仍会先经过 wrapper 执行 bootstrap/doctor，然后启动真实 Codex；不经过 wrapper 的 Codex 客户端应依赖官方 hooks/MCP。
 
 可用入口：
 

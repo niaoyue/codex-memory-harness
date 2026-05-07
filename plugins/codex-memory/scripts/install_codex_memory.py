@@ -16,18 +16,15 @@ from install_status import check_state, points_to, safe_existing_target
 from install_support import (
     AGENTS_END,
     AGENTS_START,
-    PROFILE_END,
-    PROFILE_START,
     ensure_agents,
-    ensure_profile,
     home_agents_path,
     home_root,
-    profile_paths,
     remove_marked_block,
     select_mcp_python_runtime,
 )
 from mcp_config import ensure_mcp_config as _ensure_mcp_config
 from mcp_config import mcp_config as _mcp_config
+from profile_install import ensure_launcher_profiles, remove_launcher_profiles
 from skill_bundle import ensure_bundled_skills
 
 
@@ -37,11 +34,11 @@ PLUGIN_POLICY = {
     "installation": "INSTALLED_BY_DEFAULT",
     "authentication": "ON_INSTALL",
 }
+PROFILE_SHELL_CHOICES = ["auto", "pwsh", "windows", "all", "none", "profile", "bash", "zsh"]
 
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[3]
-
 
 def _plugin_root() -> Path:
     return Path(__file__).resolve().parents[1]
@@ -65,7 +62,7 @@ def _home_marketplace_path() -> Path:
 
 def _read_json(path: Path, default: dict[str, Any]) -> dict[str, Any]:
     if not path.exists():
-        return json.loads(json.dumps(default, ensure_ascii=False))
+        return dict(default)
     return json.loads(path.read_text(encoding="utf-8"))
 
 
@@ -361,7 +358,13 @@ def install(
                 result["bundled_skills"] = ensure_bundled_skills(_plugin_root())
             else:
                 result["bundled_skills"] = {"skipped": True, "reason": "skip_skills"}
-            result["powershell_profiles"] = ensure_profile(_home_plugin_path(), profile_shells)
+            result.update(
+                ensure_launcher_profiles(
+                    _home_plugin_path(),
+                    profile_shells,
+                    launcher_family,
+                )
+            )
     result["check"] = _check_state()
     debug_log(
         "install_complete",
@@ -374,20 +377,20 @@ def install(
             "home_plugin_fallback": "fallback_reason" in result.get("home_plugin", {}),
             "mcp_command": result.get("mcp_config", {}).get("command"),
             "hooks_modified": result.get("hooks_config", {}).get("modified"),
+            "posix_profile_count": len(result.get("posix_profiles", []))
+            if isinstance(result.get("posix_profiles"), list)
+            else 0,
         },
     )
     return result
 
 
-def uninstall(profile_shells: str, *, remove_home_plugin: bool) -> dict[str, Any]:
+def uninstall(profile_shells: str, launcher_family: str, *, remove_home_plugin: bool) -> dict[str, Any]:
     result: dict[str, Any] = {
         "repo_marketplace": _remove_marketplace_entry(_repo_marketplace_path()),
         "home_marketplace": _remove_marketplace_entry(_home_marketplace_path()),
         "home_agents": remove_marked_block(home_agents_path(), AGENTS_START, AGENTS_END),
-        "powershell_profiles": [
-            remove_marked_block(path, PROFILE_START, PROFILE_END)
-            for path in profile_paths(profile_shells)
-        ],
+        **remove_launcher_profiles(profile_shells, _normalize_launcher_family(launcher_family)),
     }
     if remove_home_plugin:
         result["home_plugin"] = _remove_existing_home_plugin(
@@ -415,13 +418,13 @@ def main() -> int:
         "--mode",
         choices=["auto", "junction", "symlink", "copy"],
         default="auto",
-        help="Home install mode. Auto uses a Windows junction on Windows, a symlink on POSIX, then falls back to copy.",
+        help="Home install mode.",
     )
     parser.add_argument(
         "--profile-shells",
-        choices=["pwsh", "windows", "all", "none"],
-        default="pwsh",
-        help="PowerShell profile(s) to update with codex/codexm functions.",
+        choices=PROFILE_SHELL_CHOICES,
+        default="auto",
+        help="PowerShell or POSIX profile(s) to update with codex/codexm functions.",
     )
     parser.add_argument(
         "--skip-agents",
@@ -475,7 +478,7 @@ def main() -> int:
     if args.check:
         result = {"check": _check_state()}
     elif args.uninstall:
-        result = uninstall(args.profile_shells, remove_home_plugin=args.remove_home_plugin)
+        result = uninstall(args.profile_shells, args.launcher_family, remove_home_plugin=args.remove_home_plugin)
     else:
         result = install(
             args.mode,

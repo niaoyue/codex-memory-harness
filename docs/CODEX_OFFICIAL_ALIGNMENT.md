@@ -6,7 +6,7 @@
 
 用户安装本项目后应该自动获得的优化，不能只写到维护者本机的 `~/.codex` 或根目录 `.codex` 里。凡是需要新环境同步的优化，必须落到以下可分发位置之一：
 
-- 安装器写入的用户级位置：`~/.codex/AGENTS.md`、`~/.agents/skills`、`~/.agents/plugins/marketplace.json`、`$CODEX_HOME/config.toml`、PowerShell profile。
+- 安装器写入的用户级位置：`~/.codex/AGENTS.md`、`~/.agents/skills`、`~/.agents/plugins/marketplace.json`、`$CODEX_HOME/config.toml`、PowerShell/POSIX shell profile。
 - 插件随包位置：`plugins/codex-memory/hooks.json`、`.mcp.json`、`scripts/`、`skills/`。
 - 项目模板或 bootstrap 生成逻辑：`templates/project/.codex/...`、`codex_bootstrap.py`。
 - 发布包内文档和 schema：`docs/`、`schemas/`、`templates/`。
@@ -35,7 +35,7 @@
 
 ## 3. 当前对齐结论
 
-本项目方向整体合理：已经把官方 config/hooks/MCP 作为主路径，PowerShell wrapper 作为兼容兜底；已经有全局 AGENTS 标记块、hook 桥接、MCP 配置、verification runner、workspace routing、SubAgent dispatch plan、xhigh review gate 和发布包排除边界。
+本项目方向整体合理：已经把官方 config/hooks/MCP 作为主路径，PowerShell/POSIX wrapper 作为兼容兜底；已经有全局 AGENTS 标记块、hook 桥接、MCP 配置、verification runner、workspace routing、SubAgent dispatch plan、xhigh review gate 和发布包排除边界。
 
 需要修正的重点是“传播路径”：
 
@@ -160,7 +160,7 @@ templates/project/.codex/agents/release-gate-runner.toml
 
 之前的验证偏向这些项目：
 
-- `install_codex_memory.py --check`：只读检查当前环境状态，不会复制 home plugin、不写全局 AGENTS、不安装 bundled skills，也不碰 PowerShell profile。
+- `install_codex_memory.py --check`：只读检查当前环境状态，不会复制 home plugin、不写全局 AGENTS、不安装 bundled skills，也不碰 PowerShell/POSIX shell profile。
 - `install.sh` 语法和 `--check`：覆盖 shell 包装入口和依赖检查，但仍不是普通安装。
 - Python 单元测试：主要 mock 安装函数和局部 helper，能证明函数契约，但不能证明 `install.bat`、release package、环境变量、真实文件写入组合起来一定可用。
 - `codex xhigh review --uncommitted`：能审查代码风险，但不能替代缺失的动态 smoke gate。
@@ -172,7 +172,7 @@ templates/project/.codex/agents/release-gate-runner.toml
 - `scripts/verify_project.py` 必须包含普通安装 smoke test。
 - smoke test 必须从 release package 解压目录运行，而不是直接调用源码里的 Python installer。
 - smoke test 必须使用临时 `CODEX_MEMORY_HOME`、`USERPROFILE`、`HOME` 和 `CODEX_HOME`，避免污染维护者真实用户目录。
-- smoke test 必须运行 `cmd /c install.bat --mode copy`，覆盖 batch 入口、Python runtime 解析、home plugin 复制、Codex config、全局 AGENTS、home marketplace、PowerShell profile 和 bundled skills。
+- smoke test 必须运行 `cmd /c install.bat --mode copy`，覆盖 batch 入口、Python runtime 解析、home plugin 复制、Codex config、全局 AGENTS、home marketplace、PowerShell profile 和 bundled skills；POSIX 安装验证需覆盖 `install.sh` 写入 `codexm.sh` profile wrapper。
 - smoke test 必须断言 `harness-release-gate` 等 7 个 bundled skills 完成首次安装。
 
 `CODEX_MEMORY_HOME` 是安装器和验证用的高级覆盖变量，用于把用户级安装目标重定向到隔离目录；正常用户不需要设置它。`CODEX_HOME` 仍按 Codex 官方语义控制 Codex 配置根目录。

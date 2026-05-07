@@ -124,6 +124,13 @@ def _points_to(path: Path, target: Path) -> bool:
 
 
 def _codexm_argv(script_root: Path, *args: str) -> list[str]:
+    posix_launcher = script_root / "codexm.sh"
+    if posix_launcher.exists() and os.name != "nt":
+        return [
+            shutil.which("sh") or "sh",
+            str(posix_launcher),
+            *args,
+        ]
     windows_powershell = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
     return [
         shutil.which("pwsh") or shutil.which("powershell") or str(windows_powershell),

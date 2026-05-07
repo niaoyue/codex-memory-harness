@@ -25,6 +25,7 @@ import codex_bootstrap
 import init_storage
 import install_support
 import memory_store
+import profile_blocks
 import retrieval_store
 import run_demo_flow
 import shared_memory
@@ -73,10 +74,19 @@ class LauncherEntrypointTests(unittest.TestCase):
         self.assertNotIn("py -X utf8", json.dumps(template))
 
     def test_generated_profile_routes_doctor_through_memory_subcommand(self) -> None:
-        block = install_support.profile_block(Path("C:/Users/Test/plugins/codex-memory"))
+        block = profile_blocks.profile_block(Path("C:/Users/Test/plugins/codex-memory"))
 
         self.assertIn("function codex", block)
         self.assertIn("function codexm", block)
+        self.assertIn("memory doctor", block)
+
+    def test_generated_posix_profile_routes_codex_memory_subcommand(self) -> None:
+        block = profile_blocks.posix_profile_block(Path("/home/test/plugins/codex-memory"))
+
+        self.assertIn("codexm()", block)
+        self.assertIn("codex()", block)
+        self.assertIn("codexm.sh", block)
+        self.assertIn("codex-memory-doctor", block)
         self.assertIn("memory doctor", block)
 
     def test_generated_agents_prefers_codex_memory_commands(self) -> None:
@@ -126,6 +136,25 @@ class LauncherEntrypointTests(unittest.TestCase):
         self.assertIn("function Resolve-PythonRuntime", launcher)
         self.assertIn("python3", launcher)
         self.assertNotIn("& py -X utf8", launcher)
+
+    def test_posix_launcher_declares_memory_command_dispatcher(self) -> None:
+        launcher = (PLUGIN_SCRIPTS_DIR / "codexm.sh").read_text(encoding="utf-8")
+
+        self.assertIn("invoke_memory()", launcher)
+        self.assertIn("invoke_harness()", launcher)
+        self.assertIn("invoke_package()", launcher)
+        self.assertIn("review_gate_runner.py", launcher)
+        self.assertIn("--idle-seconds", launcher)
+        self.assertIn("REVIEW_GATE_IDLE_SECONDS=1800", launcher)
+        self.assertIn("--max-seconds", launcher)
+        self.assertIn("codex memory hook <event>", launcher)
+        self.assertIn("game-client", launcher)
+        self.assertIn("hook)", launcher)
+        self.assertIn("try_python python3", launcher)
+        self.assertIn("invoke_bootstrap", launcher)
+        self.assertIn("CODEX_MEMORY_SCOPE_VALUE", launcher)
+        self.assertIn("CODEX_MEMORY_DISABLE_WRAPPER", launcher)
+        self.assertNotIn("powershell", launcher.lower())
 
     def test_install_script_passes_selected_python_runtime_to_mcp_config(self) -> None:
         installer = (PROJECT_ROOT / "install.ps1").read_text(encoding="utf-8")
@@ -327,7 +356,11 @@ class BootstrapTests(unittest.TestCase):
         self.assertEqual(commands["bootstrap_doctor"]["command"], "codex memory doctor")
         for spec in commands.values():
             self.assertNotIn("py -X utf8", spec["command"])
-            self.assertIn("codexm.ps1", " ".join(spec["argv"]))
+            argv_text = " ".join(spec["argv"])
+            if os.name == "nt":
+                self.assertIn("codexm.ps1", argv_text)
+            else:
+                self.assertIn("codexm.sh", argv_text)
 
     def test_workspace_routing_project_id_is_ascii_for_non_ascii_project_names(self) -> None:
         config = codex_bootstrap._workspace_routing_config(Path("\u5ba2\u6237\u9879\u76ee"))

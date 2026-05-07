@@ -130,7 +130,14 @@ class InstallLauncherConfigTests(unittest.TestCase):
         self.assertNotIn("& py -X utf8", launcher)
 
     def test_runtime_launchers_accept_versioned_python_commands(self) -> None:
-        launcher_names = ["codexm.ps1", "hook_launcher.ps1", "mcp_launcher.ps1", "hook_launcher.sh", "mcp_launcher.sh"]
+        launcher_names = [
+            "codexm.ps1",
+            "codexm.sh",
+            "hook_launcher.ps1",
+            "mcp_launcher.ps1",
+            "hook_launcher.sh",
+            "mcp_launcher.sh",
+        ]
         for launcher_name in launcher_names:
             with self.subTest(launcher=launcher_name):
                 launcher = (PLUGIN_SCRIPTS_DIR / launcher_name).read_text(encoding="utf-8")

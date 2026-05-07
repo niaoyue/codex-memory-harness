@@ -213,7 +213,7 @@
 - 不做：覆盖真实 `codex` 命令、修改 PATH 顺序、强制 shell hook。
 - 验收：
   - `codex memory doctor` 与 `codexm memory doctor` 可输出 doctor JSON。
-  - PowerShell profile 中注册 `codexm` 函数。
+  - PowerShell/POSIX shell profile 中注册 `codexm` 函数。
   - `codexm.ps1` 可定位真实 `codex` 命令，且不递归调用自身。
   - 当前项目 primary 验证包含 bootstrap doctor，并可通过 `codex harness verify run --profile primary` 执行。
 
@@ -223,7 +223,7 @@
 - 范围：T27。
 - 不做：修改 npm-global `codex.ps1` / `codex.cmd`、调整 PATH 顺序、删除真实 Codex shim。
 - 验收：
-  - PowerShell profile 中注册 `codex` 函数，调用 `codexm.ps1`。
+  - PowerShell/POSIX shell profile 中注册 `codex` 函数，调用对应的 `codexm.ps1` 或 `codexm.sh`。
   - `codex-raw` 可绕过 wrapper 调用真实 Codex。
   - `CODEX_MEMORY_DISABLE_WRAPPER=1` 可作为禁用开关。
   - `codexm.ps1` 仍可跳过函数并定位真实外部 Codex 命令。

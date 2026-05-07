@@ -9,6 +9,7 @@ from install_support import (
     dependency_status,
     home_agents_path,
     home_root,
+    posix_profile_statuses,
     profile_statuses,
     read_text,
 )
@@ -43,6 +44,7 @@ def check_state(
             "mentions_memory": "Codex Memory" in read_text(home_agents_path()),
         },
         "powershell_profiles": profile_statuses("all"),
+        "posix_profiles": posix_profile_statuses(),
         "codex_config": codex_config,
         "bundled_skills": bundled_skills_status(plugin_root),
         "dependencies": dependencies,
@@ -60,6 +62,8 @@ def plugin_files(plugin_root: Path) -> dict[str, bool]:
         "hooks": (plugin_root / "hooks.json").exists(),
         "hook_launcher": (plugin_root / "scripts" / "hook_launcher.ps1").exists()
         or (plugin_root / "scripts" / "hook_launcher.sh").exists(),
+        "codexm_launcher": (plugin_root / "scripts" / "codexm.ps1").exists()
+        or (plugin_root / "scripts" / "codexm.sh").exists(),
         "hook_bridge": (plugin_root / "scripts" / "hook_bridge.py").exists(),
     }
 

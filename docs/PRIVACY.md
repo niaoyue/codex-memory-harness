@@ -37,6 +37,14 @@ C:\Users\<你>\Documents\PowerShell\Microsoft.PowerShell_profile.ps1
 C:\Users\<你>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1
 ```
 
+POSIX shell profile：
+
+```text
+~/.profile
+~/.bashrc
+~/.zshrc
+```
+
 插件入口：
 
 ```text

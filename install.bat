@@ -84,7 +84,7 @@ goto :parse_args
 
 :parse_profile_shells
 if "%~1"=="" (
-    echo -ProfileShells requires a value: pwsh, windows, all, or none.
+    echo -ProfileShells requires a value: auto, pwsh, windows, all, none, profile, bash, or zsh.
     exit /b 2
 )
 call :append_arg "--profile-shells"
