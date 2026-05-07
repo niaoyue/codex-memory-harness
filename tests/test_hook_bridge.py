@@ -21,6 +21,7 @@ import hook_bridge
 import hook_runner
 import hook_config
 import memory_store
+import review_gate_env
 
 
 @contextmanager
@@ -83,6 +84,28 @@ class HookBridgeTests(unittest.TestCase):
         self.assertEqual(payload["summary"], "ready")
         self.assertEqual(payload["summary_markdown"], "# Done")
         self.assertTrue(payload["writeback"])
+
+    def test_normalize_payload_marks_review_gate_runtime_flags_from_env(self) -> None:
+        old_running = os.environ.get(review_gate_env.REVIEW_GATE_RUNNING_ENV)
+        old_disable = os.environ.get(review_gate_env.XHIGH_REVIEW_DISPATCH_DISABLE_ENV)
+        try:
+            os.environ[review_gate_env.REVIEW_GATE_RUNNING_ENV] = "1"
+            os.environ[review_gate_env.XHIGH_REVIEW_DISPATCH_DISABLE_ENV] = "1"
+            event, payload = hook_bridge._normalize_payload(
+                "UserPromptSubmit",
+                {
+                    "task_id": "task-one",
+                    "prompt": "Run codex xhigh review --uncommitted",
+                },
+            )
+        finally:
+            _restore_env(review_gate_env.REVIEW_GATE_RUNNING_ENV, old_running)
+            _restore_env(review_gate_env.XHIGH_REVIEW_DISPATCH_DISABLE_ENV, old_disable)
+
+        self.assertEqual(event, "before_task")
+        self.assertTrue(payload["review_gate_running"])
+        self.assertTrue(payload["xhigh_review_dispatch_disabled"])
+        self.assertNotIn("metadata", payload)
 
     def test_maps_explicit_task_complete_to_completion_event(self) -> None:
         for codex_event in ("TaskComplete", "OnTaskComplete", "codex-memory-complete"):

@@ -62,6 +62,23 @@ class ReviewGateRunnerTests(unittest.TestCase):
         which_mock.assert_not_called()
         self.assertEqual(command[0], r".\codex.cmd")
 
+    def test_run_monitored_marks_child_process_as_review_gate(self) -> None:
+        script = (
+            "import os\n"
+            "print(os.environ.get('CODEX_REVIEW_GATE_RUNNING', ''))\n"
+            "print(os.environ.get('CODEX_XHIGH_REVIEW_DISPATCH_DISABLE', ''))\n"
+        )
+
+        result = review_gate_runner.run_monitored(
+            [sys.executable, "-c", script],
+            cwd=PROJECT_ROOT,
+            idle_seconds=5,
+            stream_output=False,
+        )
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["stdout_tail"], ["1", "1"])
+
     def test_idle_timeout_uses_last_output_time_not_total_duration(self) -> None:
         self.assertFalse(review_gate_runner.idle_timed_out(1500.0, 1601.0, 600.0))
         self.assertTrue(review_gate_runner.idle_timed_out(1000.0, 1601.0, 600.0))

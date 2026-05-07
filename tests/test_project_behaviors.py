@@ -143,6 +143,25 @@ class LauncherEntrypointTests(unittest.TestCase):
         self.assertIn("project_shared_exists", launcher)
         self.assertIn("project_shared_index_exists", launcher)
 
+    def test_launcher_restores_review_gate_env_after_xhigh_alias(self) -> None:
+        launcher = (PLUGIN_SCRIPTS_DIR / "codexm.ps1").read_text(encoding="utf-8")
+
+        self.assertIn('$oldReviewGateRunning = [Environment]::GetEnvironmentVariable($ReviewGateRunningEnv, "Process")', launcher)
+        self.assertIn(
+            '$oldXHighDispatchDisable = [Environment]::GetEnvironmentVariable($XHighReviewDispatchDisableEnv, "Process")',
+            launcher,
+        )
+        self.assertIn("} finally {", launcher)
+        self.assertIn(
+            '[Environment]::SetEnvironmentVariable($ReviewGateRunningEnv, $oldReviewGateRunning, "Process")',
+            launcher,
+        )
+        self.assertIn(
+            '[Environment]::SetEnvironmentVariable($XHighReviewDispatchDisableEnv, $oldXHighDispatchDisable, "Process")',
+            launcher,
+        )
+        self.assertIn("exit $exitCode", launcher)
+
 
 class DemoCleanupTests(unittest.TestCase):
     def test_demo_cleanup_preserves_unrelated_events(self) -> None:

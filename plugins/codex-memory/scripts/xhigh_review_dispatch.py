@@ -34,7 +34,7 @@ def build_dispatch_plan(route_plan: dict[str, Any]) -> dict[str, Any]:
         "Role: XHigh Review Runner\n"
         "Do not modify files, commit, push, format, or revert anything.\n"
         f"Run this explicit runner command in the repository root: {command}\n"
-        "Do not replace it with codex xhigh review --uncommitted unless explicitly asked; non-interactive SubAgent shells may bypass the PowerShell profile wrapper.\n"
+        "Do not replace the explicit runner command with the review alias unless explicitly asked; non-interactive SubAgent shells may bypass the PowerShell profile wrapper.\n"
         "If the explicit runner fails for infrastructure reasons, run codex-raw -- review -c model_reasoning_effort=\"xhigh\" --uncommitted.\n"
         f"Monitor stdout/stderr with a {XHIGH_REVIEW_IDLE_SECONDS}-second idle/no-output observation window; this is not a fixed total timeout.\n"
         "Ongoing output means the review is still active.\n"

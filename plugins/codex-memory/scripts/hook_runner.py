@@ -28,6 +28,11 @@ from retrieval_store import RetrievalEngine
 from workspace_artifact_filters import is_subagent_artifact
 import workspace_lifecycle
 
+TRANSIENT_ROUTING_FIELDS = (
+    "review_gate_running",
+    "xhigh_review_dispatch_disabled",
+)
+
 
 class HookRunner:
     def __init__(
@@ -107,6 +112,7 @@ class HookRunner:
             "cwd": payload.get("cwd"),
             "metadata": metadata,
         }
+        _copy_transient_routing_fields(payload, routing_payload)
         for field in ("use_subagents", "subagent_mode"):
             if field in payload:
                 routing_payload[field] = payload[field]
@@ -167,13 +173,16 @@ class HookRunner:
         previous_bindings = previous_routing.get("bindings") if isinstance(previous_routing, dict) else None
         adaptive_routing = workspace_lifecycle.safe_workspace_routing(
             resolved_task_id,
-            {
-                "objective": current_state.get("objective"),
-                "working_set": _merge_lists(_string_list(current_state.get("working_set")), touched_paths),
-                "touched_paths": touched_paths,
-                "cwd": payload.get("cwd"),
-                "metadata": metadata,
-            },
+            _with_transient_routing_fields(
+                payload,
+                {
+                    "objective": current_state.get("objective"),
+                    "working_set": _merge_lists(_string_list(current_state.get("working_set")), touched_paths),
+                    "touched_paths": touched_paths,
+                    "cwd": payload.get("cwd"),
+                    "metadata": metadata,
+                },
+            ),
         )
         workspace_routing = dict(previous_routing) if previous_routing else adaptive_routing
         if workspace_routing:
@@ -337,6 +346,17 @@ class HookRunner:
             "reason": reason,
             "fallback": fallback,
         }
+
+
+def _copy_transient_routing_fields(source: dict[str, Any], target: dict[str, Any]) -> dict[str, Any]:
+    for field in TRANSIENT_ROUTING_FIELDS:
+        if field in source:
+            target[field] = source[field]
+    return target
+
+
+def _with_transient_routing_fields(source: dict[str, Any], target: dict[str, Any]) -> dict[str, Any]:
+    return _copy_transient_routing_fields(source, target)
 
 
 def _cleanup_demo_task(task_id: str) -> None:

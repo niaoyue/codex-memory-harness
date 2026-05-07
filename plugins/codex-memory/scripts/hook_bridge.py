@@ -11,6 +11,7 @@ import sqlite3
 import sys
 from typing import Any
 
+import review_gate_env
 from hook_runner import HookRunner
 
 
@@ -133,12 +134,12 @@ def _normalize_payload(
                 ],
             )
         )
-        return target_event, _copy_cwd_fields(payload, {
+        return target_event, _mark_review_gate_payload(_copy_cwd_fields(payload, {
             "task_id": task_id,
             "objective": prompt,
             "user_request": prompt,
             "cwd": _string(_pick_first(payload, ["cwd", "working_directory", "workingDirectory"])),
-        })
+        }))
 
     if target_event == "after_tool":
         summary = _string(
@@ -171,7 +172,7 @@ def _normalize_payload(
                 ],
             )
         )
-        return target_event, _copy_cwd_fields(payload, {
+        return target_event, _mark_review_gate_payload(_copy_cwd_fields(payload, {
             "task_id": task_id,
             "tool_name": _string(
                 _pick_first(payload, ["tool_name", "toolName", "tool", "name"])
@@ -179,7 +180,7 @@ def _normalize_payload(
             or codex_event,
             "summary": summary,
             "touched_paths": touched_paths,
-        })
+        }))
 
     if target_event in {"before_response", "on_task_complete"}:
         summary_markdown = _string(_pick_first(payload, ["summary_markdown", "summaryMarkdown"]))
@@ -191,9 +192,17 @@ def _normalize_payload(
         }
         if codex_event == "Stop":
             normalized["writeback"] = True
-        return target_event, _copy_cwd_fields(payload, normalized)
+        return target_event, _mark_review_gate_payload(_copy_cwd_fields(payload, normalized))
 
-    return target_event, payload
+    return target_event, _mark_review_gate_payload(dict(payload))
+
+
+def _mark_review_gate_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    if not review_gate_env.xhigh_review_dispatch_disabled():
+        return payload
+    payload["review_gate_running"] = review_gate_env.review_gate_running()
+    payload["xhigh_review_dispatch_disabled"] = True
+    return payload
 
 
 def _resolve_hook_task_id(

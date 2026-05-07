@@ -28,6 +28,8 @@ $HookBridgeScript = Join-Path $ScriptRoot "hook_bridge.py"
 $RequiredPythonMajor = 3
 $RequiredPythonMinor = 11
 $ReviewGateIdleSeconds = 1800
+$ReviewGateRunningEnv = "CODEX_REVIEW_GATE_RUNNING"
+$XHighReviewDispatchDisableEnv = "CODEX_XHIGH_REVIEW_DISPATCH_DISABLE"
 $script:ResolvedPythonRuntime = $null
 
 function Get-PythonVersion {
@@ -447,6 +449,26 @@ if ($CodexArgs.Count -ge 2 -and $CodexArgs[1].ToLowerInvariant() -eq "review" -a
     $tail = if ($CodexArgs.Count -gt 2) { $CodexArgs[2..($CodexArgs.Count - 1)] } else { @() }
     $realCodex = Find-RealCodex
     if (-not $realCodex) { Write-Error "Unable to find the real codex command in PATH."; exit 127 }
-    Invoke-PythonScriptAndExit -ScriptPath $ReviewGateScript -Arguments (@("--codex", $realCodex, "--effort", $CodexArgs[0].ToLowerInvariant(), "--idle-seconds", "$ReviewGateIdleSeconds", "--max-seconds", "0", "--cwd", $cwd, "--") + $tail)
+    $oldReviewGateRunning = [Environment]::GetEnvironmentVariable($ReviewGateRunningEnv, "Process")
+    $oldXHighDispatchDisable = [Environment]::GetEnvironmentVariable($XHighReviewDispatchDisableEnv, "Process")
+    $exitCode = 0
+    try {
+        [Environment]::SetEnvironmentVariable($XHighReviewDispatchDisableEnv, "1", "Process")
+        if ($oldReviewGateRunning -eq "1") {
+            $reviewArgs = @("review", "-c", "model_reasoning_effort=`"$($CodexArgs[0].ToLowerInvariant())`"") + @($tail)
+            & $realCodex @reviewArgs
+            $exitCode = $LASTEXITCODE
+        } else {
+            [Environment]::SetEnvironmentVariable($ReviewGateRunningEnv, "1", "Process")
+            $runtime = Require-PythonRuntime
+            $pythonArgs = @($runtime.PrefixArgs) + @("-X", "utf8", $ReviewGateScript, "--codex", $realCodex, "--effort", $CodexArgs[0].ToLowerInvariant(), "--idle-seconds", "$ReviewGateIdleSeconds", "--max-seconds", "0", "--cwd", $cwd, "--") + @($tail)
+            & $runtime.Command @pythonArgs
+            $exitCode = $LASTEXITCODE
+        }
+    } finally {
+        [Environment]::SetEnvironmentVariable($ReviewGateRunningEnv, $oldReviewGateRunning, "Process")
+        [Environment]::SetEnvironmentVariable($XHighReviewDispatchDisableEnv, $oldXHighDispatchDisable, "Process")
+    }
+    exit $exitCode
 }
 Invoke-RealCodex -Arguments (Resolve-CodexReviewAlias -Arguments $CodexArgs)

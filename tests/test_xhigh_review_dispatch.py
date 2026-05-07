@@ -18,6 +18,7 @@ if str(TESTS_DIR) not in sys.path:
 
 import hook_runner
 import memory_store
+import review_gate_env
 import workspace_lifecycle
 import xhigh_review_dispatch
 from workspace_test_helpers import MemoryEnv, route_plan
@@ -128,9 +129,158 @@ class XHighReviewDispatchTests(unittest.TestCase):
         self.assertIn("explicit runner command", request["message"])
         self.assertIn("idle/no-output observation window", request["message"])
         self.assertIn("not a fixed total timeout", request["message"])
-        self.assertIn("codex xhigh review --uncommitted", request["message"])
+        self.assertNotIn("codex xhigh review --uncommitted", request["message"])
+        self.assertEqual(request["alias_command"], "codex xhigh review --uncommitted")
         self.assertIn("Host wait windows are observation polls only", request["message"])
         self.assertIn("codex-raw -- review -c", request["message"])
+
+    def test_ambient_review_gate_env_does_not_suppress_normal_dispatch(self) -> None:
+        old_running = xhigh_review_dispatch.os.environ.get(review_gate_env.REVIEW_GATE_RUNNING_ENV)
+        old_disable = xhigh_review_dispatch.os.environ.get(review_gate_env.XHIGH_REVIEW_DISPATCH_DISABLE_ENV)
+        with MemoryEnv():
+            try:
+                xhigh_review_dispatch.os.environ[review_gate_env.REVIEW_GATE_RUNNING_ENV] = "1"
+                xhigh_review_dispatch.os.environ[review_gate_env.XHIGH_REVIEW_DISPATCH_DISABLE_ENV] = "1"
+                with mock.patch.object(workspace_lifecycle.workspace_router, "build_route_plan", return_value=route_plan()):
+                    runner = hook_runner.HookRunner(memory_store=memory_store.MemoryStore())
+                    result = runner.run_event(
+                        "before_task",
+                        {
+                            "task_id": "nested-review-task",
+                            "objective": "Run codex xhigh review --uncommitted as the final review gate",
+                            "working_set": ["client/Assets/Login.cs"],
+                        },
+                    )
+            finally:
+                _restore_env(review_gate_env.REVIEW_GATE_RUNNING_ENV, old_running)
+                _restore_env(review_gate_env.XHIGH_REVIEW_DISPATCH_DISABLE_ENV, old_disable)
+
+        routing = result["result"]["task_state"]["metadata"]["workspace_routing"]
+        runtime = routing["subagent_runtime"]
+        self.assertEqual(runtime["trigger"], "xhigh_review_gate")
+        self.assertIn("subagent_dispatch_plan", routing)
+
+    def test_review_gate_runtime_flags_suppress_nested_runner_dispatch(self) -> None:
+        with MemoryEnv():
+            with mock.patch.object(workspace_lifecycle.workspace_router, "build_route_plan", return_value=route_plan()):
+                runner = hook_runner.HookRunner(memory_store=memory_store.MemoryStore())
+                result = runner.run_event(
+                    "before_task",
+                    {
+                        "task_id": "nested-review-task",
+                        "objective": (
+                            "Role: XHigh Review Runner. Do not wrap the SubAgent or review runner "
+                            "in any fixed timeout. Run codex xhigh review --uncommitted."
+                        ),
+                        "working_set": ["client/Assets/Login.cs"],
+                        "review_gate_running": True,
+                        "xhigh_review_dispatch_disabled": True,
+                    },
+                )
+
+        routing = result["result"]["task_state"]["metadata"]["workspace_routing"]
+        runtime = routing["subagent_runtime"]
+        self.assertEqual(runtime["trigger"], "review_gate_dispatch_disabled")
+        self.assertEqual(runtime["execution_model"], "main_agent_serial")
+        self.assertFalse(runtime["recommended"])
+        self.assertFalse(runtime["host_dispatch_allowed"])
+        self.assertTrue(runtime["decision_factors"]["review_gate_dispatch_disabled"])
+        self.assertNotIn("subagent_dispatch_plan", routing)
+
+    def test_review_gate_runtime_flags_do_not_persist_across_same_task(self) -> None:
+        with MemoryEnv():
+            with mock.patch.object(workspace_lifecycle.workspace_router, "build_route_plan", return_value=route_plan()):
+                store = memory_store.MemoryStore()
+                runner = hook_runner.HookRunner(memory_store=store)
+                runner.run_event(
+                    "before_task",
+                    {
+                        "task_id": "review-task",
+                        "objective": (
+                            "Role: XHigh Review Runner. Do not wrap the SubAgent or review runner "
+                            "in any fixed timeout. Run codex xhigh review --uncommitted."
+                        ),
+                        "working_set": ["client/Assets/Login.cs"],
+                        "review_gate_running": True,
+                        "xhigh_review_dispatch_disabled": True,
+                    },
+                )
+                stored = store.get_task_state("review-task")
+                result = runner.run_event(
+                    "before_task",
+                    {
+                        "task_id": "review-task",
+                        "objective": "Run codex xhigh review --uncommitted as the final review gate",
+                        "working_set": ["client/Assets/Login.cs"],
+                    },
+                )
+
+        stored_metadata = stored["metadata"]
+        routing = result["result"]["task_state"]["metadata"]["workspace_routing"]
+        self.assertNotIn("review_gate_running", stored_metadata)
+        self.assertNotIn("xhigh_review_dispatch_disabled", stored_metadata)
+        self.assertEqual(routing["subagent_runtime"]["trigger"], "xhigh_review_gate")
+        self.assertIn("subagent_dispatch_plan", routing)
+
+    def test_stale_review_gate_metadata_does_not_suppress_future_dispatch(self) -> None:
+        with MemoryEnv():
+            with mock.patch.object(workspace_lifecycle.workspace_router, "build_route_plan", return_value=route_plan()):
+                runner = hook_runner.HookRunner(memory_store=memory_store.MemoryStore())
+                result = runner.run_event(
+                    "before_task",
+                    {
+                        "task_id": "review-task",
+                        "objective": "Run codex xhigh review --uncommitted as the final review gate",
+                        "working_set": ["client/Assets/Login.cs"],
+                        "metadata": {
+                            "review_gate_running": True,
+                            "xhigh_review_dispatch_disabled": True,
+                        },
+                    },
+                )
+
+        routing = result["result"]["task_state"]["metadata"]["workspace_routing"]
+        self.assertEqual(routing["subagent_runtime"]["trigger"], "xhigh_review_gate")
+        self.assertIn("subagent_dispatch_plan", routing)
+
+    def test_after_tool_review_gate_flags_clear_stale_dispatch_plan(self) -> None:
+        with MemoryEnv():
+            with mock.patch.object(workspace_lifecycle.workspace_router, "build_route_plan", return_value=route_plan()):
+                store = memory_store.MemoryStore()
+                runner = hook_runner.HookRunner(memory_store=store)
+                before = runner.run_event(
+                    "before_task",
+                    {
+                        "task_id": "review-task",
+                        "objective": "Run codex xhigh review --uncommitted as the final review gate",
+                        "working_set": ["client/Assets/Login.cs"],
+                    },
+                )
+                after = runner.run_event(
+                    "after_tool",
+                    {
+                        "task_id": "review-task",
+                        "tool_name": "review-runner",
+                        "summary": "Runner checkpoint inside active gate",
+                        "touched_paths": ["client/Assets/Login.cs"],
+                        "review_gate_running": True,
+                        "xhigh_review_dispatch_disabled": True,
+                    },
+                )
+
+        before_routing = before["result"]["task_state"]["metadata"]["workspace_routing"]
+        after_routing = after["result"]["task_state"]["metadata"]["workspace_routing"]
+        self.assertIn("subagent_dispatch_plan", before_routing)
+        self.assertEqual(after_routing["subagent_runtime"]["trigger"], "review_gate_dispatch_disabled")
+        self.assertNotIn("subagent_dispatch_plan", after_routing)
+        self.assertNotIn("adaptive_subagent_dispatch_plan", after_routing)
+
+
+def _restore_env(name: str, value: str | None) -> None:
+    if value is None:
+        xhigh_review_dispatch.os.environ.pop(name, None)
+    else:
+        xhigh_review_dispatch.os.environ[name] = value
 
 
 if __name__ == "__main__":

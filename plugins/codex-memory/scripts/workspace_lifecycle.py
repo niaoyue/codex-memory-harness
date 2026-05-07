@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 import subagent_runtime_planner
+import subagent_task_classifier
 import workspace_router
 import workspace_subagents
 from workspace_path_utils import normalize_many
@@ -36,7 +37,7 @@ def safe_workspace_routing(task_id: str, task_payload: dict[str, Any]) -> dict[s
             "bindings": bindings,
             "subagent_runtime": runtime,
         }
-        attach_dispatch_plan_if_needed(routing, route_plan, bindings)
+        attach_dispatch_plan_if_needed(routing, route_plan, bindings, task_payload)
         return routing
     except Exception as exc:
         return {
@@ -69,11 +70,21 @@ def attach_dispatch_plan_if_needed(
     routing: dict[str, Any],
     route_plan: dict[str, Any],
     bindings: list[dict[str, Any]],
+    task_payload: dict[str, Any] | None = None,
 ) -> None:
     runtime = routing.get("subagent_runtime") if isinstance(routing.get("subagent_runtime"), dict) else {}
     if not runtime.get("dispatch_plan_required"):
         return
     if runtime.get("trigger") == "xhigh_review_gate":
+        if subagent_task_classifier.xhigh_review_dispatch_disabled(task_payload or {}):
+            runtime["dispatch_plan_required"] = False
+            runtime["dispatch_plan_available"] = False
+            runtime["host_spawn_request_count"] = 0
+            runtime["main_agent_action"] = "execute_on_main_agent"
+            runtime["fallback_action"] = "main_agent_serial"
+            runtime["reason"] = "XHigh review dispatch is disabled inside an active review gate."
+            routing["subagent_runtime"] = runtime
+            return
         import xhigh_review_dispatch
 
         dispatch_plan = xhigh_review_dispatch.build_dispatch_plan(route_plan)
@@ -135,19 +146,22 @@ def merge_adaptive_routing(
     workspace_routing: dict[str, Any],
     adaptive_routing: dict[str, Any],
 ) -> None:
+    adaptive_runtime = (
+        adaptive_routing.get("subagent_runtime")
+        if isinstance(adaptive_routing.get("subagent_runtime"), dict)
+        else {}
+    )
     if isinstance(adaptive_routing.get("route_plan"), dict):
         workspace_routing["adaptive_route_plan"] = adaptive_routing["route_plan"]
     if isinstance(adaptive_routing.get("bindings"), list):
         workspace_routing["adaptive_bindings"] = adaptive_routing["bindings"]
     if isinstance(adaptive_routing.get("subagent_dispatch_plan"), dict):
         workspace_routing["adaptive_subagent_dispatch_plan"] = adaptive_routing["subagent_dispatch_plan"]
-        adaptive_runtime = (
-            adaptive_routing.get("subagent_runtime")
-            if isinstance(adaptive_routing.get("subagent_runtime"), dict)
-            else {}
-        )
         if adaptive_runtime.get("dispatch_plan_required") or "subagent_dispatch_plan" not in workspace_routing:
             workspace_routing["subagent_dispatch_plan"] = adaptive_routing["subagent_dispatch_plan"]
+    if adaptive_runtime.get("trigger") == "review_gate_dispatch_disabled":
+        workspace_routing.pop("subagent_dispatch_plan", None)
+        workspace_routing.pop("adaptive_subagent_dispatch_plan", None)
     if isinstance(adaptive_routing.get("subagent_runtime"), dict):
         merge_subagent_runtime(workspace_routing, adaptive_routing["subagent_runtime"])
     if adaptive_routing.get("degraded"):
@@ -163,7 +177,7 @@ def apply_signal_route_plan(
     workspace_routing["route_plan"] = route_plan
     workspace_routing["bindings"] = bindings
     merge_subagent_runtime(workspace_routing, subagent_runtime_decision(route_plan, bindings, payload))
-    attach_dispatch_plan_if_needed(workspace_routing, route_plan, bindings)
+    attach_dispatch_plan_if_needed(workspace_routing, route_plan, bindings, payload)
     return bindings
 
 

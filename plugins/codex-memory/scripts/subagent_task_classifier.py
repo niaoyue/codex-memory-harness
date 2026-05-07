@@ -137,8 +137,17 @@ def explicitly_requested(task_payload: dict[str, Any]) -> bool:
 
 
 def review_gate_recommended(task_payload: dict[str, Any]) -> bool:
+    if xhigh_review_dispatch_disabled(task_payload):
+        return False
     text = text_for_keys(task_payload, ("objective", "user_request", "summary", "prompt", "next_step"))
     return not has_any(text, DISABLE_PHRASES) and has_any(text, REVIEW_GATE_PHRASES)
+
+
+def xhigh_review_dispatch_disabled(task_payload: dict[str, Any]) -> bool:
+    return (
+        task_payload.get("xhigh_review_dispatch_disabled") is True
+        or task_payload.get("review_gate_running") is True
+    )
 
 
 def complex_task_recommended(task_payload: dict[str, Any], route_plan: dict[str, Any]) -> bool:

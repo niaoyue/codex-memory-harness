@@ -75,6 +75,7 @@ def decision_context(
     policy_execution_model = string(policy.get("execution_model"))
     policy_disabled = policy.get("enabled") is False or policy_execution_model == "main_agent_serial"
     user_disabled = subagent_task_classifier.explicitly_disabled(task_payload)
+    review_gate_dispatch_disabled = subagent_task_classifier.xhigh_review_dispatch_disabled(task_payload)
     specialists = [item for item in bindings if item.get("binding_mode") == "specialist"]
     requirements = route_plan.get("requirements_gate") if isinstance(route_plan.get("requirements_gate"), dict) else {}
     task_intent = string(requirements.get("task_intent"))
@@ -95,9 +96,10 @@ def decision_context(
         "bindings": bindings,
         "task_payload": task_payload,
         "specialists": specialists,
-        "disabled": user_disabled or policy_disabled,
+        "disabled": user_disabled or policy_disabled or review_gate_dispatch_disabled,
         "user_disabled": user_disabled,
         "policy_disabled": policy_disabled,
+        "review_gate_dispatch_disabled": review_gate_dispatch_disabled,
         "policy_execution_model": policy_execution_model,
         "policy_reason": string(policy.get("reason")),
         "explicit": explicit,
@@ -150,6 +152,12 @@ def complexity_level(context: dict[str, Any]) -> str:
 
 
 def status_reason(context: dict[str, Any]) -> tuple[str, str, str]:
+    if context["review_gate_dispatch_disabled"]:
+        return (
+            "main_agent_serial",
+            "review_gate_dispatch_disabled",
+            "SubAgent dispatch is disabled inside an active review gate.",
+        )
     if context["requirements_blocked"]:
         return (
             "requirements_blocked",
@@ -225,6 +233,7 @@ def decision_factors(context: dict[str, Any]) -> dict[str, Any]:
         "requirements_blocked": context["requirements_blocked"],
         "user_disabled": context["user_disabled"],
         "policy_disabled": context["policy_disabled"],
+        "review_gate_dispatch_disabled": context["review_gate_dispatch_disabled"],
         "policy_execution_model": context["policy_execution_model"],
         "route_policy": context["route_policy"],
         "review_gate": context["review_gate"],

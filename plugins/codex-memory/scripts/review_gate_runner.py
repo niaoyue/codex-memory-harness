@@ -14,6 +14,7 @@ from collections import deque
 from pathlib import Path
 from typing import Any, TextIO
 
+import review_gate_env
 from review_findings import ReviewFindingsTracker, detect_review_findings
 
 
@@ -106,7 +107,14 @@ def run_monitored(
     log_handle = _open_log(log_file)
     try:
         try:
-            process = subprocess.Popen(command, cwd=str(cwd), stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=0)
+            process = subprocess.Popen(
+                command,
+                cwd=str(cwd),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                bufsize=0,
+                env=review_gate_env.review_gate_child_env(),
+            )
         except OSError as exc:
             message = f"{type(exc).__name__}: {exc}"
             stderr_tail.append(message + "\n")
