@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/hook_launcher.ps1 --codex-event UserPromptSubmit"
+            "command": "sh ./scripts/hook_launcher.sh --codex-event UserPromptSubmit"
           }
         ]
       }
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/hook_launcher.ps1 --codex-event PostToolUse"
+            "command": "sh ./scripts/hook_launcher.sh --codex-event PostToolUse"
           }
         ]
       }
@@ -28,7 +28,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/hook_launcher.ps1 --codex-event Stop"
+            "command": "sh ./scripts/hook_launcher.sh --codex-event Stop"
           }
         ]
       }

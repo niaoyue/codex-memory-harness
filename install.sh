@@ -8,6 +8,15 @@ PY_CMD=
 PY_NAME=
 PY_PREFIX=
 DETECTED=
+LAUNCHER_FAMILY=${CODEX_MEMORY_LAUNCHER_FAMILY:-}
+
+debug_log() {
+    case "${CODEX_MEMORY_INSTALL_DEBUG:-}" in
+        1|true|TRUE|yes|YES|on|ON|debug|DEBUG)
+            printf '%s\n' "[codex-memory-install.sh][DEBUG] $1" >&2
+            ;;
+    esac
+}
 
 python_version_text() {
     command_name=$1
@@ -74,17 +83,39 @@ run_as_root() {
     fi
 }
 
-require_powershell_launcher() {
-    if command -v powershell >/dev/null 2>&1; then
-        return 0
+normalize_launcher_family() {
+    if [ -z "$LAUNCHER_FAMILY" ]; then
+        case "$(uname -s 2>/dev/null || echo unknown)" in
+            MINGW*|MSYS*|CYGWIN*)
+                if command -v powershell >/dev/null 2>&1; then
+                    LAUNCHER_FAMILY=powershell
+                else
+                    LAUNCHER_FAMILY=posix
+                fi
+                ;;
+            *)
+                LAUNCHER_FAMILY=posix
+                ;;
+        esac
     fi
-    echo "install.sh currently supports POSIX shells only when the powershell command is available." >&2
-    echo "Codex Memory hooks and MCP still invoke the PowerShell launcher command named powershell." >&2
-    if command -v pwsh >/dev/null 2>&1; then
-        echo "Detected pwsh, but this release does not generate native pwsh/POSIX hook launchers yet." >&2
+    case "$LAUNCHER_FAMILY" in
+        posix|powershell)
+            ;;
+        *)
+            echo "CODEX_MEMORY_LAUNCHER_FAMILY must be posix or powershell." >&2
+            exit 2
+            ;;
+    esac
+}
+
+require_launcher_family() {
+    normalize_launcher_family
+    if [ "$LAUNCHER_FAMILY" = "powershell" ] && ! command -v powershell >/dev/null 2>&1; then
+        echo "CODEX_MEMORY_LAUNCHER_FAMILY=powershell requires a powershell command on PATH." >&2
+        echo "Use the default POSIX launcher on Linux/macOS, or run from a Windows POSIX shell with powershell on PATH." >&2
+        exit 125
     fi
-    echo "Use install.bat or install.ps1 on Windows, or run from a Windows POSIX shell with powershell on PATH." >&2
-    exit 125
+    debug_log "launcher_family=$LAUNCHER_FAMILY powershell_available=$(command -v powershell >/dev/null 2>&1 && echo 1 || echo 0)"
 }
 
 install_python_best_effort() {
@@ -95,6 +126,7 @@ install_python_best_effort() {
     if command -v apt-get >/dev/null 2>&1; then
         run_as_root apt-get update &&
             (run_as_root apt-get install -y python3.12 python3.12-venv ||
+                run_as_root apt-get install -y python3.11 python3.11-venv ||
                 run_as_root apt-get install -y python3 python3-venv)
         return $?
     fi
@@ -121,7 +153,7 @@ write_python_hint() {
     fi
     echo "Install Python, then rerun: sh ./install.sh"
     echo "macOS Homebrew: brew install python@3.12"
-    echo "Debian/Ubuntu: sudo apt-get update && sudo apt-get install -y python3"
+    echo "Debian/Ubuntu: sudo apt-get update && sudo apt-get install -y python3.11"
     echo "Fedora: sudo dnf install -y python3.12"
     echo "Arch: sudo pacman -Sy --needed python"
     echo "Manual installer: https://www.python.org/downloads/"
@@ -133,10 +165,12 @@ run_installer() {
         "$PY_CMD" "$PY_PREFIX" -X utf8 "$INSTALLER" \
             --mcp-python-command "$PY_NAME" \
             --mcp-python-prefix-arg "$PY_PREFIX" \
+            --launcher-family "$LAUNCHER_FAMILY" \
             "$@"
     else
         "$PY_CMD" -X utf8 "$INSTALLER" \
             --mcp-python-command "$PY_NAME" \
+            --launcher-family "$LAUNCHER_FAMILY" \
             "$@"
     fi
 }
@@ -165,6 +199,27 @@ while [ "$remaining" -gt 0 ]; do
         -RemoveHomePlugin)
             set -- "$@" "--remove-home-plugin"
             ;;
+        --launcher-family)
+            if [ "$remaining" -eq 0 ]; then
+                echo "--launcher-family requires a value: posix or powershell." >&2
+                exit 2
+            fi
+            LAUNCHER_FAMILY=$1
+            shift
+            remaining=$((remaining - 1))
+            ;;
+        --launcher-family=*)
+            LAUNCHER_FAMILY=${arg#*=}
+            ;;
+        -LauncherFamily)
+            if [ "$remaining" -eq 0 ]; then
+                echo "-LauncherFamily requires a value: posix or powershell." >&2
+                exit 2
+            fi
+            LAUNCHER_FAMILY=$1
+            shift
+            remaining=$((remaining - 1))
+            ;;
         -ProfileShells)
             if [ "$remaining" -eq 0 ]; then
                 echo "-ProfileShells requires a value: pwsh, windows, all, or none." >&2
@@ -177,7 +232,7 @@ while [ "$remaining" -gt 0 ]; do
             ;;
         -Mode)
             if [ "$remaining" -eq 0 ]; then
-                echo "-Mode requires a value: auto, junction, or copy." >&2
+                echo "-Mode requires a value: auto, junction, symlink, or copy." >&2
                 exit 2
             fi
             value=$1
@@ -191,7 +246,7 @@ while [ "$remaining" -gt 0 ]; do
     esac
 done
 
-require_powershell_launcher
+require_launcher_family
 resolve_python || true
 if [ -z "$PY_CMD" ]; then
     if [ "$AUTO_INSTALL" = "1" ]; then
@@ -210,4 +265,5 @@ if [ -z "$PY_CMD" ]; then
     fi
 fi
 
+debug_log "python_command=$PY_NAME prefix_arg_count=$([ -n "$PY_PREFIX" ] && echo 1 || echo 0)"
 run_installer "$@"

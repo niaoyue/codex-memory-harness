@@ -19,6 +19,7 @@ if str(PLUGIN_SCRIPTS_DIR) not in sys.path:
 
 import hook_bridge
 import hook_runner
+import hook_config
 import memory_store
 
 
@@ -202,8 +203,23 @@ class HookBridgeTests(unittest.TestCase):
 
         self.assertTrue(commands)
         for command in commands:
-            self.assertIn("hook_launcher.ps1 --codex-event", command)
+            self.assertIn("hook_launcher.", command)
+            self.assertIn("--codex-event", command)
             self.assertNotIn("codexm.ps1", command)
+            self.assertNotIn("py -X utf8", command)
+
+    def test_hook_config_can_generate_posix_launchers(self) -> None:
+        hooks = hook_config.hooks_config("posix")
+        commands: list[str] = []
+        for event_hooks in hooks["hooks"].values():
+            for item in event_hooks:
+                for hook in item["hooks"]:
+                    commands.append(hook["command"])
+
+        self.assertTrue(commands)
+        for command in commands:
+            self.assertIn("sh ./scripts/hook_launcher.sh --codex-event", command)
+            self.assertNotIn("powershell", command)
             self.assertNotIn("py -X utf8", command)
 
     def test_hook_launcher_is_ascii_only_for_windows_powershell_51(self) -> None:
@@ -213,6 +229,14 @@ class HookBridgeTests(unittest.TestCase):
         text.encode("ascii")
         self.assertIn("hook_bridge.py", text)
         self.assertNotIn("here-string", text.lower())
+
+    def test_posix_hook_launcher_is_ascii_only(self) -> None:
+        script = PROJECT_ROOT / "plugins" / "codex-memory" / "scripts" / "hook_launcher.sh"
+        text = script.read_text(encoding="utf-8")
+
+        text.encode("ascii")
+        self.assertIn("hook_bridge.py", text)
+        self.assertIn("try_python python3.12", text)
 
     def test_main_applies_payload_cwd_before_creating_runner(self) -> None:
         with tempfile.TemporaryDirectory() as project_dir:
@@ -275,8 +299,11 @@ class HookBridgeTests(unittest.TestCase):
         )
         server = config["mcpServers"]["codex-memory"]
 
-        self.assertEqual(server["command"], "powershell")
-        self.assertIn("./scripts/mcp_launcher.ps1", server["args"])
+        self.assertIn(server["command"], {"powershell", "sh"})
+        self.assertTrue(
+            "./scripts/mcp_launcher.ps1" in server["args"]
+            or "./scripts/mcp_launcher.sh" in server["args"]
+        )
         self.assertNotEqual(server["command"], "py")
 
     def test_mcp_launcher_is_ascii_only_for_windows_powershell_51(self) -> None:
@@ -285,6 +312,14 @@ class HookBridgeTests(unittest.TestCase):
 
         text.encode("ascii")
         self.assertIn("memory_server.py", text)
+
+    def test_posix_mcp_launcher_is_ascii_only(self) -> None:
+        script = PROJECT_ROOT / "plugins" / "codex-memory" / "scripts" / "mcp_launcher.sh"
+        text = script.read_text(encoding="utf-8")
+
+        text.encode("ascii")
+        self.assertIn("memory_server.py", text)
+        self.assertIn("try_python python3.12", text)
 
     def test_hook_runner_reports_missing_payload_file_as_degraded_json(self) -> None:
         old_scope = os.environ.get("CODEX_MEMORY_SCOPE")

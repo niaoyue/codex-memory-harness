@@ -1,13 +1,9 @@
 {
   "mcpServers": {
     "codex-memory": {
-      "command": "powershell",
+      "command": "sh",
       "args": [
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-File",
-        "./scripts/mcp_launcher.ps1",
+        "./scripts/mcp_launcher.sh",
         "--stdio",
         "--memory-scope",
         "project"

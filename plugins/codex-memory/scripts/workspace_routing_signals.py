@@ -32,6 +32,8 @@ def normalize_signal_path(value: Any, workspace_root: Path) -> str:
     if not text:
         return ""
     raw_path = text.replace("\\", "/")
+    if text.startswith("\\") and not text.startswith("\\\\"):
+        return f"../{raw_path.lstrip('/')}"
     if is_rooted_without_drive(raw_path):
         return f"../{raw_path.lstrip('/')}"
     if raw_path.strip("/") in {"", "."}:
@@ -127,6 +129,8 @@ def git_output_paths(workspace_root: Path, command: list[str]) -> list[str]:
 
 def project_path_hits(project: dict[str, Any], all_projects: list[dict[str, Any]], paths: list[str]) -> list[str]:
     safe_paths = [path for path in paths if not is_escaping_path(path)]
+    if paths and not safe_paths:
+        return []
     cwd = str(project.get("cwd") or "").replace("\\", "/").strip("/")
     if cwd not in {"", "."}:
         return [path for path in safe_paths if path_in_scope(path, cwd)]

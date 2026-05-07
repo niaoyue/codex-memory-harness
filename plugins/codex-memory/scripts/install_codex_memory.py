@@ -9,26 +9,26 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from codex_config_status import ensure_codex_config, inspect_codex_config
+from codex_config_status import ensure_codex_config
+from hook_config import ensure_hooks_config as _ensure_hooks_config
+from install_debug import debug_log
+from install_status import check_state, points_to, safe_existing_target
 from install_support import (
     AGENTS_END,
     AGENTS_START,
     PROFILE_END,
     PROFILE_START,
-    dependency_status,
     ensure_agents,
     ensure_profile,
     home_agents_path,
     home_root,
     profile_paths,
-    profile_statuses,
-    read_text,
     remove_marked_block,
     select_mcp_python_runtime,
 )
 from mcp_config import ensure_mcp_config as _ensure_mcp_config
 from mcp_config import mcp_config as _mcp_config
-from skill_bundle import bundled_skills_status, ensure_bundled_skills
+from skill_bundle import ensure_bundled_skills
 
 
 PLUGIN_NAME = "codex-memory"
@@ -135,22 +135,11 @@ def _remove_marketplace_entry(path: Path) -> dict[str, Any]:
 
 
 def _safe_existing_target(path: Path) -> str:
-    if not path.exists():
-        return "missing"
-    try:
-        resolved = path.resolve()
-        return str(resolved)
-    except OSError:
-        return "unresolved"
+    return safe_existing_target(path)
 
 
 def _points_to(path: Path, target: Path) -> bool:
-    if not path.exists() or not target.exists():
-        return False
-    try:
-        return path.resolve() == target.resolve()
-    except OSError:
-        return False
+    return points_to(path, target)
 
 
 def _remove_existing_home_plugin(
@@ -158,7 +147,7 @@ def _remove_existing_home_plugin(
     *,
     remove_current: bool = False,
 ) -> dict[str, Any]:
-    if not dst.exists():
+    if not dst.exists() and not dst.is_symlink():
         return {"path": str(dst), "removed": False, "reason": "missing"}
     if _points_to(dst, _plugin_root()) and not remove_current:
         return {"path": str(dst), "removed": False, "reason": "already_current"}
@@ -180,7 +169,7 @@ def _remove_existing_home_plugin(
 
 
 def _ensure_windows_junction(src: Path, dst: Path) -> dict[str, Any]:
-    if dst.exists():
+    if dst.exists() or dst.is_symlink():
         if dst.resolve() == src.resolve():
             return {"path": str(dst), "mode": "junction", "created": False, "status": "ok"}
         raise RuntimeError(
@@ -198,8 +187,21 @@ def _ensure_windows_junction(src: Path, dst: Path) -> dict[str, Any]:
     }
 
 
+def _ensure_symlink(src: Path, dst: Path) -> dict[str, Any]:
+    if dst.exists() or dst.is_symlink():
+        if _points_to(dst, src):
+            return {"path": str(dst), "mode": "symlink", "created": False, "status": "ok"}
+        raise RuntimeError(
+            f"Destination already exists and does not point at source: {dst} -> {_safe_existing_target(dst)}"
+        )
+
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    dst.symlink_to(src, target_is_directory=True)
+    return {"path": str(dst), "mode": "symlink", "created": True, "status": "ok"}
+
+
 def _ensure_copy(src: Path, dst: Path) -> dict[str, Any]:
-    if dst.exists():
+    if dst.exists() or dst.is_symlink():
         if dst.resolve() == src.resolve():
             return {"path": str(dst), "mode": "copy", "created": False, "status": "ok"}
         raise RuntimeError(
@@ -219,7 +221,7 @@ def _ensure_home_plugin_install(mode: str, *, update_existing: bool) -> dict[str
     src = _plugin_root()
     dst = _home_plugin_path()
     replacement = None
-    if dst.exists():
+    if dst.exists() or dst.is_symlink():
         if _points_to(dst, src):
             return {
                 "path": str(dst),
@@ -242,11 +244,20 @@ def _ensure_home_plugin_install(mode: str, *, update_existing: bool) -> dict[str
         result = _ensure_copy(src, dst)
         result["replacement"] = replacement
         return result
-    try:
+    if mode == "symlink":
+        result = _ensure_symlink(src, dst)
+        result["replacement"] = replacement
+        return result
+    if mode == "junction":
         result = _ensure_windows_junction(src, dst)
+        result["replacement"] = replacement
+        return result
+    try:
+        if os.name == "nt":
+            result = _ensure_windows_junction(src, dst)
+        else:
+            result = _ensure_symlink(src, dst)
     except Exception as exc:
-        if mode == "junction":
-            raise
         result = _ensure_copy(src, dst)
         result["fallback_reason"] = f"{type(exc).__name__}: {exc}"
     result["replacement"] = replacement
@@ -254,56 +265,19 @@ def _ensure_home_plugin_install(mode: str, *, update_existing: bool) -> dict[str
 
 
 def _check_state() -> dict[str, Any]:
-    repo_marketplace = _repo_marketplace_path()
-    home_marketplace = _home_marketplace_path()
-    plugin_root = _plugin_root()
-    home_plugin = _home_plugin_path()
-    dependencies = dependency_status()
-    codex_config = inspect_codex_config(home=_home_root(), plugin_root=plugin_root)
-    def _has_entry(path: Path) -> bool:
-        if not path.exists():
-            return False
-        payload = json.loads(path.read_text(encoding="utf-8"))
-        return any(item.get("name") == PLUGIN_NAME for item in payload.get("plugins", []))
+    return check_state(
+        plugin_name=PLUGIN_NAME,
+        repo_marketplace=_repo_marketplace_path(),
+        home_marketplace=_home_marketplace_path(),
+        plugin_root=_plugin_root(),
+        home_plugin=_home_plugin_path(),
+    )
 
-    return {
-        "plugin_root": str(plugin_root),
-        "plugin_files": {
-            "manifest": (plugin_root / ".codex-plugin" / "plugin.json").exists(),
-            "mcp": (plugin_root / ".mcp.json").exists(),
-            "mcp_launcher": (plugin_root / "scripts" / "mcp_launcher.ps1").exists(),
-            "hooks": (plugin_root / "hooks.json").exists(),
-            "hook_launcher": (plugin_root / "scripts" / "hook_launcher.ps1").exists(),
-            "hook_bridge": (plugin_root / "scripts" / "hook_bridge.py").exists(),
-        },
-        "repo_marketplace": {
-            "path": str(repo_marketplace),
-            "exists": repo_marketplace.exists(),
-            "has_entry": _has_entry(repo_marketplace),
-        },
-        "home_plugin": {
-            "path": str(home_plugin),
-            "exists": home_plugin.exists(),
-            "resolved_path": _safe_existing_target(home_plugin),
-            "points_to_current": _points_to(home_plugin, plugin_root),
-        },
-        "home_marketplace": {
-            "path": str(home_marketplace),
-            "exists": home_marketplace.exists(),
-            "has_entry": _has_entry(home_marketplace),
-        },
-        "home_agents": {
-            "path": str(home_agents_path()),
-            "exists": home_agents_path().exists(),
-            "mentions_memory": "Codex Memory" in read_text(home_agents_path()),
-        },
-        "powershell_profiles": profile_statuses("all"),
-        "codex_config": codex_config,
-        "bundled_skills": bundled_skills_status(plugin_root),
-        "dependencies": dependencies,
-        "missing_dependencies": dependencies["missing"],
-        "dependency_recommendations": dependencies["recommendations"],
-    }
+
+def _normalize_launcher_family(value: str) -> str:
+    if value == "posix":
+        return "posix"
+    return "powershell"
 
 
 def install(
@@ -316,14 +290,35 @@ def install(
     install_skills: bool,
     mcp_python_command: str | None = None,
     mcp_python_prefix_args: list[str] | None = None,
+    launcher_family: str = "powershell",
 ) -> dict[str, Any]:
-    result: dict[str, Any] = {"scope": scope, "mode": mode}
+    launcher_family = _normalize_launcher_family(launcher_family)
+    result: dict[str, Any] = {"scope": scope, "mode": mode, "launcher_family": launcher_family}
     mcp_runtime = select_mcp_python_runtime(mcp_python_command, mcp_python_prefix_args)
+    debug_log(
+        "install_start",
+        {
+            "scope": scope,
+            "mode": mode,
+            "launcher_family": launcher_family,
+            "profile_shells": profile_shells,
+            "install_agents": install_agents,
+            "install_skills": install_skills,
+            "update_existing": update_existing,
+            "mcp_python_command": mcp_runtime["command"],
+            "mcp_python_prefix_arg_count": len(mcp_runtime["prefix_args"]),
+        },
+    )
     if scope in ("repo", "all"):
+        result["hooks_config"] = _ensure_hooks_config(
+            _plugin_root(),
+            launcher_family=launcher_family,
+        )
         result["mcp_config"] = _ensure_mcp_config(
             _plugin_root(),
             python_command=mcp_runtime["command"],
             python_prefix_args=mcp_runtime["prefix_args"],
+            launcher_family=launcher_family,
         )
         result["repo_marketplace"] = _upsert_marketplace_entry(
             _repo_marketplace_path(),
@@ -344,10 +339,15 @@ def install(
             result["powershell_profiles"] = []
         else:
             result["codex_config"] = ensure_codex_config(home=_home_root(), plugin_root=_plugin_root())
+            result["hooks_config"] = _ensure_hooks_config(
+                _home_plugin_path(),
+                launcher_family=launcher_family,
+            )
             result["mcp_config"] = _ensure_mcp_config(
                 _home_plugin_path(),
                 python_command=mcp_runtime["command"],
                 python_prefix_args=mcp_runtime["prefix_args"],
+                launcher_family=launcher_family,
             )
             result["home_marketplace"] = _upsert_marketplace_entry(
                 _home_marketplace_path(),
@@ -363,6 +363,19 @@ def install(
                 result["bundled_skills"] = {"skipped": True, "reason": "skip_skills"}
             result["powershell_profiles"] = ensure_profile(_home_plugin_path(), profile_shells)
     result["check"] = _check_state()
+    debug_log(
+        "install_complete",
+        {
+            "scope": scope,
+            "mode": mode,
+            "launcher_family": launcher_family,
+            "home_plugin_status": result.get("home_plugin", {}).get("status"),
+            "home_plugin_mode": result.get("home_plugin", {}).get("mode"),
+            "home_plugin_fallback": "fallback_reason" in result.get("home_plugin", {}),
+            "mcp_command": result.get("mcp_config", {}).get("command"),
+            "hooks_modified": result.get("hooks_config", {}).get("modified"),
+        },
+    )
     return result
 
 
@@ -400,9 +413,9 @@ def main() -> int:
     )
     parser.add_argument(
         "--mode",
-        choices=["auto", "junction", "copy"],
+        choices=["auto", "junction", "symlink", "copy"],
         default="auto",
-        help="Home install mode. Auto prefers a Windows junction and falls back to copy.",
+        help="Home install mode. Auto uses a Windows junction on Windows, a symlink on POSIX, then falls back to copy.",
     )
     parser.add_argument(
         "--profile-shells",
@@ -442,6 +455,12 @@ def main() -> int:
         help="Prefix argument for the MCP Python command. Repeat for multiple args.",
     )
     parser.add_argument(
+        "--launcher-family",
+        choices=["powershell", "posix"],
+        default="powershell",
+        help="Launcher family to write into hooks.json and .mcp.json.",
+    )
+    parser.add_argument(
         "--uninstall",
         action="store_true",
         help="Remove marketplace entries and marked launcher/global-rules blocks.",
@@ -467,6 +486,7 @@ def main() -> int:
             install_skills=not args.skip_skills,
             mcp_python_command=args.mcp_python_command,
             mcp_python_prefix_args=args.mcp_python_prefix_arg,
+            launcher_family=args.launcher_family,
         )
 
     print(json.dumps(result, ensure_ascii=False, indent=2))

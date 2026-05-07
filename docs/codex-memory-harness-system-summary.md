@@ -50,7 +50,7 @@ POSIX shell：
 sh ./install.sh
 ```
 
-`install.sh` 只是 POSIX shell 入口包装；当前 hook/MCP 运行时仍依赖名为 `powershell` 的 PowerShell launcher。
+`install.sh` 是 POSIX shell 入口包装；Linux/macOS 默认写入 POSIX hook/MCP launcher，Windows POSIX shell 如检测到 `powershell` 默认仍写入 PowerShell launcher。
 
 ## 3. 能力边界
 
@@ -431,7 +431,7 @@ cd .\codex-memory-harness
 .\install.bat
 ```
 
-已能调用 `powershell` 命令的 POSIX shell 用户可在解压后运行 `sh ./install.sh`。
+Linux/macOS shell，或 Git Bash、MSYS、Cygwin 等 POSIX shell 用户可在解压后运行 `sh ./install.sh`。
 
 ## 14. 当前验证项
 
