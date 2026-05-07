@@ -179,6 +179,8 @@ codex harness complete --task-id <task-id> --summary-file summary.md
 - 敏感信息扫描
 - 打包边界检查
 
+如果 XHigh Review Runner 遇到模型容量、429、5xx 或超时类基础设施错误，恢复顺序是先续跑、后重开。主 agent 或宿主仍持有活跃 runner session 时，应按故障类型退避后对同一 session 发送继续指令，让它复用已有 transcript、审查进度和已读上下文：容量/429 退避 20 秒且只要 session 活跃就可继续，5xx/超时退避 2 秒且最多续跑一次。只有 runner session 已关闭、无句柄、不可恢复，或 review 期间 diff 已变化时，才重新启动同一个 review gate。无论续跑还是重开，只要 xhigh review 没有完整返回 clean 或 findings，就不能视为通过。
+
 如果 xhigh review 返回 findings，主 agent 修复后必须重新运行同一 gate，直到没有新的阻断问题。SubAgent 发生 idle timeout、wrapper 失败或宿主不支持 SubAgent 时，必须记录失败原因，并由主 agent 直接运行 `codex-raw -- review -c model_reasoning_effort="xhigh" --uncommitted` 或原生 Codex review 命令兜底。
 
 当 review findings 全部修复、最终 review gate 无阻断问题且验证通过后，主流程必须创建本地 git commit。提交只应包含本轮相关文件；如果工作树里混有用户无关改动，必须先隔离提交范围，无法安全隔离时在最终答复说明未提交原因。

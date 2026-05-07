@@ -109,6 +109,113 @@
         "no_fixed_total_timeout": {
           "type": "boolean",
           "const": true
+        },
+        "recoverable_failure_policy": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "recoverable_failure_types",
+            "failure_rules",
+            "primary_action",
+            "primary_preconditions",
+            "resume_message",
+            "restart_action",
+            "restart_only_when",
+            "pass_condition"
+          ],
+          "properties": {
+            "recoverable_failure_types": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "model_capacity",
+                  "http_429",
+                  "http_5xx",
+                  "timeout"
+                ]
+              }
+            },
+            "failure_rules": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": true,
+                "required": [
+                  "failure_type",
+                  "backoff_seconds",
+                  "max_resume_attempts"
+                ],
+                "properties": {
+                  "failure_type": {
+                    "type": "string",
+                    "enum": [
+                      "model_capacity",
+                      "http_429",
+                      "http_5xx",
+                      "timeout"
+                    ]
+                  },
+                  "backoff_seconds": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "max_resume_attempts": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "attempt_policy": {
+                    "type": "string",
+                    "enum": [
+                      "while_session_active",
+                      "single_retry"
+                    ]
+                  }
+                }
+              }
+            },
+            "primary_action": {
+              "type": "string",
+              "enum": [
+                "send_input_to_active_review_runner"
+              ]
+            },
+            "primary_preconditions": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "host_has_active_runner_session_handle",
+                  "runner_session_not_completed_failed_or_closed",
+                  "workspace_diff_unchanged_since_runner_start"
+                ]
+              }
+            },
+            "resume_message": {
+              "type": "string"
+            },
+            "restart_action": {
+              "type": "string",
+              "enum": [
+                "restart_same_review_gate_command"
+              ]
+            },
+            "restart_only_when": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "pass_condition": {
+              "type": "string",
+              "enum": [
+                "review_gate_must_complete_cleanly"
+              ]
+            }
+          }
         }
       }
     },

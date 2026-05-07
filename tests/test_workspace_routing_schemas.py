@@ -59,6 +59,25 @@ class WorkspaceRoutingSchemaTests(unittest.TestCase):
         self.assertEqual(spawn["properties"]["total_timeout_policy"]["enum"], ["none"])
         self.assertIn("poll_only_never_interrupt", spawn["properties"]["observation_window_policy"]["enum"])
         self.assertEqual(spawn["properties"]["no_fixed_total_timeout"]["const"], True)
+        recovery = spawn["properties"]["recoverable_failure_policy"]
+        self.assertEqual(recovery["properties"]["primary_action"]["enum"], ["send_input_to_active_review_runner"])
+        self.assertIn("primary_preconditions", recovery["required"])
+        self.assertIn(
+            "workspace_diff_unchanged_since_runner_start",
+            recovery["properties"]["primary_preconditions"]["items"]["enum"],
+        )
+        self.assertIn("failure_rules", recovery["required"])
+        failure_rule = recovery["properties"]["failure_rules"]["items"]
+        self.assertIn("max_resume_attempts", failure_rule["required"])
+        self.assertIn("null", failure_rule["properties"]["max_resume_attempts"]["type"])
+        self.assertIn("attempt_policy", failure_rule["properties"])
+        self.assertIn("while_session_active", failure_rule["properties"]["attempt_policy"]["enum"])
+        self.assertIn("single_retry", failure_rule["properties"]["attempt_policy"]["enum"])
+        self.assertIn("http_429", failure_rule["properties"]["failure_type"]["enum"])
+        self.assertIn("http_5xx", failure_rule["properties"]["failure_type"]["enum"])
+        self.assertIn("timeout", failure_rule["properties"]["failure_type"]["enum"])
+        self.assertEqual(recovery["properties"]["restart_action"]["enum"], ["restart_same_review_gate_command"])
+        self.assertEqual(recovery["properties"]["pass_condition"]["enum"], ["review_gate_must_complete_cleanly"])
         self.assertIn("overall_status", aggregation["required"])
         self.assertIn("verification_plan", aggregation["required"])
         gate_properties = aggregation["$defs"]["gate_result"]["properties"]

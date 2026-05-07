@@ -17,6 +17,16 @@ PYTHON_RUNTIME_CANDIDATES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("python3", ()),
 )
 XHIGH_REVIEW_IDLE_SECONDS = 1800
+REVIEW_RUNNER_RATE_LIMIT_BACKOFF_SECONDS = 20
+REVIEW_RUNNER_TRANSIENT_BACKOFF_SECONDS = 2
+REVIEW_RUNNER_UNLIMITED_RESUME_ATTEMPTS: int | None = None
+REVIEW_RUNNER_MAX_RESUME_ATTEMPTS = 1
+REVIEW_RUNNER_RESUME_MESSAGE = (
+    "Continue the same xhigh review gate session after the recoverable infrastructure failure. "
+    "Do not restart the review gate while this XHigh Review Runner session is still active. "
+    "Reuse the existing transcript and already observed review progress; only re-read the diff if needed. "
+    "A capacity, 5xx, or timeout interruption is not a passing review result."
+)
 
 
 @dataclass(frozen=True)
@@ -35,7 +45,10 @@ def build_dispatch_plan(route_plan: dict[str, Any]) -> dict[str, Any]:
         "Do not modify files, commit, push, format, or revert anything.\n"
         f"Run this explicit runner command in the repository root: {command}\n"
         "Do not replace the explicit runner command with the review alias unless explicitly asked; non-interactive SubAgent shells may bypass the PowerShell profile wrapper.\n"
-        "If the explicit runner fails for infrastructure reasons, run codex-raw -- review -c model_reasoning_effort=\"xhigh\" --uncommitted.\n"
+        "If this XHigh Review Runner SubAgent is still active after a model capacity, 5xx, or timeout failure, the host must send this same runner a continue instruction before starting a new review gate.\n"
+        f"Use per-failure backoff from recoverable_failure_policy: model capacity or 429 waits {REVIEW_RUNNER_RATE_LIMIT_BACKOFF_SECONDS} seconds and may continue while the session stays active; 5xx or timeout waits {REVIEW_RUNNER_TRANSIENT_BACKOFF_SECONDS} seconds and is resumed at most once.\n"
+        f"Use this continue instruction after the selected backoff: {REVIEW_RUNNER_RESUME_MESSAGE}\n"
+        "Use the codex-raw fallback command (codex-raw -- review -c model_reasoning_effort=\"xhigh\" --uncommitted) only when the runner session is closed, missing, unrecoverable, or the diff changed during review.\n"
         f"Monitor stdout/stderr with a {XHIGH_REVIEW_IDLE_SECONDS}-second idle/no-output observation window; this is not a fixed total timeout.\n"
         "Ongoing output means the review is still active.\n"
         "Do not wrap the SubAgent or review runner in any fixed timeout. Host wait windows are observation polls only; continue observing instead of interrupting solely because a wait window expires.\n"
@@ -63,6 +76,7 @@ def build_dispatch_plan(route_plan: dict[str, Any]) -> dict[str, Any]:
                 "command": command,
                 "alias_command": "codex xhigh review --uncommitted",
                 "fallback_command": 'codex-raw -- review -c model_reasoning_effort="xhigh" --uncommitted',
+                "recoverable_failure_policy": recoverable_failure_policy(),
                 "timeout_policy": "progress_output_observation",
                 "idle_policy": "stdout_stderr_no_progress_only",
                 "total_timeout_policy": "none",
@@ -92,6 +106,58 @@ def build_dispatch_plan(route_plan: dict[str, Any]) -> dict[str, Any]:
 
 def runner_command() -> str:
     return command_line(runner_command_parts())
+
+
+def recoverable_failure_policy() -> dict[str, Any]:
+    return {
+        "version": 1,
+        "recoverable_failure_types": [
+            "model_capacity",
+            "http_429",
+            "http_5xx",
+            "timeout",
+        ],
+        "failure_rules": [
+            {
+                "failure_type": "model_capacity",
+                "backoff_seconds": REVIEW_RUNNER_RATE_LIMIT_BACKOFF_SECONDS,
+                "max_resume_attempts": REVIEW_RUNNER_UNLIMITED_RESUME_ATTEMPTS,
+                "attempt_policy": "while_session_active",
+            },
+            {
+                "failure_type": "http_429",
+                "backoff_seconds": REVIEW_RUNNER_RATE_LIMIT_BACKOFF_SECONDS,
+                "max_resume_attempts": REVIEW_RUNNER_UNLIMITED_RESUME_ATTEMPTS,
+                "attempt_policy": "while_session_active",
+            },
+            {
+                "failure_type": "http_5xx",
+                "backoff_seconds": REVIEW_RUNNER_TRANSIENT_BACKOFF_SECONDS,
+                "max_resume_attempts": REVIEW_RUNNER_MAX_RESUME_ATTEMPTS,
+                "attempt_policy": "single_retry",
+            },
+            {
+                "failure_type": "timeout",
+                "backoff_seconds": REVIEW_RUNNER_TRANSIENT_BACKOFF_SECONDS,
+                "max_resume_attempts": REVIEW_RUNNER_MAX_RESUME_ATTEMPTS,
+                "attempt_policy": "single_retry",
+            },
+        ],
+        "primary_action": "send_input_to_active_review_runner",
+        "primary_preconditions": [
+            "host_has_active_runner_session_handle",
+            "runner_session_not_completed_failed_or_closed",
+            "workspace_diff_unchanged_since_runner_start",
+        ],
+        "resume_message": REVIEW_RUNNER_RESUME_MESSAGE,
+        "restart_action": "restart_same_review_gate_command",
+        "restart_only_when": [
+            "runner_session_closed_missing_or_unrecoverable",
+            "host_cannot_send_input_to_runner_session",
+            "workspace_diff_changed_during_review",
+        ],
+        "pass_condition": "review_gate_must_complete_cleanly",
+    }
 
 
 def runner_command_parts(script_path: Path | None = None) -> list[str]:

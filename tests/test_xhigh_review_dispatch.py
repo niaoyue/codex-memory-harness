@@ -133,6 +133,55 @@ class XHighReviewDispatchTests(unittest.TestCase):
         self.assertEqual(request["alias_command"], "codex xhigh review --uncommitted")
         self.assertIn("Host wait windows are observation polls only", request["message"])
         self.assertIn("codex-raw -- review -c", request["message"])
+        self.assertIn("same runner a continue instruction", request["message"])
+        self.assertIn("model capacity or 429 waits 20 seconds and may continue", request["message"])
+        self.assertIn("5xx or timeout waits 2 seconds and is resumed at most once", request["message"])
+        self.assertIn("Use the codex-raw fallback command (codex-raw -- review -c", request["message"])
+        self.assertIn(") only when the runner session is closed", request["message"])
+        self.assertNotIn("fails for infrastructure reasons, run codex-raw", request["message"])
+        policy = request["recoverable_failure_policy"]
+        self.assertEqual(policy["primary_action"], "send_input_to_active_review_runner")
+        self.assertEqual(policy["restart_action"], "restart_same_review_gate_command")
+        failure_rules = {item["failure_type"]: item for item in policy["failure_rules"]}
+        self.assertEqual(
+            failure_rules["model_capacity"]["backoff_seconds"],
+            xhigh_review_dispatch.REVIEW_RUNNER_RATE_LIMIT_BACKOFF_SECONDS,
+        )
+        self.assertEqual(
+            failure_rules["http_429"]["backoff_seconds"],
+            xhigh_review_dispatch.REVIEW_RUNNER_RATE_LIMIT_BACKOFF_SECONDS,
+        )
+        self.assertIsNone(failure_rules["model_capacity"]["max_resume_attempts"])
+        self.assertIsNone(failure_rules["http_429"]["max_resume_attempts"])
+        self.assertEqual(failure_rules["model_capacity"]["attempt_policy"], "while_session_active")
+        self.assertEqual(failure_rules["http_429"]["attempt_policy"], "while_session_active")
+        self.assertEqual(
+            failure_rules["http_5xx"]["backoff_seconds"],
+            xhigh_review_dispatch.REVIEW_RUNNER_TRANSIENT_BACKOFF_SECONDS,
+        )
+        self.assertEqual(
+            failure_rules["timeout"]["backoff_seconds"],
+            xhigh_review_dispatch.REVIEW_RUNNER_TRANSIENT_BACKOFF_SECONDS,
+        )
+        self.assertEqual(
+            failure_rules["http_5xx"]["max_resume_attempts"],
+            xhigh_review_dispatch.REVIEW_RUNNER_MAX_RESUME_ATTEMPTS,
+        )
+        self.assertEqual(failure_rules["http_5xx"]["attempt_policy"], "single_retry")
+        self.assertEqual(
+            failure_rules["timeout"]["max_resume_attempts"],
+            xhigh_review_dispatch.REVIEW_RUNNER_MAX_RESUME_ATTEMPTS,
+        )
+        self.assertEqual(failure_rules["timeout"]["attempt_policy"], "single_retry")
+        self.assertIn("model_capacity", policy["recoverable_failure_types"])
+        self.assertIn("http_429", policy["recoverable_failure_types"])
+        self.assertIn("http_5xx", policy["recoverable_failure_types"])
+        self.assertIn("timeout", policy["recoverable_failure_types"])
+        self.assertIn("Do not restart", policy["resume_message"])
+        self.assertIn("workspace_diff_unchanged_since_runner_start", policy["primary_preconditions"])
+        self.assertIn("runner_session_closed_missing_or_unrecoverable", policy["restart_only_when"])
+        self.assertNotIn("review_output_is_too_incomplete_to_establish_coverage", policy["restart_only_when"])
+        self.assertEqual(policy["pass_condition"], "review_gate_must_complete_cleanly")
 
     def test_ambient_review_gate_env_does_not_suppress_normal_dispatch(self) -> None:
         old_running = xhigh_review_dispatch.os.environ.get(review_gate_env.REVIEW_GATE_RUNNING_ENV)
