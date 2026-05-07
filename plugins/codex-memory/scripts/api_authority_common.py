@@ -8,6 +8,13 @@ from typing import Any
 
 
 AUTO_INSTALL_POLICY = "disabled_readonly_phase1"
+FRAMEWORK_PACKAGE_NAMES = {
+    "next": ("next",),
+    "vue": ("vue", "@vue/core"),
+    "react": ("react",),
+    "angular": ("angular", "@angular/core"),
+    "svelte": ("svelte", "@sveltejs/kit"),
+}
 MCP_ALIASES = {
     "openai-docs": {"openai-docs", "openai_docs", "openai-docs-mcp", "docs-openai"},
     "context7": {"context7", "context7-mcp", "@upstash/context7-mcp"},
@@ -155,8 +162,8 @@ def package_dependencies(package: dict[str, Any]) -> dict[str, Any]:
 
 def detect_web_framework(dependencies: dict[str, Any]) -> str | None:
     names = {str(name).lower() for name in dependencies}
-    for framework in ("next", "vue", "react", "angular", "svelte"):
-        if framework in names or f"@{framework}/core" in names:
+    for framework, package_names in FRAMEWORK_PACKAGE_NAMES.items():
+        if any(name in names for name in package_names):
             return framework
     return None
 

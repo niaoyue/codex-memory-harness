@@ -191,6 +191,25 @@ class ApiAuthorityRouterTests(unittest.TestCase):
         self.assertEqual(project["api_surfaces"][0], "react@18.3.1")
         self.assertNotIn("next", project["api_surfaces"])
 
+    def test_sveltekit_scoped_package_is_prioritized_as_framework_surface(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            dependencies = {"@sveltejs/kit": "2.16.0", "vite": "6.0.0"}
+            _write_json(root / "admin" / "package.json", {"dependencies": dependencies})
+            _mkdir(root / "admin" / "src" / "views")
+
+            plan = api_authority_router.build_authority_plan(
+                root,
+                {"working_set": ["admin/src/views/App.svelte"]},
+                max_depth=1,
+                installed_mcp_servers=[],
+            )
+
+        project = plan["projects"][0]
+        self.assertEqual(project["api_surfaces"][0], "@sveltejs/kit@2.16.0")
+        self.assertNotEqual(project["api_surfaces"][0], "web")
+        self.assertEqual(project["dependency_versions"]["@sveltejs/kit"], "2.16.0")
+
     def test_laya_game_client_uses_engine_dependency_version_not_app_version(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

@@ -205,6 +205,7 @@ class HookBridgeTests(unittest.TestCase):
         for command in commands:
             self.assertIn("hook_launcher.", command)
             self.assertIn("--codex-event", command)
+            self.assertTrue(command.startswith("powershell -NoProfile "))
             self.assertNotIn("codexm.ps1", command)
             self.assertNotIn("py -X utf8", command)
 
@@ -299,11 +300,8 @@ class HookBridgeTests(unittest.TestCase):
         )
         server = config["mcpServers"]["codex-memory"]
 
-        self.assertIn(server["command"], {"powershell", "sh"})
-        self.assertTrue(
-            "./scripts/mcp_launcher.ps1" in server["args"]
-            or "./scripts/mcp_launcher.sh" in server["args"]
-        )
+        self.assertEqual(server["command"], "powershell")
+        self.assertIn("./scripts/mcp_launcher.ps1", server["args"])
         self.assertNotEqual(server["command"], "py")
 
     def test_mcp_launcher_is_ascii_only_for_windows_powershell_51(self) -> None:

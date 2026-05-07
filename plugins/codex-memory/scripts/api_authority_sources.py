@@ -6,6 +6,7 @@ from typing import Any
 
 from api_authority_common import (
     AUTO_INSTALL_POLICY,
+    FRAMEWORK_PACKAGE_NAMES,
     base_project_payload,
     detect_web_framework,
     dict_value,
@@ -232,7 +233,7 @@ def web_plan(
 
 
 def versioned_framework_surface(framework: str, dependency_versions: dict[str, str]) -> str:
-    for name in (framework, f"@{framework}/core"):
+    for name in FRAMEWORK_PACKAGE_NAMES.get(framework, (framework,)):
         version = dependency_versions.get(name)
         if version:
             return f"{name}@{version}"
