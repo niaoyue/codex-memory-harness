@@ -81,6 +81,24 @@
 | T63 | 20 | 提供 custom agents 模板 | `.codex/agents` 模板对齐 dispatch plan，不默认写入用户全局 | T53 | todo |
 | T64 | 20 | 平台化 eval replay | `.codex/evals` 或等价结构，把失败和高价值任务转为可回放评测 | T24,T55 | todo |
 | T65 | 20 | 实现 memory archive/cleanup 与 retention policy | 提供正式归档、清理、按 `task_id` 删除和索引规模控制命令，作为语义检索前置条件 | T31,T58 | todo |
+| T66 | 21 | 设计自动历史记忆挖掘方案 | `docs/AUTOMATED_MEMORY_MINING.md`，明确事件账本、候选、自动提升和人工确认边界 | T15,T31,T48 | done |
+| T67 | 21 | 实现历史事件账本 | `.codex/memories/history/events.jsonl` 或等价 SQLite 表，记录脱敏后的 prompt、命令、纠正和结果摘要 | T66,T31 | todo |
+| T68 | 21 | 实现记忆候选挖掘器 | 从历史事件聚类生成 `workflow_preference`、`command_preference`、`correction_pattern` 候选 | T67 | todo |
+| T69 | 21 | 实现自动提升策略 | 低风险高置信候选自动 accepted；高风险、冲突、低证据候选进入 needs_review/observed | T68,T31 | todo |
+| T70 | 21 | 将 accepted 私有记忆注入 context pack | 按 project_id、intent、working_set 和 scope 过滤自动挖掘记忆，并低于当前用户请求与项目规则 | T69,T11 | todo |
+| T71 | 21 | 增加自动挖掘治理命令 | `codex memory mine ...`、`codex memory candidates ...`、doctor 状态、按 task/session/project 删除 | T69,T65 | todo |
+| T72 | 22 | 设计 review gate 优化方案 | `docs/REVIEW_GATE_OPTIMIZATION.md`，明确 preflight、diff fingerprint、ledger、runner 恢复和 slice planner | T53,T24 | done |
+| T73 | 22 | 实现 review preflight | `codex review preflight --uncommitted`，运行 diff check、配置化验证摘要、敏感扫描和打包边界检查 | T72,T24,T31 | todo |
+| T74 | 22 | 实现 diff fingerprint 与 review ledger | 将 review 结果绑定到 diff fingerprint，diff 变化时旧 review 自动 invalidated | T72 | todo |
+| T75 | 22 | 实现 review runner 状态与恢复记录 | 记录 XHigh Review Runner active/resumed/restarted/infra_failed，不把 429/5xx/timeout 当通过 | T72,T53 | todo |
+| T76 | 22 | 实现 findings loop | 结构化记录 findings、resolve/reopen、修复后强制重跑最终 gate | T74,T75 | todo |
+| T77 | 22 | 实现 review slice planner | 按路径、风险、删除/生成文件和验证边界输出 reviewable slices | T74 | todo |
+| T78 | 23 | 设计 session-worktree 绑定方案 | `docs/SESSION_WORKTREE_BINDING.md`，明确 lease、heartbeat、stale、cleanup、多 session 同 task | T52,T53 | done |
+| T79 | 23 | 实现 binding registry | 用户私有 registry、project_key、session_id、task_id、binding_id、file lock 和 heartbeat | T78 | todo |
+| T80 | 23 | 实现 worktree allocator | 单 session 绑定 primary checkout，并发写同项目时创建 managed worktree 和 session branch | T79 | todo |
+| T81 | 23 | 集成 session binding lifecycle | before_task/before_first_write/after_tool/before_response/on_task_complete 维护 binding 和 effective_cwd | T80,T52 | todo |
+| T82 | 23 | 实现 stale 与 cleanup 治理 | doctor 展示 stale/dirty orphan/prunable，dry-run prune，confirm 后只清理 clean managed worktree | T81,T65 | todo |
+| T83 | 23 | 支持多 session 同 task 协作 | 与 SubAgent binding/scope guard 联动，coordinator 合并 specialist branches，final gate 绑定 integration worktree | T81,T53,T74 | todo |
 
 ## 3. 当前推荐执行步
 
@@ -467,6 +485,9 @@
 - 旧全局 memory marker 迁移工具
 - 平台化 eval replay
 - memory archive/cleanup 与 retention policy
+- 自动历史记忆挖掘 runtime、候选自动提升、治理命令和 context 注入
+- review gate preflight、diff fingerprint、review ledger、findings loop 和 slice planner runtime
+- session-worktree binding registry、allocator、heartbeat、stale cleanup 和多 session 协作
 
 ## 6. 当前状态与下一步
 
@@ -504,3 +525,6 @@
 - Step 32 计划：真实 SubAgent 自动执行器
 - Step 33 计划：发布级完整验证平台与 eval replay
 - Step 34 计划：安装器 dry-run、旧全局 memory marker 迁移工具、custom agents 模板、memory archive/cleanup 与可选语义检索 provider
+- Step 35 计划：自动历史记忆挖掘 runtime。该能力以自动化为默认目标：低风险高置信用户习惯自动 accepted，高风险、冲突或低证据候选才进入待确认队列，避免要求用户每次手动整理。
+- Step 36 计划：review gate 优化 runtime。该能力保留 `codex xhigh review --uncommitted` 最终语义，通过 preflight、diff fingerprint、review ledger、runner 恢复和 slice planner 降低长耗时与重复失败。
+- Step 37 计划：session-worktree 绑定 runtime。该能力让写任务自动获得明确 `effective_cwd`，并发写同一项目时创建 managed worktree，通过 lease、heartbeat、stale cleanup 和 scope guard 管理生命周期。

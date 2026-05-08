@@ -18,6 +18,7 @@
 | 项目决策 | `.codex/memories/memory.db` | 保存 repo decision，供后续任务引用 |
 | 任务总结 | `.codex/memories/summaries/*.md` | 保存任务完成后的总结 |
 | 事件与蒸馏资产 | `.codex/memories/events.jsonl`、`distilled/` | 保存工具事件和可复用经验 |
+| 自动挖掘候选 | `.codex/memories/history/` | 计划中的低频历史模式挖掘输入、候选和私有偏好索引 |
 
 这些属于项目私有层，默认不提交。团队共享知识应进入 `.codex/shared`，以 Markdown 和 metadata 表示，避免直接共享 SQLite、JSONL 或 raw summary。
 
@@ -183,3 +184,50 @@ Semantic retrieval is not implemented in the local MVP.
 这条状态应继续保留，直到真正完成 provider、索引、安全过滤和验证闭环。文档上需要明确：当前没有向量数据库，是为了先保证本地、可审计、低依赖和安全默认值。
 
 当前尚未实现正式的 `codex memory archive/cleanup`、retention policy 或按 `task_id` 删除长期索引的用户命令。现有 demo cleanup 只用于测试/演示数据清理，不能当作正式记忆归档能力。该能力应在接入语义索引前先补齐。
+
+## 9. 自动记忆挖掘
+
+当前 hook 和 distillation 更偏单次任务生命周期，不能可靠判断“这是不是用户长期习惯”。自动记忆挖掘的目标是低频扫描历史事件，自动发现跨 turn、跨 session 重复出现的低风险偏好，并在后续任务中自动注入 accepted memory。
+
+检索层需要把自动候选作为独立来源处理：
+
+- `accepted` 候选可进入 context pack，但优先级低于当前用户请求、项目规则和项目共享层。
+- `needs_review`、`observed`、`rejected`、`deprecated` 候选不能作为规则注入。
+- 候选必须带 `confidence`、`risk`、`support_count`、`contradiction_count` 和 evidence refs。
+- 项目私有候选默认不跨项目共享；跨项目偏好必须满足更高置信度并写入用户全局层。
+- 项目共享层仍只能来自 review 后的 `.codex/shared` Markdown，不能由自动候选直接写入。
+
+详细方案见：
+
+```text
+docs/AUTOMATED_MEMORY_MINING.md
+```
+
+## 10. Session Worktree 与检索作用域
+
+本节校正依据（2026-05-08 本地只读核对）：workspace route plan、SubAgent binding 和 context pack 装配的当前入口见 `plugins/codex-memory/scripts/workspace_router.py`、`plugins/codex-memory/scripts/workspace_subagents.py`、`plugins/codex-memory/scripts/context_builder.py`。
+
+Session-worktree 绑定实现后，检索和记忆装配不能只看用户当前 shell 的 `cwd`。同一个 Git project 可能同时存在 primary checkout 和多个 managed worktree；如果 context builder 只按物理路径匹配，会把同一项目的历史记忆切碎。
+
+推荐检索作用域增加这些字段：
+
+| 字段 | 作用 |
+|---|---|
+| `project_key` | 规范化同一 Git repository 或 workspace project，跨 worktree 稳定 |
+| `binding_id` | 标记本次 session-task-worktree lease |
+| `effective_cwd` | 当前任务实际执行目录 |
+| `worktree_kind` | `primary` 或 `managed` |
+| `integration_binding_id` | 多 session 同任务合并后的最终 review / verification 目录 |
+
+默认策略：
+
+- 长期 memory 和 accepted preference 以 `project_key + project_id + scope` 为主，不以 managed worktree 物理路径为主。
+- task state、tool artifact、verification result 和 review ledger 可以绑定到 `binding_id`，用于恢复当前 session。
+- 多 session 同 task 时，specialist worktree 的局部 memory 先保持私有；只有 coordinator 合并后的 integration worktree 结果才能进入最终 summary。
+- review gate 结果必须绑定 integration binding 的 diff fingerprint，不能把 specialist worktree 的局部 review 当最终 gate。
+
+详细方案见：
+
+```text
+docs/SESSION_WORKTREE_BINDING.md
+```

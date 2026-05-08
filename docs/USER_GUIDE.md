@@ -187,6 +187,52 @@ docs/MEMORY_LAYERING.md
 docs/MEMORY_RETRIEVAL_STRATEGY.md
 ```
 
+自动历史记忆挖掘的目标是让用户不需要每次手动整理习惯。设计方案要求系统从历史事件中自动发现重复的低风险工作流偏好、命令偏好和纠正模式；高置信低风险候选可自动进入当前用户的项目私有或全局私有记忆，高风险、冲突或证据不足的候选只进入待确认队列。当前这是计划中的 runtime 能力，方案见：
+
+```text
+docs/AUTOMATED_MEMORY_MINING.md
+```
+
+## Review Gate 优化
+
+本节校正依据（2026-05-08 本地只读核对）：现有 review runner、SubAgent review 语义和最终 gate 边界见 `docs/SUBAGENT_WORKFLOW.md`、`plugins/codex-memory/scripts/review_gate_runner.py`、`plugins/codex-memory/scripts/xhigh_review_dispatch.py`。
+
+代码变更的最终审核仍然以 `codex xhigh review --uncommitted` 为准。第二个问题的优化方向不是跳过 review，而是把 review 前准备态、diff fingerprint、XHigh Review Runner 恢复、findings ledger 和 reviewable slice 固化下来，减少大 diff 一次性审查、基础设施失败重开、findings 修复后重复浪费的总耗时。
+
+当前这是计划中的 runtime 能力，方案见：
+
+```text
+docs/REVIEW_GATE_OPTIMIZATION.md
+```
+
+方案要求后续实现时满足这些体感：
+
+- preflight 失败时先修 deterministic 问题，不启动 xhigh review。
+- review 结果必须绑定当前 diff fingerprint；diff 变化后旧 review 自动失效。
+- 大 diff 可先拆成 reviewable slices，降低最终 gate 失败率。
+- runner 遇到 429、5xx 或 timeout 时按既有退避策略恢复，不把基础设施失败当通过。
+- findings 修复后必须重新跑最终 gate。
+
+## Session Worktree 绑定
+
+本节校正依据（2026-05-08 本地只读核对）：现有 workspace routing、SubAgent route binding 和 scope guard 入口见 `docs/WORKSPACE_ADAPTIVE_ROUTING.md`、`plugins/codex-memory/scripts/workspace_subagents.py`、`plugins/codex-memory/scripts/subagent_scheduler.py`。
+
+第三个问题的目标是让每个写任务都有明确 checkout。只有一个活跃 session 写某项目时，可以直接用当前 checkout；如果已有活跃写 session 绑定同一项目，新 session 必须创建或复用自己的隔离 worktree。任务结束时释放绑定；session 意外退出、中断、长时间遗忘和一个任务多个 session 并行，都通过 lease、heartbeat、stale cleanup、managed worktree 和 scope guard 管理。
+
+当前这是计划中的 runtime 能力，方案见：
+
+```text
+docs/SESSION_WORKTREE_BINDING.md
+```
+
+方案要求后续实现时满足这些体感：
+
+- 写任务开始时返回 `effective_cwd`，后续命令和编辑都在该目录执行。
+- 第二个活跃写 session 自动获得 managed worktree 和 session branch。
+- 同一 session 继续同一 task 时复用原 binding。
+- dirty 或 branch ahead 的 stale worktree 不自动删除，只提示 recover / review。
+- clean managed worktree 只能在 dry-run 可见、confirm 后清理。
+
 ## Harness Engineering 对标
 
 本项目已经具备本地 memory、harness 生命周期、验证回写、workspace routing、SubAgent binding/dispatch plan 和基础 release gate 的 MVP，但还没有内建真实 SubAgent 自动执行器、向量数据库或 eval replay 平台。

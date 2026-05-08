@@ -623,6 +623,7 @@ docs/AI_DIAGNOSTIC_LOGGING.md
 - 当前已内建 `codex workspace game-client init/template` 和 `codex workspace project-template init/template`，但没有顶层 `codex game-client ...` 独立入口，也不内置具体业务项目的引擎脚本、服务器代码、后台代码或资产导入脚本。
 - 当前没有内建发布级 workspace 平台；已提供只读 workspace scanner、只读 route planner、最小 workspace verification aggregation、SubAgent route binding、scope guard、coordinator summary、dispatch plan、memory lifecycle 软集成、project inventory、routing config、route plan 和验证聚合 schema，以及 `templates/project/.codex/harness/workspace-routing.json` 用户项目模板。本仓库当前 checkout 已补齐根 `.codex/harness/workspace-routing.json` dogfood 配置。
 - 当前已内建基础敏感信息扫描器和基础 AI 诊断日志 release gate；release gate 不覆盖所有平台构建配置和完整发布流水线。
+- 当前已落地自动历史记忆挖掘、review gate 优化和 session-worktree 绑定的方案文档；runtime 仍需按任务清单实现。
 - 当前已实现项目共享 memory 初始化模板、promote、validate 和索引重建的最小 runtime；严格 JSON Schema 校验和多人冲突自动处理尚未实现。
 - 当前 workspace verifier 已支持每个 route 使用自己的 cwd/profile 聚合执行；发布级完整验证平台仍未实现。
 - 当前 eval 回放体系尚未平台化。
@@ -640,11 +641,14 @@ docs/AI_DIAGNOSTIC_LOGGING.md
 5. 真实 SubAgent 自动执行器：在宿主支持时按 dispatch plan 启动 specialist/coordinator，并回写超时、取消和失败状态。
 6. Workspace memory 自动分层写入：把 workspace summary 与子项目事实按 semantic scope 分别沉淀。
 7. 发布级完整验证平台：覆盖渠道包、热更、构建产物、回滚材料和平台配置。
-8. 可选本地语义检索：在不开启网络的前提下增强召回。
-9. 安装器 dry-run：让用户安装前预览所有写入。
-10. 旧全局 memory marker 迁移工具：提供 dry-run/confirm、manifest、checksum 和回滚说明。
-11. Custom agents 模板：提供 `.codex/agents` 模板对齐 dispatch plan，但不默认写入用户全局。
-12. Memory archive/cleanup 与 retention policy：提供正式归档、清理、按 `task_id` 删除和索引规模控制命令，作为后续语义索引前置条件。
+8. 自动历史记忆挖掘：事件账本、候选挖掘、自动提升、context 注入和治理命令。
+9. Review gate 优化：preflight、diff fingerprint、review ledger、runner 恢复和 slice planner。
+10. Session-worktree 绑定：registry、allocator、heartbeat、stale cleanup 和多 session 合并。
+11. 可选本地语义检索：在不开启网络的前提下增强召回。
+12. 安装器 dry-run：让用户安装前预览所有写入。
+13. 旧全局 memory marker 迁移工具：提供 dry-run/confirm、manifest、checksum 和回滚说明。
+14. Custom agents 模板：提供 `.codex/agents` 模板对齐 dispatch plan，但不默认写入用户全局。
+15. Memory archive/cleanup 与 retention policy：提供正式归档、清理、按 `task_id` 删除和索引规模控制命令，作为后续语义索引前置条件。
 
 ## 24. 一句话总结
 
