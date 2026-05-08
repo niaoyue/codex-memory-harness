@@ -261,11 +261,25 @@ codex memory init
 
 最小任务生命周期：
 
+稳定入口直接调用 hook launcher 的 `--event` 模式，不依赖 shell profile wrapper；launcher 会自行解析 `py` / `python` / `python3`，并把 `--payload-file` 原样交给 `hook_runner.py`。`codex memory hook ...` 只是 wrapper 已加载时的便利别名；`codex-raw` 和真实 Codex CLI 不支持该子命令。
+
 ```powershell
-codex memory hook before_task --memory-scope project --memory-cwd <PROJECT_ROOT> --payload-file payload.json
-codex memory hook after_tool --memory-scope project --memory-cwd <PROJECT_ROOT> --payload-file payload.json
-codex memory hook before_response --memory-scope project --memory-cwd <PROJECT_ROOT> --payload-file payload.json
-codex memory hook on_task_complete --memory-scope project --memory-cwd <PROJECT_ROOT> --payload-file payload.json
+$HOOK_LAUNCHER = "$env:USERPROFILE\plugins\codex-memory\scripts\hook_launcher.ps1"
+$POWERSHELL = Get-Command pwsh -ErrorAction SilentlyContinue
+if (-not $POWERSHELL) { $POWERSHELL = Get-Command powershell -ErrorAction Stop }
+$POWERSHELL = $POWERSHELL.Source
+& $POWERSHELL -NoProfile -ExecutionPolicy Bypass -File $HOOK_LAUNCHER --event before_task --memory-scope project --memory-cwd <PROJECT_ROOT> --payload-file payload.json
+& $POWERSHELL -NoProfile -ExecutionPolicy Bypass -File $HOOK_LAUNCHER --event after_tool --memory-scope project --memory-cwd <PROJECT_ROOT> --payload-file payload.json
+& $POWERSHELL -NoProfile -ExecutionPolicy Bypass -File $HOOK_LAUNCHER --event before_response --memory-scope project --memory-cwd <PROJECT_ROOT> --payload-file payload.json
+& $POWERSHELL -NoProfile -ExecutionPolicy Bypass -File $HOOK_LAUNCHER --event on_task_complete --memory-scope project --memory-cwd <PROJECT_ROOT> --payload-file payload.json
+```
+
+```sh
+HOOK_LAUNCHER="$HOME/plugins/codex-memory/scripts/hook_launcher.sh"
+sh "$HOOK_LAUNCHER" --event before_task --memory-scope project --memory-cwd <PROJECT_ROOT> --payload-file payload.json
+sh "$HOOK_LAUNCHER" --event after_tool --memory-scope project --memory-cwd <PROJECT_ROOT> --payload-file payload.json
+sh "$HOOK_LAUNCHER" --event before_response --memory-scope project --memory-cwd <PROJECT_ROOT> --payload-file payload.json
+sh "$HOOK_LAUNCHER" --event on_task_complete --memory-scope project --memory-cwd <PROJECT_ROOT> --payload-file payload.json
 ```
 
 PowerShell 中优先使用 `--payload-file`，避免内联 JSON 引号转义问题。

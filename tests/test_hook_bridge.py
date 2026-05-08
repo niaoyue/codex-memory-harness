@@ -4,6 +4,8 @@ from contextlib import contextmanager
 import io
 import json
 import os
+import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -228,9 +230,20 @@ class HookBridgeTests(unittest.TestCase):
         for command in commands:
             self.assertIn("hook_launcher.", command)
             self.assertIn("--codex-event", command)
-            self.assertTrue(command.startswith("powershell -NoProfile "))
+            self.assertTrue(command.startswith("cmd /d /c .\\scripts\\hook_launcher.cmd "))
             self.assertNotIn("codexm.ps1", command)
+            self.assertNotIn("pwsh -NoProfile", command)
+            self.assertNotIn("powershell -NoProfile", command)
             self.assertNotIn("py -X utf8", command)
+
+    def test_hook_config_uses_cmd_launcher_for_windows_hooks(self) -> None:
+        hooks = hook_config.hooks_config("powershell")
+        command = hooks["hooks"]["Stop"][0]["hooks"][0]["command"]
+
+        self.assertEqual(
+            command,
+            "cmd /d /c .\\scripts\\hook_launcher.cmd --codex-event Stop",
+        )
 
     def test_hook_config_can_generate_posix_launchers(self) -> None:
         hooks = hook_config.hooks_config("posix")
@@ -252,7 +265,19 @@ class HookBridgeTests(unittest.TestCase):
 
         text.encode("ascii")
         self.assertIn("hook_bridge.py", text)
+        self.assertIn("hook_runner.py", text)
+        self.assertIn("Test-HookRunnerMode", text)
+        self.assertIn("--event=", text)
         self.assertNotIn("here-string", text.lower())
+
+    def test_cmd_hook_launcher_is_ascii_only(self) -> None:
+        script = PROJECT_ROOT / "plugins" / "codex-memory" / "scripts" / "hook_launcher.cmd"
+        text = script.read_text(encoding="utf-8")
+
+        text.encode("ascii")
+        self.assertIn("hook_launcher.ps1", text)
+        self.assertIn("pwsh.exe", text)
+        self.assertIn("powershell.exe", text)
 
     def test_posix_hook_launcher_is_ascii_only(self) -> None:
         script = PROJECT_ROOT / "plugins" / "codex-memory" / "scripts" / "hook_launcher.sh"
@@ -260,6 +285,7 @@ class HookBridgeTests(unittest.TestCase):
 
         text.encode("ascii")
         self.assertIn("hook_bridge.py", text)
+        self.assertIn("--event=*", text)
         self.assertIn("try_python python3.12", text)
 
     def test_main_applies_payload_cwd_before_creating_runner(self) -> None:
@@ -376,6 +402,48 @@ class HookBridgeTests(unittest.TestCase):
         self.assertFalse(result["ok"])
         self.assertTrue(result["degraded"])
         self.assertIn("FileNotFoundError", result["reason"])
+
+    def test_powershell_hook_launcher_routes_event_equals_to_runner(self) -> None:
+        powershell = shutil.which("pwsh") or shutil.which("powershell")
+        if not powershell:
+            self.skipTest("PowerShell is not available")
+
+        script = PROJECT_ROOT / "plugins" / "codex-memory" / "scripts" / "hook_launcher.ps1"
+        with tempfile.TemporaryDirectory() as project_dir:
+            payload_file = Path(project_dir) / "payload.json"
+            payload_file.write_text(
+                json.dumps({"task_id": "launcher-equals-event", "queries": []}),
+                encoding="utf-8",
+            )
+
+            completed = subprocess.run(
+                [
+                    powershell,
+                    "-NoProfile",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-File",
+                    str(script),
+                    "--event=before_response",
+                    "--memory-scope",
+                    "project",
+                    "--memory-cwd",
+                    project_dir,
+                    "--payload-file",
+                    str(payload_file),
+                ],
+                cwd=str(PROJECT_ROOT),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=60,
+                check=False,
+            )
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        result = json.loads(completed.stdout)
+        self.assertEqual(result["event"], "before_response")
+        self.assertEqual(result["task_id"], "launcher-equals-event")
 
 def _restore_env(name: str, value: str | None) -> None:
     if value is None:

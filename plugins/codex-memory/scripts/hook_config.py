@@ -14,10 +14,7 @@ HOOK_EVENTS = ("UserPromptSubmit", "PostToolUse", "Stop")
 def hook_command(launcher_family: str, event: str) -> str:
     if launcher_family == "posix":
         return "sh ./scripts/hook_launcher.sh --codex-event " + shlex.quote(event)
-    return (
-        "powershell -NoProfile -ExecutionPolicy Bypass "
-        f"-File ./scripts/hook_launcher.ps1 --codex-event {event}"
-    )
+    return "cmd /d /c .\\scripts\\hook_launcher.cmd --codex-event " + event
 
 
 def hooks_config(launcher_family: str = "powershell") -> dict[str, Any]:

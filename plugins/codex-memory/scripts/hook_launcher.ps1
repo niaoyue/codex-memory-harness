@@ -6,6 +6,7 @@ param(
 $ErrorActionPreference = "Stop"
 $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $HookBridgeScript = Join-Path $ScriptRoot "hook_bridge.py"
+$HookRunnerScript = Join-Path $ScriptRoot "hook_runner.py"
 $RequiredPythonMajor = 3
 $RequiredPythonMinor = 11
 
@@ -47,12 +48,27 @@ function Resolve-PythonRuntime {
     return [pscustomobject]@{ Command = $null; PrefixArgs = @() }
 }
 
+function Test-HookRunnerMode {
+    param([string[]]$HookArguments)
+    foreach ($arg in $HookArguments) {
+        if ($arg -eq "--event" -or $arg.StartsWith("--event=", [System.StringComparison]::Ordinal)) {
+            return $true
+        }
+    }
+    return $false
+}
+
 $runtime = Resolve-PythonRuntime
 if (-not $runtime.Command) {
     Write-Error "Python 3.11 or newer is required to run Codex Memory hooks."
     exit 127
 }
 
-$pythonArgs = @($runtime.PrefixArgs) + @("-X", "utf8", $HookBridgeScript) + @($HookArgs)
+$targetScript = $HookBridgeScript
+if (Test-HookRunnerMode -HookArguments $HookArgs) {
+    $targetScript = $HookRunnerScript
+}
+
+$pythonArgs = @($runtime.PrefixArgs) + @("-X", "utf8", $targetScript) + @($HookArgs)
 & $runtime.Command @pythonArgs
 exit $LASTEXITCODE

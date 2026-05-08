@@ -96,6 +96,8 @@ codex
 - `codex-memory-doctor`：只检查当前窗口接入状态，不启动 Codex。
 - `codex-raw`：绕过 memory wrapper，直接启动真实 Codex。
 
+`codex memory hook ...` 只是在当前 shell 已加载 memory wrapper 时可用的便利别名，不是官方 Codex CLI 子命令。自动化、hook 配置和不经过 wrapper 的客户端应直接调用 hook launcher 的 `--event` 模式，或依赖官方 `hooks.json` -> `hook_launcher.cmd` / `hook_launcher.sh` -> `hook_bridge.py` 链路。
+
 ## 项目接入
 
 进入任意项目目录后运行：
@@ -108,6 +110,21 @@ codex memory doctor
 
 ```powershell
 codex memory init
+```
+
+手动调试生命周期时使用稳定 launcher 入口；`<插件目录>` 通常是 `%USERPROFILE%\plugins\codex-memory` 或 `$HOME/plugins/codex-memory`，也可能是安装器输出的自定义位置。
+
+```powershell
+$HOOK_LAUNCHER = "$env:USERPROFILE\plugins\codex-memory\scripts\hook_launcher.ps1"
+$POWERSHELL = Get-Command pwsh -ErrorAction SilentlyContinue
+if (-not $POWERSHELL) { $POWERSHELL = Get-Command powershell -ErrorAction Stop }
+$POWERSHELL = $POWERSHELL.Source
+& $POWERSHELL -NoProfile -ExecutionPolicy Bypass -File $HOOK_LAUNCHER --event before_response --memory-scope project --memory-cwd <当前项目目录> --payload-file <payload.json>
+```
+
+```sh
+HOOK_LAUNCHER="$HOME/plugins/codex-memory/scripts/hook_launcher.sh"
+sh "$HOOK_LAUNCHER" --event before_response --memory-scope project --memory-cwd <当前项目目录> --payload-file <payload.json>
 ```
 
 项目会获得：

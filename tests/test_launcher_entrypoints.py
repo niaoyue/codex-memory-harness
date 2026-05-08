@@ -59,7 +59,14 @@ class LauncherEntrypointTests(unittest.TestCase):
         self.assertIn("subagent_dispatch_plan.host_spawn_requests", block)
         self.assertIn("host_dispatch_allowed=true", block)
         self.assertIn("复杂/应用级/多阶段实现", block)
-        self.assertIn("codex memory hook before_task", block)
+        self.assertIn("hook_launcher.ps1", block)
+        self.assertIn("hook_launcher.sh", block)
+        self.assertIn("Get-Command pwsh -ErrorAction SilentlyContinue", block)
+        self.assertIn("if (-not $POWERSHELL)", block)
+        self.assertIn("Get-Command powershell -ErrorAction Stop", block)
+        self.assertIn("--event before_task", block)
+        self.assertIn("--payload-file <payload.json>", block)
+        self.assertIn("codex memory hook ...", block)
         self.assertIn("codex-memory-harness", block)
         self.assertIn("memories", block)
         self.assertIn("官方 Codex Memories", block)
@@ -67,7 +74,6 @@ class LauncherEntrypointTests(unittest.TestCase):
         self.assertIn("GitHub CI 修复", block)
         self.assertIn("Harness release gate", block)
         self.assertNotIn("codex_bootstrap.py --cwd", block)
-        self.assertNotIn("hook_runner.py --event", block)
 
     def test_launcher_declares_memory_command_dispatcher(self) -> None:
         launcher = (PLUGIN_SCRIPTS_DIR / "codexm.ps1").read_text(encoding="utf-8")

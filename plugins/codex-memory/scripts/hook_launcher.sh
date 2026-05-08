@@ -3,6 +3,7 @@ set -u
 
 SCRIPT_DIR=$(CDPATH= cd "$(dirname "$0")" && pwd)
 HOOK_BRIDGE_SCRIPT="$SCRIPT_DIR/hook_bridge.py"
+HOOK_RUNNER_SCRIPT="$SCRIPT_DIR/hook_runner.py"
 REQUIRED_PYTHON_MAJOR=3
 REQUIRED_PYTHON_MINOR=11
 PY_CMD=
@@ -80,9 +81,19 @@ fi
 
 debug_log "runtime=$PY_NAME prefix_arg_count=$([ -n "$PY_PREFIX" ] && echo 1 || echo 0) bridge=hook_bridge.py"
 
+TARGET_SCRIPT=$HOOK_BRIDGE_SCRIPT
+for arg in "$@"; do
+    case "$arg" in
+        --event|--event=*)
+        TARGET_SCRIPT=$HOOK_RUNNER_SCRIPT
+        break
+        ;;
+    esac
+done
+
 if [ -n "$PY_PREFIX" ]; then
-    "$PY_CMD" "$PY_PREFIX" -X utf8 "$HOOK_BRIDGE_SCRIPT" "$@"
+    "$PY_CMD" "$PY_PREFIX" -X utf8 "$TARGET_SCRIPT" "$@"
 else
-    "$PY_CMD" -X utf8 "$HOOK_BRIDGE_SCRIPT" "$@"
+    "$PY_CMD" -X utf8 "$TARGET_SCRIPT" "$@"
 fi
 exit $?
