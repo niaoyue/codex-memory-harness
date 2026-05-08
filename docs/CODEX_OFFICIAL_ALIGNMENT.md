@@ -53,9 +53,9 @@
 | A4 | 日常权限回到 workspace-write/on-request | 合理 | `codex memory doctor` 提示；文档说明 | 不应静默改用户配置 |
 | A5 | 增加 PreToolUse/PermissionRequest guard | 合理但需先确认 hook event 与测试 | `plugins/codex-memory/hooks.json`、`hook_bridge.py`、测试 | 暂缓为单独任务 |
 | A6 | xhigh review gate 沉淀为 skill | 合理 | bundled skill 安装到 `~/.agents/skills/harness-release-gate` | 应执行 |
-| A7 | dispatch plan 对齐 custom agents | 合理 | 尚未存在 `.codex/agents` 模板；后续可由模板或显式 install 选项写入 `.codex/agents` / `~/.codex/agents` | 暂缓，避免默认侵入 |
+| A7 | dispatch plan 对齐 custom agents | 合理 | `templates/project/.codex/agents` 与 `codex memory init` 写入项目级 `.codex/agents` | 已执行，不默认写用户全局 |
 | A8 | `.codex` 开发配置与发布边界分层 | 合理 | 文档、`build_release.py`、`verify_project.py` | 已基本具备，继续约束 |
-| A9 | 官方 Memories 旧 runtime marker 迁移 | 合理但高风险 | 新增 dry-run/confirm 命令 | 暂缓为独立迁移功能 |
+| A9 | 官方 Memories 旧 runtime marker 迁移 | 合理但高风险 | `codex memory migrate-legacy-global --dry-run/--confirm` | 已执行，显式 confirm 才写入 |
 | A10 | 减少对 `powershell` 命令名依赖 | 合理但改动较大 | shell launcher 或 Python-first launcher | 暂缓为跨平台专项 |
 
 ## 5. 本轮执行范围
@@ -117,7 +117,7 @@ templates/project/.codex/shared/
 
 可做项：
 
-- doctor 对 `features.codex_hooks`、MCP server、hook coverage、sandbox/approval 输出更明确分级。
+- doctor 对 `features.hooks`、MCP server、hook coverage、sandbox/approval 输出更明确分级。
 - hooks 增加 timeout/degraded 输出。
 - 单独实现最小危险命令 guard，并明确它不替代 sandbox/approval。
 
@@ -125,13 +125,13 @@ templates/project/.codex/shared/
 
 目标：让 `subagent_dispatch_plan.host_spawn_requests` 能映射到官方 custom agents。
 
-当前尚未提供这些模板。建议后续先以模板形式提供，不默认写入用户全局：
+当前已提供项目级模板，不默认写入用户全局：
 
 ```text
-templates/project/.codex/agents/harness-explorer.toml
-templates/project/.codex/agents/schema-reviewer.toml
-templates/project/.codex/agents/docs-consistency-reviewer.toml
-templates/project/.codex/agents/release-gate-runner.toml
+templates/project/.codex/agents/workspace-coordinator.toml
+templates/project/.codex/agents/implementation-specialist.toml
+templates/project/.codex/agents/route-review-specialist.toml
+templates/project/.codex/agents/xhigh-review-runner.toml
 ```
 
 ### P4：迁移与跨平台专项

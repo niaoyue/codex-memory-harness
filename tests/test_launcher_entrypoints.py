@@ -81,7 +81,9 @@ class LauncherEntrypointTests(unittest.TestCase):
         self.assertIn("function Invoke-MemoryCommand", launcher)
         self.assertIn("function Invoke-HarnessCommand", launcher)
         self.assertIn("function Invoke-PackageCommand", launcher)
+        self.assertIn("function Invoke-ReviewCommand", launcher)
         self.assertIn("function Resolve-CodexReviewAlias", launcher)
+        self.assertIn("review_workflow.py", launcher)
         self.assertIn("review_gate_runner.py", launcher)
         self.assertIn("--idle-seconds", launcher)
         self.assertIn("$ReviewGateIdleSeconds = 1800", launcher)
@@ -90,6 +92,7 @@ class LauncherEntrypointTests(unittest.TestCase):
         self.assertIn('@("Application", "ExternalScript")', launcher)
         self.assertIn('model_reasoning_effort=`"$effort`"', launcher)
         self.assertIn("codex xhigh review --uncommitted", launcher)
+        self.assertIn("codex memory migrate-legacy-global", launcher)
         self.assertIn("codex workspace schedule", launcher)
         self.assertIn("codex workspace game-client", launcher)
         self.assertIn("workspace_business_templates.py", launcher)
@@ -107,7 +110,9 @@ class LauncherEntrypointTests(unittest.TestCase):
         self.assertIn("invoke_memory()", launcher)
         self.assertIn("invoke_harness()", launcher)
         self.assertIn("invoke_package()", launcher)
+        self.assertIn("invoke_review()", launcher)
         self.assertIn("review_gate_runner.py", launcher)
+        self.assertIn("review_workflow.py", launcher)
         self.assertIn("--idle-seconds", launcher)
         self.assertIn("REVIEW_GATE_IDLE_SECONDS=1800", launcher)
         self.assertIn("--max-seconds", launcher)
@@ -137,6 +142,17 @@ class LauncherEntrypointTests(unittest.TestCase):
         self.assertLess(launcher.index(disable_check), launcher.index(memory_dispatch))
         self.assertIn("project_shared_exists", launcher)
         self.assertIn("project_shared_index_exists", launcher)
+
+    def test_launcher_only_intercepts_harness_review_subcommands(self) -> None:
+        powershell_launcher = (PLUGIN_SCRIPTS_DIR / "codexm.ps1").read_text(encoding="utf-8")
+        posix_launcher = (PLUGIN_SCRIPTS_DIR / "codexm.sh").read_text(encoding="utf-8")
+
+        self.assertIn("function Is-HarnessReviewCommand", powershell_launcher)
+        self.assertIn('"preflight"', powershell_launcher)
+        self.assertIn('Invoke-RealCodex -Arguments (Resolve-CodexReviewAlias -Arguments $CodexArgs)', powershell_launcher)
+        self.assertIn("is_harness_review_command()", posix_launcher)
+        self.assertIn("invoke_real_codex \"$@\"", posix_launcher)
+        self.assertIn("review)", posix_launcher)
 
     def test_launcher_restores_review_gate_env_after_xhigh_alias(self) -> None:
         launcher = (PLUGIN_SCRIPTS_DIR / "codexm.ps1").read_text(encoding="utf-8")

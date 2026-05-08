@@ -14,7 +14,7 @@ except ModuleNotFoundError:  # pragma: no cover - Python < 3.11 fallback
 
 
 RECOMMENDED_HOOK_EVENTS = ("UserPromptSubmit", "PostToolUse", "Stop")
-REQUIRED_CODEX_HOOKS_LINE = "codex_hooks = true"
+REQUIRED_HOOKS_LINE = "hooks = true"
 
 
 def inspect_codex_config(
@@ -29,15 +29,18 @@ def inspect_codex_config(
     plugin_hooks = _inspect_plugin_hooks(plugin_root)
     sandbox_mode = _string(values.get("sandbox_mode"))
     approval_policy = _string(values.get("approval_policy"))
-    codex_hooks = _nested(values, "features.codex_hooks")
+    hooks = _nested(values, "features.hooks")
+    legacy_codex_hooks = _nested(values, "features.codex_hooks")
 
     return {
         "config_path": str(config_path),
         "config_exists": config_path.exists(),
         "config_parse_ok": config["ok"],
         "config_error": config["error"],
-        "features_codex_hooks": codex_hooks if isinstance(codex_hooks, bool) else None,
-        "codex_hooks_enabled": codex_hooks is True,
+        "features_hooks": hooks if isinstance(hooks, bool) else None,
+        "features_codex_hooks": legacy_codex_hooks if isinstance(legacy_codex_hooks, bool) else None,
+        "hooks_enabled": hooks is True,
+        "deprecated_codex_hooks_present": isinstance(legacy_codex_hooks, bool),
         "mcp_servers": sorted(_mcp_server_names(values)),
         "codex_memory_mcp_configured": "codex-memory" in _mcp_server_names(values),
         "sandbox_mode": sandbox_mode,
@@ -45,7 +48,7 @@ def inspect_codex_config(
         "sandbox_profile": _sandbox_profile(sandbox_mode, approval_policy),
         "agents_override": _agents_override_status(root),
         "plugin_hooks": plugin_hooks,
-        "native_alignment": _native_alignment(codex_hooks, plugin_hooks, sandbox_mode, approval_policy),
+        "native_alignment": _native_alignment(hooks, plugin_hooks, sandbox_mode, approval_policy),
     }
 
 
@@ -68,7 +71,7 @@ def ensure_codex_config(
                 "Fix Codex config.toml syntax, then rerun codex memory install."
             ],
         }
-    if before["codex_hooks_enabled"]:
+    if before["hooks_enabled"] and not before["deprecated_codex_hooks_present"]:
         return {
             "config_path": str(config_path),
             "modified": False,
@@ -79,7 +82,7 @@ def ensure_codex_config(
         }
 
     current = config_path.read_text(encoding="utf-8") if config_path.exists() else ""
-    updated, actions = _ensure_codex_hooks_feature(current)
+    updated, actions = _ensure_hooks_feature(current)
     validation = _parse_toml(updated)
     if not validation["ok"]:
         return {
@@ -89,7 +92,7 @@ def ensure_codex_config(
             "error": validation["error"],
             "after": before,
             "recommendations": [
-                "Add [features] codex_hooks = true to Codex config.toml manually."
+                "Add [features] hooks = true to Codex config.toml manually."
             ],
         }
 
@@ -121,40 +124,62 @@ def _parse_toml(value: str) -> dict[str, Any]:
         return {"ok": False, "values": {}, "error": str(exc)}
 
 
-def _ensure_codex_hooks_feature(text: str) -> tuple[str, list[dict[str, Any]]]:
+def _ensure_hooks_feature(text: str) -> tuple[str, list[dict[str, Any]]]:
     lines = text.splitlines()
     features_index = _section_index(lines, "features")
-    key_pattern = re.compile(r"^(\s*)codex_hooks\s*=.*?(\s*(#.*))?$")
+    hooks_pattern = re.compile(r"^(\s*)hooks\s*=.*?(\s*(#.*))?$")
+    legacy_pattern = re.compile(r"^\s*codex_hooks\s*=.*?(\s*(#.*))?$")
     action = "set_feature"
     if features_index is not None:
         insert_at = len(lines)
+        hooks_index = None
+        legacy_indexes = []
         for index in range(features_index + 1, len(lines)):
             section_name = _section_name(lines[index])
             if section_name:
                 insert_at = index
                 break
-            if key_pattern.match(lines[index]):
-                lines[index] = key_pattern.sub(r"\1" + REQUIRED_CODEX_HOOKS_LINE + r"\2", lines[index])
-                return _join_toml_lines(lines), [{"action": action, "key": "features.codex_hooks", "value": True}]
-        lines.insert(features_index + 1, REQUIRED_CODEX_HOOKS_LINE)
-        return _join_toml_lines(lines), [{"action": action, "key": "features.codex_hooks", "value": True}]
+            if hooks_pattern.match(lines[index]):
+                hooks_index = index
+            elif legacy_pattern.match(lines[index]):
+                legacy_indexes.append(index)
+        if hooks_index is not None:
+            lines[hooks_index] = hooks_pattern.sub(r"\1" + REQUIRED_HOOKS_LINE + r"\2", lines[hooks_index])
+            for index in reversed(legacy_indexes):
+                del lines[index]
+            return _join_toml_lines(lines), [{"action": action, "key": "features.hooks", "value": True}]
+        if legacy_indexes:
+            first = legacy_indexes[0]
+            lines[first] = REQUIRED_HOOKS_LINE
+            for index in reversed(legacy_indexes[1:]):
+                del lines[index]
+            return _join_toml_lines(lines), [{"action": "replace_deprecated_feature", "from": "features.codex_hooks", "key": "features.hooks", "value": True}]
+        lines.insert(features_index + 1, REQUIRED_HOOKS_LINE)
+        return _join_toml_lines(lines), [{"action": action, "key": "features.hooks", "value": True}]
+
+    dotted_hooks_pattern = re.compile(r"^(\s*)features\.hooks\s*=.*?(\s*(#.*))?$")
+    for index, line in enumerate(lines):
+        if dotted_hooks_pattern.match(line):
+            lines[index] = dotted_hooks_pattern.sub(r"\1features." + REQUIRED_HOOKS_LINE + r"\2", line)
+            lines = [item for item in lines if not re.match(r"^\s*features\.codex_hooks\s*=", item)]
+            return _join_toml_lines(lines), [{"action": action, "key": "features.hooks", "value": True}]
 
     dotted_pattern = re.compile(r"^(\s*)features\.codex_hooks\s*=.*?(\s*(#.*))?$")
     for index, line in enumerate(lines):
         if dotted_pattern.match(line):
-            lines[index] = dotted_pattern.sub(r"\1features." + REQUIRED_CODEX_HOOKS_LINE + r"\2", line)
-            return _join_toml_lines(lines), [{"action": action, "key": "features.codex_hooks", "value": True}]
+            lines[index] = dotted_pattern.sub(r"\1features." + REQUIRED_HOOKS_LINE + r"\2", line)
+            return _join_toml_lines(lines), [{"action": "replace_deprecated_feature", "from": "features.codex_hooks", "key": "features.hooks", "value": True}]
 
     dotted_feature_pattern = re.compile(r"^\s*features\.[A-Za-z0-9_.-]+\s*=.*$")
     for index, line in enumerate(lines):
         if dotted_feature_pattern.match(line):
-            lines.insert(index + 1, f"features.{REQUIRED_CODEX_HOOKS_LINE}")
-            return _join_toml_lines(lines), [{"action": action, "key": "features.codex_hooks", "value": True}]
+            lines.insert(index + 1, f"features.{REQUIRED_HOOKS_LINE}")
+            return _join_toml_lines(lines), [{"action": action, "key": "features.hooks", "value": True}]
 
     base = text.rstrip()
     prefix = f"{base}\n\n" if base else ""
-    updated = f"{prefix}[features]\n{REQUIRED_CODEX_HOOKS_LINE}\n"
-    return updated, [{"action": "add_section", "section": "features"}, {"action": action, "key": "features.codex_hooks", "value": True}]
+    updated = f"{prefix}[features]\n{REQUIRED_HOOKS_LINE}\n"
+    return updated, [{"action": "add_section", "section": "features"}, {"action": action, "key": "features.hooks", "value": True}]
 
 
 def _section_index(lines: list[str], name: str) -> int | None:
@@ -232,17 +257,17 @@ def _has_command_hook(value: Any) -> bool:
 
 
 def _native_alignment(
-    codex_hooks: Any,
+    hooks: Any,
     plugin_hooks: dict[str, Any],
     sandbox_mode: str,
     approval_policy: str,
 ) -> dict[str, Any]:
     missing_hooks = plugin_hooks.get("missing_recommended_events") or []
     return {
-        "ok": codex_hooks is True and not missing_hooks,
+        "ok": hooks is True and not missing_hooks,
         "recommended_primary_path": "official_config_hooks_mcp",
         "wrapper_role": "compatibility_and_diagnostics",
-        "needs_codex_hooks_feature": codex_hooks is not True,
+        "needs_hooks_feature": hooks is not True,
         "needs_hook_event_update": bool(missing_hooks),
         "high_risk_unattended_permissions": _is_high_risk_permission_profile(
             sandbox_mode,

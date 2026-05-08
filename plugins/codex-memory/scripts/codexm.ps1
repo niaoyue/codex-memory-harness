@@ -17,12 +17,14 @@ $HookScript = Join-Path $ScriptRoot "hook_runner.py"
 $InstallScript = Join-Path $ScriptRoot "install_codex_memory.py"
 $VerificationScript = Join-Path $ScriptRoot "verification_runner.py"
 $SharedMemoryScript = Join-Path $ScriptRoot "shared_memory.py"
+$LegacyGlobalMigrationScript = Join-Path $ScriptRoot "legacy_global_memory_migration.py"
 $WorkspaceScript = Join-Path $ScriptRoot "workspace_scanner.py"
 $WorkspaceRouterScript = Join-Path $ScriptRoot "workspace_router.py"
 $WorkspaceVerifierScript = Join-Path $ScriptRoot "workspace_verifier.py"
 $WorkspaceSubagentsScript = Join-Path $ScriptRoot "workspace_subagents.py"
 $SubagentSchedulerScript = Join-Path $ScriptRoot "subagent_scheduler.py"
 $ReviewGateScript = Join-Path $ScriptRoot "review_gate_runner.py"
+$ReviewWorkflowScript = Join-Path $ScriptRoot "review_workflow.py"
 $GameClientProfilesScript = Join-Path $ScriptRoot "game_client_profiles.py"
 $WorkspaceBusinessTemplatesScript = Join-Path $ScriptRoot "workspace_business_templates.py"
 $HookBridgeScript = Join-Path $ScriptRoot "hook_bridge.py"
@@ -130,10 +132,23 @@ Codex Memory 命令：
   codex memory hook <event> [...]
   codex memory promote --task-id <task-id> [--kind fact]
   codex memory shared validate|index rebuild
+  codex memory migrate-legacy-global [--dry-run|--confirm]
 兼容别名：codex harness/package/workspace ...；codex xhigh review --uncommitted；codex-memory-doctor；codexm memory ...
 常用：codex workspace schedule；codex workspace game-client
 "@
 }
+
+function Invoke-ReviewCommand {
+    param([string[]]$Arguments = @())
+    $cwd = (Get-Location).ProviderPath
+    if ($Arguments.Count -eq 0 -or $Arguments[0] -in @("help", "-h", "--help")) {
+        Write-Output "Codex Review 命令：status|preflight|plan|record|findings list|findings resolve|ledger show"
+        exit 0
+    }
+    Invoke-PythonScriptAndExit -ScriptPath $ReviewWorkflowScript -Arguments (@("--project-root", $cwd) + $Arguments)
+}
+
+function Is-HarnessReviewCommand { param([string[]]$Arguments); return $Arguments.Count -ge 2 -and @("status", "preflight", "plan", "record", "findings", "ledger") -contains $Arguments[1].ToLowerInvariant() }
 
 function Write-HarnessHelp {
     @"
@@ -219,6 +234,9 @@ function Invoke-MemoryCommand {
         }
         "shared" {
             Invoke-PythonScriptAndExit -ScriptPath $SharedMemoryScript -Arguments (@("--project-root", $cwd, "shared") + $remaining)
+        }
+        "migrate-legacy-global" {
+            Invoke-PythonScriptAndExit -ScriptPath $LegacyGlobalMigrationScript -Arguments $remaining
         }
         "verify" {
             Invoke-HarnessCommand -Arguments (@("verify") + $remaining)
@@ -425,6 +443,11 @@ if ($CodexArgs.Count -gt 0 -and $CodexArgs[0].ToLowerInvariant() -eq "package") 
 if ($CodexArgs.Count -gt 0 -and $CodexArgs[0].ToLowerInvariant() -eq "workspace") {
     $workspaceArgs = if ($CodexArgs.Count -gt 1) { $CodexArgs[1..($CodexArgs.Count - 1)] } else { @() }
     Invoke-WorkspaceCommand -Arguments $workspaceArgs
+}
+
+if ($CodexArgs.Count -gt 0 -and $CodexArgs[0].ToLowerInvariant() -eq "review" -and (Is-HarnessReviewCommand -Arguments $CodexArgs)) {
+    $reviewArgs = if ($CodexArgs.Count -gt 1) { $CodexArgs[1..($CodexArgs.Count - 1)] } else { @() }
+    Invoke-ReviewCommand -Arguments $reviewArgs
 }
 
 if (-not $SkipBootstrap) {

@@ -530,7 +530,7 @@ workspace routing 会产生两类记忆：
 - 敏感配置、密钥、生产地址、渠道令牌不写入任何 memory。
 - 低置信度路由只写“判断依据和不确定性”，不写成确定事实。
 
-当前实现状态：lifecycle 已把 route plan、memory plan、bindings、scope guard 和 SubAgent runtime decision 写入 task metadata / artifact；还没有实现按 `memory_plan` 自动把 workspace summary 与子项目事实分层写入 `.codex/shared` 或长期 memory。需要共享的稳定事实仍应先经 summary 提炼，再用 `codex memory promote --task-id <task-id> --kind fact`、`codex memory shared validate` 和 `codex memory shared index rebuild` 做人工审查式提升。自动 workspace memory 分层写入已排入 `docs/WORKSPACE_ROUTING_TASK_LIST.md` 的 WR-34。
+当前实现状态：lifecycle 已把 route plan、memory plan、bindings、scope guard 和 SubAgent runtime decision 写入 task metadata / artifact；任务完成时会按 `memory_plan` 自动把 workspace route summary 与子项目 facts 写入 `.codex/shared` 的 proposed 草稿，并执行脱敏、index rebuild 与 shared validate。需要成为团队长期事实的条目仍应由人工 review 后把 status 从 `proposed` 调整为 `accepted`；低置信 route、原始日志和敏感配置不会被当成 accepted 事实。
 
 ## 10. 冲突处理
 
@@ -620,7 +620,7 @@ codex workspace game-client init --engine unity --project-cwd client
 - 对 `.codex/shared` 写入前执行脱敏、front matter 校验和人工 review 流程。
 - 避免把低置信 route、原始日志或敏感配置提升成团队事实。
 
-当前状态：尚未实现自动写入。现有 runtime 只记录 metadata/artifact 和可提升的 summary；共享层提升仍走 `codex memory promote` 的人工审查式流程。
+当前状态：已实现自动写入 proposed shared drafts。现有 runtime 在 `on_task_complete` 阶段读取 route plan `memory_plan`，写入 `.codex/shared/routes` 与 `.codex/shared/facts`，失败时降级记录原因而不阻断任务完成。共享层提升为 accepted 仍应走人工审查。
 
 ### 阶段 E：SubAgent 运行时集成
 

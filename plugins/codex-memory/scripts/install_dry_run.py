@@ -365,19 +365,22 @@ def _codex_config_plan() -> dict[str, Any]:
             "blocked": True,
             "reason": state["config_error"],
         }
-    if state["codex_hooks_enabled"]:
+    if state["hooks_enabled"] and not state.get("deprecated_codex_hooks_present"):
         action = "no_change"
         would_write = False
+    elif state["hooks_enabled"]:
+        action = "remove_deprecated_features.codex_hooks"
+        would_write = True
     else:
-        action = "set_features.codex_hooks"
+        action = "set_features.hooks"
         would_write = True
     return {
         "path": path,
         "category": "codex_config",
-        "status": "codex_hooks_enabled" if state["codex_hooks_enabled"] else "codex_hooks_disabled",
+        "status": "hooks_enabled" if state["hooks_enabled"] else "hooks_disabled",
         "action": action,
         "would_write": would_write,
-        "key": "features.codex_hooks",
+        "key": "features.hooks",
         "value": True,
     }
 

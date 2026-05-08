@@ -29,6 +29,7 @@ from workspace_test_helpers import (
 )
 import memory_store
 import workspace_lifecycle
+import workspace_memory_writer
 
 
 class WorkspaceHookIntegrationTests(unittest.TestCase):
@@ -338,6 +339,39 @@ class WorkspaceHookIntegrationTests(unittest.TestCase):
         scope_guard = result["result"]["task_state"]["metadata"]["workspace_routing"]["scope_guard"]
         self.assertTrue(scope_guard[0]["ok"], scope_guard[0]["violations"])
         self.assertEqual(scope_guard[0]["project_id"], "client-unity")
+
+    def test_task_complete_writes_workspace_memory_from_route_plan(self) -> None:
+        route = route_plan()
+        route["memory_plan"] = {
+            "workspace_summary": {"shared_memory_allowed": True},
+            "project_summaries": [{"project_id": "client-unity", "shared_memory_allowed": True}],
+        }
+        with MemoryEnv() as temp_dir:
+            with mock.patch.object(workspace_lifecycle.workspace_router, "build_route_plan", return_value=route):
+                runner = hook_runner.HookRunner(memory_store=memory_store.MemoryStore())
+                runner.run_event(
+                    "before_task",
+                    {
+                        "task_id": "route-task",
+                        "objective": "Fix client UI",
+                        "working_set": ["client/Assets/Login.cs"],
+                    },
+                )
+                result = runner.run_event(
+                    "on_task_complete",
+                    {
+                        "task_id": "route-task",
+                        "summary_markdown": "# Done\n\nRoute summary.",
+                    },
+                )
+
+            shared_root = Path(temp_dir) / ".codex" / "shared"
+            route_entries = list((shared_root / "routes").glob("*.md"))
+            fact_entries = list((shared_root / "facts").glob("*.md"))
+
+        self.assertTrue(result["result"]["workspace_memory"]["ok"], result)
+        self.assertTrue(route_entries)
+        self.assertTrue(fact_entries)
 
     def test_after_tool_uses_reported_binding_for_scope_guard(self) -> None:
         with MemoryEnv():

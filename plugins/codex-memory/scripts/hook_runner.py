@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sqlite3
 from contextlib import closing
+from pathlib import Path
 from typing import Any
 
 from context_builder import ContextBuilder
@@ -27,6 +29,7 @@ from memory_store import MemoryStore
 from retrieval_store import RetrievalEngine
 from workspace_artifact_filters import is_subagent_artifact
 import workspace_lifecycle
+import workspace_memory_writer
 
 TRANSIENT_ROUTING_FIELDS = (
     "review_gate_running",
@@ -310,10 +313,12 @@ class HookRunner:
             retrieval_mode=_string(payload.get("retrieval_mode")) or "auto",
             max_total_chars=int(payload.get("max_total_chars", 2400)),
         )
+        workspace_memory = self._write_workspace_memory(resolved_task_id, task_state, summary_markdown)
         return {
             "task_state": task_state,
             "summary": summary,
             "distillation_result": distillation_result,
+            "workspace_memory": workspace_memory,
         }
 
     def _degraded_response(
@@ -346,6 +351,31 @@ class HookRunner:
             "reason": reason,
             "fallback": fallback,
         }
+
+    def _write_workspace_memory(
+        self,
+        task_id: str,
+        task_state: dict[str, Any],
+        summary_markdown: str,
+    ) -> dict[str, Any]:
+        if os.environ.get("CODEX_WORKSPACE_MEMORY_WRITE_DISABLE") == "1":
+            return {"ok": True, "skipped": True, "reason": "disabled by CODEX_WORKSPACE_MEMORY_WRITE_DISABLE"}
+        metadata = task_state.get("metadata") if isinstance(task_state.get("metadata"), dict) else {}
+        routing = metadata.get("workspace_routing") if isinstance(metadata.get("workspace_routing"), dict) else {}
+        route_plan = routing.get("route_plan") if isinstance(routing.get("route_plan"), dict) else {}
+        if not route_plan.get("memory_plan"):
+            return {"ok": True, "skipped": True, "reason": "no workspace memory plan"}
+        try:
+            project_root = Path(os.environ.get("CODEX_MEMORY_CWD") or Path.cwd()).resolve()
+            return workspace_memory_writer.write_from_route_plan(
+                project_root,
+                route_plan,
+                task_id=task_id,
+                summary=summary_markdown,
+                confirm=True,
+            )
+        except Exception as exc:
+            return {"ok": False, "degraded": True, "reason": f"{type(exc).__name__}: {exc}"}
 
 
 def _copy_transient_routing_fields(source: dict[str, Any], target: dict[str, Any]) -> dict[str, Any]:

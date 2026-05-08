@@ -260,6 +260,8 @@ AI 诊断日志只存在于实现和验证循环中。
 - 游戏客户端 Unity/Laya/Cocos profile 模板生成器。
 - 基础 AI 诊断日志 release gate runtime。
 - `before_task` / `after_tool` / `before_response` 的 workspace routing 软集成。
+- workspace memory 自动分层写入 proposed shared drafts。
+- review gate preflight、diff fingerprint、review ledger、findings loop 和 slice planner runtime。
 - `workspace_meta` 根工具工程识别和根路径路由。
 - SubAgent 角色协议文档。
 - AI 诊断日志策略文档。
@@ -271,7 +273,5 @@ AI 诊断日志只存在于实现和验证循环中。
 
 - 真实 SubAgent 自动执行器。
 - 发布级完整验证平台。
-- workspace memory 自动分层写入。
 - 自动历史记忆挖掘 runtime。
-- review gate preflight、diff fingerprint、review ledger、findings loop 和 slice planner runtime。
 - session-worktree binding registry、allocator、heartbeat、stale cleanup 和 lifecycle 集成。

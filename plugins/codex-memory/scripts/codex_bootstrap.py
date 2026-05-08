@@ -11,6 +11,7 @@ from typing import Any
 
 from init_storage import PROJECT_MARKERS, ensure_storage_layout, resolve_storage_paths
 from codex_config_status import inspect_codex_config
+from custom_agents_templates import ensure_project_agents
 from official_memory_status import codex_home, inspect_official_memory
 
 
@@ -337,6 +338,7 @@ def init_project(project_root: Path, plugin_root: Path) -> list[dict[str, Any]]:
     _ensure_file(harness_dir / "workspace-routing.json", _workspace_routing_config(project_root), actions)
     _ensure_profile_policy(profile_path, actions)
     _ensure_shared_memory_template(project_root, actions)
+    ensure_project_agents(project_root, actions)
     return actions
 
 
@@ -423,8 +425,8 @@ def inspect_state(cwd: Path, *, init: bool) -> dict[str, Any]:
     if not codex_config.get("config_parse_ok", True):
         recommendations.append("官方 Codex config.toml 解析失败；doctor 已跳过 native hooks/MCP/sandbox 对齐检查。")
     native_alignment = codex_config.get("native_alignment") if isinstance(codex_config.get("native_alignment"), dict) else {}
-    if native_alignment.get("needs_codex_hooks_feature"):
-        recommendations.append("建议在官方 Codex config.toml 中启用 [features] codex_hooks = true，让插件 hooks 走官方生命周期。")
+    if native_alignment.get("needs_hooks_feature"):
+        recommendations.append("建议在官方 Codex config.toml 中启用 [features] hooks = true，让插件 hooks 走官方生命周期。")
     plugin_hooks = codex_config.get("plugin_hooks") if isinstance(codex_config.get("plugin_hooks"), dict) else {}
     if plugin_hooks.get("missing_recommended_events"):
         recommendations.append(

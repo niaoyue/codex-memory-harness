@@ -653,16 +653,11 @@ docs/AI_DIAGNOSTIC_LOGGING.md
 3. memory archive/cleanup：避免长期膨胀。
 4. 项目共享 memory：严格 schema 校验、冲突策略和 review 辅助。
 5. 真实 SubAgent 自动执行器：在宿主支持时按 dispatch plan 启动 specialist/coordinator，并回写超时、取消和失败状态。
-6. Workspace memory 自动分层写入：把 workspace summary 与子项目事实按 semantic scope 分别沉淀。
-7. 发布级完整验证平台：覆盖渠道包、热更、构建产物、回滚材料和平台配置。
-8. 自动历史记忆挖掘：事件账本、候选挖掘、自动提升、context 注入和治理命令。
-9. Review gate 优化：preflight、diff fingerprint、review ledger、runner 恢复和 slice planner。
-10. Session-worktree 绑定：registry、allocator、heartbeat、stale cleanup 和多 session 合并。
-11. 可选本地语义检索：在不开启网络的前提下增强召回。
-12. 安装器 dry-run：让用户安装前预览所有写入。
-13. 旧全局 memory marker 迁移工具：提供 dry-run/confirm、manifest、checksum 和回滚说明。
-14. Custom agents 模板：提供 `.codex/agents` 模板对齐 dispatch plan，但不默认写入用户全局。
-15. Memory archive/cleanup 与 retention policy：提供正式归档、清理、按 `task_id` 删除和索引规模控制命令，作为后续语义索引前置条件。
+6. 发布级完整验证平台：覆盖渠道包、热更、构建产物、回滚材料和平台配置。
+7. 自动历史记忆挖掘：事件账本、候选挖掘、自动提升、context 注入和治理命令。
+8. Session-worktree 绑定：registry、allocator、heartbeat、stale cleanup 和多 session 合并。
+9. 可选本地语义检索：在不开启网络的前提下增强召回。
+10. Memory archive/cleanup 与 retention policy：提供正式归档、清理、按 `task_id` 删除和索引规模控制命令，作为后续语义索引前置条件。
 
 ## 24. 一句话总结
 

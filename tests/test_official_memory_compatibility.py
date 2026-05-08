@@ -236,8 +236,8 @@ class OfficialMemoryCompatibilityTests(unittest.TestCase):
             finally:
                 _restore_env("CODEX_HOME", old_codex_home)
 
-        self.assertFalse(status["codex_hooks_enabled"])
-        self.assertTrue(status["native_alignment"]["needs_codex_hooks_feature"])
+        self.assertFalse(status["hooks_enabled"])
+        self.assertTrue(status["native_alignment"]["needs_hooks_feature"])
         self.assertTrue(status["native_alignment"]["needs_hook_event_update"])
         self.assertTrue(status["native_alignment"]["high_risk_unattended_permissions"])
         self.assertEqual(
@@ -251,7 +251,7 @@ class OfficialMemoryCompatibilityTests(unittest.TestCase):
             codex_home = Path(temp_dir) / "codex-home"
             codex_home.mkdir()
             (codex_home / "config.toml").write_text(
-                "[features]\ncodex_hooks = true\n\n[mcp_servers.codex-memory]\ncommand = \"py\"\n",
+                "[features]\nhooks = true\n\n[mcp_servers.codex-memory]\ncommand = \"py\"\n",
                 encoding="utf-8",
             )
             plugin_root = Path(temp_dir) / "plugin"
@@ -271,7 +271,7 @@ class OfficialMemoryCompatibilityTests(unittest.TestCase):
             finally:
                 _restore_env("CODEX_HOME", old_codex_home)
 
-        self.assertTrue(status["codex_hooks_enabled"])
+        self.assertTrue(status["hooks_enabled"])
         self.assertTrue(status["codex_memory_mcp_configured"])
         self.assertTrue(status["plugin_hooks"]["covers_recommended_events"])
         self.assertTrue(status["native_alignment"]["ok"])
@@ -282,7 +282,7 @@ class OfficialMemoryCompatibilityTests(unittest.TestCase):
             codex_home = Path(temp_dir) / "codex-home"
             codex_home.mkdir()
             (codex_home / "config.toml").write_text(
-                "[features]\ncodex_hooks = true\n",
+                "[features]\nhooks = true\n",
                 encoding="utf-8",
             )
             plugin_root = Path(temp_dir) / "plugin"
@@ -317,9 +317,10 @@ class OfficialMemoryCompatibilityTests(unittest.TestCase):
                 _restore_env("CODEX_HOME", old_codex_home)
 
         self.assertTrue(result["modified"])
-        self.assertTrue(status["codex_hooks_enabled"])
+        self.assertTrue(status["hooks_enabled"])
         self.assertIn("[features]", text)
-        self.assertIn("codex_hooks = true", text)
+        self.assertIn("hooks = true", text)
+        self.assertNotIn("codex_hooks = true", text)
 
     def test_ensure_codex_config_updates_existing_features_section(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -340,11 +341,12 @@ class OfficialMemoryCompatibilityTests(unittest.TestCase):
                 _restore_env("CODEX_HOME", old_codex_home)
 
         self.assertTrue(result["modified"])
-        self.assertTrue(status["codex_hooks_enabled"])
+        self.assertTrue(status["hooks_enabled"])
         self.assertIn('sandbox_mode = "workspace-write"', text)
         self.assertIn("memories = true", text)
-        self.assertIn("codex_hooks = true", text)
+        self.assertIn("hooks = true", text)
         self.assertNotIn("codex_hooks = false", text)
+        self.assertNotIn("codex_hooks = true", text)
 
     def test_ensure_codex_config_preserves_existing_dotted_features_table(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -366,9 +368,10 @@ class OfficialMemoryCompatibilityTests(unittest.TestCase):
 
         self.assertTrue(result["modified"])
         self.assertEqual(result["error"], "")
-        self.assertTrue(status["codex_hooks_enabled"])
+        self.assertTrue(status["hooks_enabled"])
         self.assertIn("features.memories = true", text)
-        self.assertIn("features.codex_hooks = true", text)
+        self.assertIn("features.hooks = true", text)
+        self.assertNotIn("features.codex_hooks = true", text)
         self.assertNotIn("[features]", text)
 
     def test_ensure_codex_config_does_not_rewrite_invalid_toml(self) -> None:
@@ -377,7 +380,7 @@ class OfficialMemoryCompatibilityTests(unittest.TestCase):
             codex_home = Path(temp_dir) / "codex-home"
             codex_home.mkdir()
             config_path = codex_home / "config.toml"
-            original = "[features\ncodex_hooks = false\n"
+            original = "[features\nhooks = false\n"
             config_path.write_text(original, encoding="utf-8")
             try:
                 os.environ["CODEX_HOME"] = str(codex_home)
@@ -425,13 +428,36 @@ class OfficialMemoryCompatibilityTests(unittest.TestCase):
             finally:
                 _restore_env("CODEX_HOME", old_codex_home)
 
-        self.assertFalse(result["codex"]["native_integration"]["codex_hooks_enabled"])
+        self.assertFalse(result["codex"]["native_integration"]["hooks_enabled"])
         self.assertTrue(
-            any("codex_hooks" in item for item in result["recommendations"])
+            any("features] hooks" in item for item in result["recommendations"])
         )
         self.assertTrue(
             any("danger-full-access" in item for item in result["recommendations"])
         )
+
+    def test_ensure_codex_config_replaces_deprecated_dotted_codex_hooks(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            old_codex_home = os.environ.get("CODEX_HOME")
+            codex_home = Path(temp_dir) / "codex-home"
+            codex_home.mkdir()
+            config_path = codex_home / "config.toml"
+            config_path.write_text(
+                "features.memories = true\nfeatures.codex_hooks = true\n",
+                encoding="utf-8",
+            )
+            try:
+                os.environ["CODEX_HOME"] = str(codex_home)
+                result = codex_config_status.ensure_codex_config()
+                status = codex_config_status.inspect_codex_config()
+                text = config_path.read_text(encoding="utf-8")
+            finally:
+                _restore_env("CODEX_HOME", old_codex_home)
+
+        self.assertTrue(result["modified"])
+        self.assertTrue(status["hooks_enabled"])
+        self.assertIn("features.hooks = true", text)
+        self.assertNotIn("features.codex_hooks", text)
 
 
 def _restore_env(name: str, value: str | None) -> None:

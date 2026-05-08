@@ -49,6 +49,8 @@ class BuildReleaseTests(unittest.TestCase):
         self.assertFalse(any(name.endswith("events.jsonl") for name in names))
         self.assertIn("templates/project/.codex/harness/commands.json", names)
         self.assertIn("templates/project/.codex/shared/README.md", names)
+        self.assertIn("templates/project/.codex/agents/workspace-coordinator.toml", names)
+        self.assertIn("templates/project/.codex/agents/xhigh-review-runner.toml", names)
         self.assertIn("install.bat", manifest["install"])
         self.assertIn("install.sh", manifest["install"])
         self.assertIn("--skip-skills", manifest["install"])
@@ -249,6 +251,11 @@ class BootstrapTests(unittest.TestCase):
             self.assertTrue((shared_dir / "index.json").exists())
             for name in ("decisions", "facts", "workflows", "routes"):
                 self.assertTrue((shared_dir / name / ".gitkeep").exists())
+            agents_dir = project_root / ".codex" / "agents"
+            self.assertTrue((agents_dir / "workspace-coordinator.toml").exists())
+            self.assertTrue((agents_dir / "implementation-specialist.toml").exists())
+            self.assertTrue((agents_dir / "route-review-specialist.toml").exists())
+            self.assertTrue((agents_dir / "xhigh-review-runner.toml").exists())
             self.assertTrue(any(item["path"] == str(shared_dir) for item in actions))
             harness_dir = project_root / ".codex" / "harness"
             profile = json.loads((harness_dir / "project_profile.json").read_text(encoding="utf-8"))

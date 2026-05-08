@@ -181,15 +181,15 @@ stateDiagram-v2
 
 ### 命令路线
 
-建议新增命令：
+已提供辅助命令：
 
 ```powershell
 codex review status
 codex review preflight --uncommitted
 codex review plan --uncommitted
-codex review run --uncommitted --runner xhigh
+codex review record --result-file review-result.json
 codex review findings list
-codex review findings resolve <finding-id>
+codex review findings resolve <finding-id> --review-id <review-id>
 codex review ledger show
 ```
 
@@ -200,17 +200,17 @@ codex review ledger show
 | `status` | 展示当前 diff fingerprint、最近 review、是否失效 |
 | `preflight` | 运行 deterministic checks，不启动模型 review |
 | `plan` | 生成 review scope、slice 建议和 runner dispatch plan |
-| `run` | 调用现有 `review_gate_runner.py` |
+| `record` | 记录 runner 输出、已审 fingerprint、状态、findings 和恢复策略；clean 结果缺少已审 fingerprint 或与当前 diff 不一致时写入 invalidated |
 | `findings list` | 查看未修 findings |
-| `findings resolve` | 标记修复证据，但不直接算通过 |
+| `findings resolve` | 按 review/fingerprint 作用域标记修复证据，但不直接算通过 |
 | `ledger show` | 输出审查历史和失效原因 |
 
 ### Artifact
 
-建议存储在项目私有 runtime：
+当前存储在项目私有 runtime：
 
 ```text
-.codex/harness/tasks/<task-id>/review/
+.codex/harness/review/
 ```
 
 至少包含：

@@ -33,7 +33,7 @@ Run the migration in this order for each selected global or project source:
 4. Convert surfaces in the same order the CLI uses:
    - instructions: `CLAUDE.md` / `AGENTS.md` to `AGENTS.md`
    - plugins: report Claude plugin trees and marketplaces as manual migration work
-   - hooks: rewrite supported Claude hooks into `.codex/hooks.json` and enable `[features].codex_hooks = true`
+   - hooks: rewrite supported Claude hooks into `.codex/hooks.json` and enable `[features].hooks = true`
    - skills and commands: write Codex skills under `.agents/skills/`
    - config: write `.codex/config.toml` from Claude model/sandbox settings and MCP servers, including `personality = "friendly"` when config is generated
    - subagents: write Codex custom agents under `.codex/agents/`

@@ -10,12 +10,14 @@ HOOK_SCRIPT="$SCRIPT_DIR/hook_runner.py"
 INSTALL_SCRIPT="$SCRIPT_DIR/install_codex_memory.py"
 VERIFICATION_SCRIPT="$SCRIPT_DIR/verification_runner.py"
 SHARED_MEMORY_SCRIPT="$SCRIPT_DIR/shared_memory.py"
+LEGACY_GLOBAL_MIGRATION_SCRIPT="$SCRIPT_DIR/legacy_global_memory_migration.py"
 WORKSPACE_SCRIPT="$SCRIPT_DIR/workspace_scanner.py"
 WORKSPACE_ROUTER_SCRIPT="$SCRIPT_DIR/workspace_router.py"
 WORKSPACE_VERIFIER_SCRIPT="$SCRIPT_DIR/workspace_verifier.py"
 WORKSPACE_SUBAGENTS_SCRIPT="$SCRIPT_DIR/workspace_subagents.py"
 SUBAGENT_SCHEDULER_SCRIPT="$SCRIPT_DIR/subagent_scheduler.py"
 REVIEW_GATE_SCRIPT="$SCRIPT_DIR/review_gate_runner.py"
+REVIEW_WORKFLOW_SCRIPT="$SCRIPT_DIR/review_workflow.py"
 GAME_CLIENT_PROFILES_SCRIPT="$SCRIPT_DIR/game_client_profiles.py"
 WORKSPACE_BUSINESS_TEMPLATES_SCRIPT="$SCRIPT_DIR/workspace_business_templates.py"
 HOOK_BRIDGE_SCRIPT="$SCRIPT_DIR/hook_bridge.py"
@@ -213,6 +215,7 @@ Codex Memory commands:
   codex memory hook <event> [...]
   codex memory promote --task-id <task-id> [--kind fact]
   codex memory shared validate|index rebuild
+  codex memory migrate-legacy-global [--dry-run|--confirm]
 EOF
 }
 
@@ -290,6 +293,7 @@ invoke_memory() {
         codex-hook) run_py "$HOOK_BRIDGE_SCRIPT" "$@" ;;
         promote) run_py "$SHARED_MEMORY_SCRIPT" --project-root "$cwd" promote "$@" ;;
         shared) run_py "$SHARED_MEMORY_SCRIPT" --project-root "$cwd" shared "$@" ;;
+        migrate-legacy-global) run_py "$LEGACY_GLOBAL_MIGRATION_SCRIPT" "$@" ;;
         verify) invoke_harness verify "$@" ;;
         harness) invoke_harness "$@" ;;
         *) echo "Unknown Codex Memory command: $command_name. Run 'codex memory help' for usage." >&2; exit 64 ;;
@@ -333,6 +337,26 @@ invoke_workspace() {
         game-client) run_py "$GAME_CLIENT_PROFILES_SCRIPT" --project-root "$cwd" "$@" ;;
         project-template) run_py "$WORKSPACE_BUSINESS_TEMPLATES_SCRIPT" --project-root "$cwd" "$@" ;;
         *) echo "Unknown Codex Workspace command: $command_name. Run 'codex workspace help' for usage." >&2; exit 64 ;;
+    esac
+}
+
+invoke_review() {
+    cwd=$(pwd)
+    command_name=${1:-help}
+    case "$command_name" in
+        help|-h|--help)
+            echo "Codex Review commands: status|preflight|plan|record|findings list|findings resolve|ledger show"
+            exit 0
+            ;;
+        *) run_py "$REVIEW_WORKFLOW_SCRIPT" --project-root "$cwd" "$@" ;;
+    esac
+}
+
+is_harness_review_command() {
+    [ "${1:-}" = "review" ] || return 1
+    case "${2:-}" in
+        status|preflight|plan|record|findings|ledger) return 0 ;;
+        *) return 1 ;;
     esac
 }
 
@@ -380,6 +404,14 @@ case "${1:-}" in
     harness) shift; invoke_harness "$@" ;;
     package) shift; invoke_package "$@" ;;
     workspace) shift; invoke_workspace "$@" ;;
+    review)
+        if is_harness_review_command "$@"; then
+            shift
+            invoke_review "$@"
+        fi
+        invoke_bootstrap
+        invoke_real_codex "$@"
+        ;;
     low|medium|high|xhigh)
         if [ "${2:-}" = "review" ]; then
             invoke_bootstrap

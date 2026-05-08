@@ -60,6 +60,7 @@ EXCLUDED_GLOBS = [
     "!plugins/codex-memory/storage/**",
     "!.codex/memories/**",
     "!.codex/harness/tasks/**",
+    "!.codex/harness/review/**",
 ]
 
 CODE_PRIORITY_SUFFIXES = {

@@ -229,7 +229,7 @@ def agents_block(home_plugin: Path) -> str:
 - 推荐优先通过官方 Codex config/hooks/MCP 接入；PowerShell/POSIX wrapper 作为兼容入口、诊断入口和旧环境兜底。
 - 本包默认随安装写入 bundled Codex skills：安全最佳实践、威胁模型、CLI 创建、迁移到 Codex、GitHub CI 修复、PR 评论处理和 Harness release gate；目标位置为 `~/.agents/skills`。
 - 不要求用户手动调用记忆命令；官方 hooks 可用时自动桥接 `UserPromptSubmit`、`PostToolUse`、`Stop`，不可用时代理应在任务生命周期内自动调用 `before_task`、`after_tool`、`before_response`、`on_task_complete`。
-- `codex memory doctor` 会检查 `features.codex_hooks`、sandbox/approval、AGENTS.override、官方 Memories 和插件 hook 覆盖情况。
+- `codex memory doctor` 会检查 `features.hooks`、sandbox/approval、AGENTS.override、官方 Memories 和插件 hook 覆盖情况。
 - 插件不可用时必须降级为普通无记忆模式，并在最终答复的工具调用简报中说明局限。
 - 不得把敏感信息、密钥、令牌或内部链接写入记忆；写入前应做最小化摘要。
 - 用户明确选择 SubAgent、分角色或并行代理，任务属于复杂/应用级/多阶段实现，项目 `.codex/harness/project_profile.json` / `.codex/harness/workspace-routing.json` 的 `subagent_runtime_policy` 授权正式 implementation 任务，或通用 planner 基于 `task_intent/task_type/risk_level/complexity` 判定需要派发时，代理必须读取 `metadata.workspace_routing.subagent_runtime` 与 `subagent_dispatch_plan.host_spawn_requests`；当 `host_dispatch_allowed=true` 且宿主提供 SubAgent 工具时，按请求派发宿主 SubAgent，否则记录降级原因并由主 Agent 串行执行。
@@ -246,6 +246,7 @@ codex memory init
 codex memory install
 codex memory update
 codex memory check-install
+codex memory migrate-legacy-global --dry-run
 codex harness verify list
 codex harness verify run --profile primary
 codex package verify

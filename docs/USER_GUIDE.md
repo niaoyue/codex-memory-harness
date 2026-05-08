@@ -35,7 +35,7 @@ sh ./install.sh --install-python
 
 这个能力只在用户显式传参时触发；Windows 使用 `winget`，POSIX shell 按可用包管理器尝试 Homebrew、apt、dnf、yum 或 pacman。默认安装不会静默修改系统环境。
 
-安装器还会修复必要的官方 Codex 配置，确保 `$CODEX_HOME/config.toml` 中存在 `[features] codex_hooks = true`，让插件 hooks 走官方生命周期。
+安装器还会修复必要的官方 Codex 配置，确保 `$CODEX_HOME/config.toml` 中存在 `[features] hooks = true`，让插件 hooks 走官方生命周期。
 
 安装器会默认离线安装随包附带的 openai/skills curated 技能和本项目 release gate 技能到 `~/.agents/skills/<skill-name>`，包括：
 
@@ -87,11 +87,12 @@ codex
 
 - `codex`：普通无感入口。
 - `codexm`：显式 memory wrapper 入口。
-- `codex memory doctor`：诊断当前项目 memory/harness 状态，并检查官方 `features.codex_hooks`、sandbox/approval、AGENTS.override、官方 Memories 和插件 hook 覆盖情况。
+- `codex memory doctor`：诊断当前项目 memory/harness 状态，并检查官方 `features.hooks`、sandbox/approval、AGENTS.override、官方 Memories 和插件 hook 覆盖情况。
 - `codex memory init`：初始化缺失的项目 `.codex` memory/harness 配置。
 - `codex memory install/update/check-install`：安装、更新或检查插件接入。
 - `codex harness ...`：运行 harness 任务生命周期命令。
 - `codex harness verify ...`：运行当前项目配置化验证。
+- `codex review preflight/status/plan`：在最终 xhigh review 前执行确定性 preflight、查看 diff fingerprint 和 reviewable slices。
 - `codex package build/verify`：维护者打包和项目健康检查入口。
 - `codex-memory-doctor`：只检查当前窗口接入状态，不启动 Codex。
 - `codex-raw`：绕过 memory wrapper，直接启动真实 Codex。
@@ -136,8 +137,46 @@ sh "$HOOK_LAUNCHER" --event before_response --memory-scope project --memory-cwd 
 - `.codex/shared/README.md`
 - `.codex/shared/index.json`
 - `.codex/shared/decisions/`、`facts/`、`workflows/`、`routes/`
+- `.codex/agents/`：项目级 Codex custom agents 模板，包括 Workspace Coordinator、Implementation Specialist、Route Review Specialist 和 XHigh Review Runner；不会默认写入用户全局 agents。
 
 注意：当前 wrapper 的普通启动会在缺少项目 memory、`commands.json`、`project_profile.json`、`.codex/shared` 或 `.codex/shared/index.json` 时自动补齐项目配置；如果旧项目只缺 `.codex/harness/workspace-routing.json`，`codex memory doctor` 会提示，需显式运行 `codex memory init` 补齐。
+
+## Review Gate 辅助命令
+
+最终代码审核仍是：
+
+```powershell
+codex xhigh review --uncommitted
+```
+
+辅助命令用于减少进入最终 gate 前的确定性失败：
+
+```powershell
+codex review preflight --mode uncommitted
+codex review status --mode uncommitted
+codex review plan --mode uncommitted
+codex review ledger show
+codex review findings list
+codex review findings resolve <finding-id> --review-id <review-id>
+```
+
+`preflight` 会运行 `git diff --check`、敏感扫描、打包边界检查和验证配置摘要，并写入 `.codex/harness/review/preflight.json`。`status` 和 `record` 会把 review 结果绑定到 runner/preflight 已审 diff fingerprint；clean 结果缺少已审 fingerprint 或与当前 diff 不一致时会写入 invalidated。`findings resolve` 按 review/fingerprint 作用域记录修复证据，不代表 gate 通过，仍必须重新运行最终 xhigh review。
+
+## 旧全局 Memory Marker 迁移
+
+旧版本如果把 harness runtime marker 写在官方 `$CODEX_HOME/memories` 目录，先做 dry-run：
+
+```powershell
+codex memory migrate-legacy-global --dry-run
+```
+
+确认 manifest、checksum、backup 路径和 action 后，再显式执行：
+
+```powershell
+codex memory migrate-legacy-global --confirm
+```
+
+迁移工具不会静默覆盖 harness global 目录已有不同内容；冲突时会归档旧 source 并在 manifest 中给出手工回滚说明。
 
 ## 记忆分层
 

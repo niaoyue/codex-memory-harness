@@ -79,7 +79,7 @@ Docs last checked: 2026-04-20. If today's date is later, re-open the official Co
 
 | Source | Codex | Migration behavior | Caveat |
 | --- | --- | --- | --- |
-| `hooks` in `~/.claude/settings.json`, `.claude/settings.json`, or `.claude/settings.local.json` | `.codex/hooks.json` + `[features].codex_hooks = true` | Partial conversion | Review behavior before relying on migrated hooks; Claude and Codex hook runtimes are not 1:1. |
+| `hooks` in `~/.claude/settings.json`, `.claude/settings.json`, or `.claude/settings.local.json` | `.codex/hooks.json` + `[features].hooks = true` | Partial conversion | Review behavior before relying on migrated hooks; Claude and Codex hook runtimes are not 1:1. |
 | `Notification` | `notify` | Manual rewrite only | `notify` is a turn-complete notification command, not a general lifecycle hook or approval-prompt hook. |
 | `PreToolUse` | `PreToolUse` in `.codex/hooks.json` | Partial conversion | Codex currently runs PreToolUse for shell commands only and blocks only `permissionDecision: "deny"`, legacy `decision: "block"`, or exit code `2`. |
 | `PostToolUse` | `PostToolUse` in `.codex/hooks.json` | Partial conversion | Codex currently runs PostToolUse for shell commands only; `decision: "block"` becomes model feedback, and `continue: false` stops execution. Formatting or fixups that Claude tied to `Edit`/`Write` should move to a `Stop` hook, because only Bash is matched for `PostToolUse`. |

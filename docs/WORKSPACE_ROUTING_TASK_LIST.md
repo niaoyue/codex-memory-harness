@@ -4,7 +4,7 @@
 
 本文把 `docs/WORKSPACE_ADAPTIVE_ROUTING.md` 的设计拆成可执行任务，并同步当前项目进度。
 
-当前状态：已完成文档设计、设计审查、隐私边界、检索作用域同步、workspace routing schema 与项目配置模板、只读 workspace scanner、最小只读 route planner、最小 workspace verification aggregation、SubAgent route binding、scope guard、coordinator summary、dispatch plan、memory lifecycle 软集成、游戏客户端自动扫描默认规则、游戏客户端 profile 模板生成器、服务器/后台/文档/美术业务模板、本仓库 dogfood workspace routing 配置、workspace routing 发布迁移说明和基础 AI 诊断日志 release gate；尚未实现真实 SubAgent 自动执行器、发布级完整验证平台和 workspace memory 自动分层写入。
+当前状态：已完成文档设计、设计审查、隐私边界、检索作用域同步、workspace routing schema 与项目配置模板、只读 workspace scanner、最小只读 route planner、最小 workspace verification aggregation、SubAgent route binding、scope guard、coordinator summary、dispatch plan、memory lifecycle 软集成、workspace memory 自动分层写入、游戏客户端自动扫描默认规则、游戏客户端 profile 模板生成器、服务器/后台/文档/美术业务模板、本仓库 dogfood workspace routing 配置、workspace routing 发布迁移说明和基础 AI 诊断日志 release gate；尚未实现真实 SubAgent 自动执行器和发布级完整验证平台。
 
 ## 2. 进度状态
 
@@ -26,6 +26,7 @@
 | WR-M4 | SubAgent 集成 | 为每个 SubAgent 绑定 project/domain/scope/rules/profile ids | done |
 | WR-M5 | 生命周期集成 | 在 before_task/after_tool/before_response 中自动使用路由结果 | done |
 | WR-M6 | 业务模板 | 为游戏客户端、服务器、后台、文档、美术工程提供可配置模板 | done |
+| WR-M7 | Memory 分层写入 | 根据 route plan `memory_plan` 写入 `.codex/shared` proposed 草稿 | done |
 
 ## 4. 详细任务
 
@@ -67,7 +68,7 @@
 | WR-31 | SubAgent dispatch plan | `codex workspace schedule` 生成 coordinator/specialist 调度计划 | WR-17,WR-19 | done |
 | WR-32 | AI 诊断日志 release gate | release route 阻断诊断开关、临时 sink 和裸日志绕过 | WR-15,WR-25A | done |
 | WR-33 | 本仓库 workspace routing dogfood 配置 | 当前仓库根 `.codex/harness/workspace-routing.json` 对齐模板和当前源码布局 | WR-10 | done |
-| WR-34 | workspace memory 自动分层写入 | 按 route plan `memory_plan` 把 workspace summary 与子项目事实分层沉淀 | WR-21 | todo |
+| WR-34 | workspace memory 自动分层写入 | 按 route plan `memory_plan` 把 workspace summary 与子项目事实分层沉淀 | WR-21 | done |
 
 ## 5. 当前项目进度同步
 
@@ -96,7 +97,6 @@
 
 当前仓库尚未具备：
 
-- workspace 级 memory 与子项目 memory 的自动分层写入；当前只在 route plan metadata 中记录 `memory_plan`。
 - 发布级完整验证闭环和 release gate 平台。
 - 自动启动/调度真实 SubAgent；当前只有 dispatch plan，不负责启动宿主 agent 或子进程。
 
@@ -104,8 +104,7 @@
 
 下一步优先级：
 
-1. WR-34：实现 workspace memory 自动分层写入。
-2. 后续主线：实现真实 SubAgent 自动执行器。
-3. 后续主线：实现更完整的发布验证平台。
+1. 后续主线：实现真实 SubAgent 自动执行器。
+2. 后续主线：实现更完整的发布验证平台。
 
-这个顺序可以降低风险：已完成只读发现、计划、验证、SubAgent binding、dispatch plan、游戏客户端模板、业务模板、dogfood 配置、发布迁移说明、基础 release gate 和 lifecycle 软集成；接下来再进入自动分层写入、真实自动执行与发布级平台。
+这个顺序可以降低风险：已完成只读发现、计划、验证、SubAgent binding、dispatch plan、游戏客户端模板、业务模板、dogfood 配置、发布迁移说明、基础 release gate、lifecycle 软集成和 workspace memory 自动分层写入；接下来再进入真实自动执行与发布级平台。
