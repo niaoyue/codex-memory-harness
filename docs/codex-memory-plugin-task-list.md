@@ -76,7 +76,7 @@
 | T58 | 20 | 实现 workspace memory 自动分层写入 | 根据 `memory_plan` 写入 workspace summary 与子项目 fact | T43,WR-34 | todo |
 | T59 | 20 | 实现真实 SubAgent 自动执行器 | 在宿主支持时消费 `host_spawn_requests` 并回写状态 | T53 | todo |
 | T60 | 20 | 补本仓库 dogfood workspace routing 配置 | 当前仓库根 `.codex/harness/workspace-routing.json` 与源码布局对齐 | WR-33 | done |
-| T61 | 20 | 实现安装器 dry-run | 安装前输出将写入的 profile、AGENTS、marketplace、skills 和 Codex config 变更 | T20 | todo |
+| T61 | 20 | 实现安装器 dry-run | 安装前输出将写入的 profile、AGENTS、marketplace、skills 和 Codex config 变更 | T20 | done |
 | T62 | 20 | 实现旧全局 memory marker 迁移工具 | `migrate-legacy-global --dry-run/--confirm`，含 manifest、checksum 和回滚说明 | T21 | todo |
 | T63 | 20 | 提供 custom agents 模板 | `.codex/agents` 模板对齐 dispatch plan，不默认写入用户全局 | T53 | todo |
 | T64 | 20 | 平台化 eval replay | `.codex/evals` 或等价结构，把失败和高价值任务转为可回放评测 | T24,T55 | todo |
@@ -480,7 +480,6 @@
 - 自动启动/调度真实 SubAgent
 - 发布级完整 workspace 验证平台
 - workspace memory 自动分层写入
-- 安装器 dry-run
 - 官方 custom agents 模板
 - 旧全局 memory marker 迁移工具
 - 平台化 eval replay
@@ -524,7 +523,7 @@
 - Step 31 计划：workspace memory 自动分层写入
 - Step 32 计划：真实 SubAgent 自动执行器
 - Step 33 计划：发布级完整验证平台与 eval replay
-- Step 34 计划：安装器 dry-run、旧全局 memory marker 迁移工具、custom agents 模板、memory archive/cleanup 与可选语义检索 provider
+- Step 34 进行中：安装器 dry-run 已完成；旧全局 memory marker 迁移工具、custom agents 模板、memory archive/cleanup 与可选语义检索 provider 尚未实现。
 - Step 35 计划：自动历史记忆挖掘 runtime。该能力以自动化为默认目标：低风险高置信用户习惯自动 accepted，高风险、冲突或低证据候选才进入待确认队列，避免要求用户每次手动整理。
 - Step 36 计划：review gate 优化 runtime。该能力保留 `codex xhigh review --uncommitted` 最终语义，通过 preflight、diff fingerprint、review ledger、runner 恢复和 slice planner 降低长耗时与重复失败。
 - Step 37 计划：session-worktree 绑定 runtime。该能力让写任务自动获得明确 `effective_cwd`，并发写同一项目时创建 managed worktree，通过 lease、heartbeat、stale cleanup 和 scope guard 管理生命周期。

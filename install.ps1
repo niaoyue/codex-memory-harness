@@ -8,7 +8,8 @@ param(
     [switch]$ReplaceExisting,
     [switch]$UpdateExisting,
     [switch]$SkipAgents,
-    [switch]$SkipSkills
+    [switch]$SkipSkills,
+    [switch]$DryRun
 )
 
 $ErrorActionPreference = "Stop"
@@ -139,6 +140,10 @@ if ($SkipAgents) {
 
 if ($SkipSkills) {
     $InstallerArgs += "--skip-skills"
+}
+
+if ($DryRun) {
+    $InstallerArgs += "--dry-run"
 }
 
 $PythonArgs = @($PythonRuntime.PrefixArgs) + $InstallerArgs

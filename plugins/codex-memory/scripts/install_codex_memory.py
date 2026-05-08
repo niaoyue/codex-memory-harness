@@ -11,7 +11,15 @@ from typing import Any
 
 from codex_config_status import ensure_codex_config
 from hook_config import ensure_hooks_config as _ensure_hooks_config
+from install_dry_run import build_install_dry_run_plan
 from install_debug import debug_log
+from install_marketplace import (
+    PLUGIN_CATEGORY,
+    PLUGIN_NAME,
+    PLUGIN_POLICY,
+    remove_marketplace_entry as _remove_marketplace_entry,
+    upsert_marketplace_entry as _upsert_marketplace_entry,
+)
 from install_status import check_state, points_to, safe_existing_target
 from install_support import (
     AGENTS_END,
@@ -28,12 +36,6 @@ from profile_install import ensure_launcher_profiles, remove_launcher_profiles
 from skill_bundle import ensure_bundled_skills
 
 
-PLUGIN_NAME = "codex-memory"
-PLUGIN_CATEGORY = "Productivity"
-PLUGIN_POLICY = {
-    "installation": "INSTALLED_BY_DEFAULT",
-    "authentication": "ON_INSTALL",
-}
 PROFILE_SHELL_CHOICES = ["auto", "pwsh", "windows", "all", "none", "profile", "bash", "zsh"]
 
 
@@ -58,77 +60,6 @@ def _home_plugin_path() -> Path:
 
 def _home_marketplace_path() -> Path:
     return _home_root() / ".agents" / "plugins" / "marketplace.json"
-
-
-def _read_json(path: Path, default: dict[str, Any]) -> dict[str, Any]:
-    if not path.exists():
-        return dict(default)
-    return json.loads(path.read_text(encoding="utf-8"))
-
-
-def _write_json(path: Path, payload: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-
-
-def _entry_for(source_path: str) -> dict[str, Any]:
-    return {
-        "name": PLUGIN_NAME,
-        "source": {
-            "source": "local",
-            "path": source_path,
-        },
-        "policy": dict(PLUGIN_POLICY),
-        "category": PLUGIN_CATEGORY,
-    }
-
-
-def _upsert_marketplace_entry(
-    path: Path,
-    default_name: str,
-    default_display_name: str,
-    source_path: str,
-) -> dict[str, Any]:
-    marketplace = _read_json(
-        path,
-        {
-            "name": default_name,
-            "interface": {"displayName": default_display_name},
-            "plugins": [],
-        },
-    )
-    plugins = marketplace.setdefault("plugins", [])
-    interface = marketplace.setdefault("interface", {})
-    interface.setdefault("displayName", default_display_name)
-    marketplace.setdefault("name", default_name)
-
-    entry = _entry_for(source_path)
-    for index, existing in enumerate(plugins):
-        if existing.get("name") == PLUGIN_NAME:
-            plugins[index] = entry
-            _write_json(path, marketplace)
-            return {"path": str(path), "updated": True, "created": False}
-
-    plugins.append(entry)
-    _write_json(path, marketplace)
-    return {"path": str(path), "updated": False, "created": True}
-
-
-def _remove_marketplace_entry(path: Path) -> dict[str, Any]:
-    if not path.exists():
-        return {"path": str(path), "exists": False, "removed": False}
-    marketplace = _read_json(path, {"plugins": []})
-    plugins = marketplace.get("plugins")
-    if not isinstance(plugins, list):
-        return {"path": str(path), "exists": True, "removed": False}
-    original_count = len(plugins)
-    marketplace["plugins"] = [
-        item for item in plugins if not (isinstance(item, dict) and item.get("name") == PLUGIN_NAME)
-    ]
-    removed = len(marketplace["plugins"]) != original_count
-    if removed:
-        _write_json(path, marketplace)
-    return {"path": str(path), "exists": True, "removed": removed}
 
 
 def _safe_existing_target(path: Path) -> str:
@@ -437,6 +368,11 @@ def main() -> int:
         help="Do not install bundled Codex skills into ~/.agents/skills.",
     )
     parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Preview install targets and planned writes without changing files.",
+    )
+    parser.add_argument(
         "--replace-existing",
         action="store_true",
         help="Alias for --update-existing.",
@@ -477,6 +413,18 @@ def main() -> int:
 
     if args.check:
         result = {"check": _check_state()}
+    elif args.dry_run:
+        result = build_install_dry_run_plan(
+            args.mode,
+            args.scope,
+            args.profile_shells,
+            install_agents=not args.skip_agents,
+            update_existing=args.update_existing or args.replace_existing,
+            install_skills=not args.skip_skills,
+            mcp_python_command=args.mcp_python_command,
+            mcp_python_prefix_args=args.mcp_python_prefix_arg,
+            launcher_family=args.launcher_family,
+        )
     elif args.uninstall:
         result = uninstall(args.profile_shells, args.launcher_family, remove_home_plugin=args.remove_home_plugin)
     else:

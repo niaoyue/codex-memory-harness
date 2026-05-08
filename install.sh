@@ -4,6 +4,7 @@ set -u
 SCRIPT_DIR=$(CDPATH= cd "$(dirname "$0")" && pwd)
 INSTALLER="$SCRIPT_DIR/plugins/codex-memory/scripts/install_codex_memory.py"
 AUTO_INSTALL=${CODEX_MEMORY_AUTO_INSTALL_PYTHON:-0}
+DRY_RUN=0
 PY_CMD=
 PY_NAME=
 PY_PREFIX=
@@ -184,6 +185,11 @@ while [ "$remaining" -gt 0 ]; do
         --install-python)
             AUTO_INSTALL=1
             ;;
+        --dry-run)
+            DRY_RUN=1
+            AUTO_INSTALL=0
+            set -- "$@" "--dry-run"
+            ;;
         -UpdateExisting)
             set -- "$@" "--update-existing"
             ;;
@@ -195,6 +201,11 @@ while [ "$remaining" -gt 0 ]; do
             ;;
         -SkipSkills)
             set -- "$@" "--skip-skills"
+            ;;
+        -DryRun)
+            DRY_RUN=1
+            AUTO_INSTALL=0
+            set -- "$@" "--dry-run"
             ;;
         -RemoveHomePlugin)
             set -- "$@" "--remove-home-plugin"
@@ -249,7 +260,7 @@ done
 require_launcher_family
 resolve_python || true
 if [ -z "$PY_CMD" ]; then
-    if [ "$AUTO_INSTALL" = "1" ]; then
+    if [ "$DRY_RUN" != "1" ] && [ "$AUTO_INSTALL" = "1" ]; then
         install_python_best_effort || {
             write_python_hint
             exit 1

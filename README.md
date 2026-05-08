@@ -169,6 +169,18 @@ POSIX shell：
 sh ./install.sh --skip-skills
 ```
 
+安装前如需只读预览会写入哪些 profile、全局 AGENTS、marketplace、bundled skills 和 Codex config：
+
+```bat
+install.bat --dry-run
+```
+
+PowerShell 兼容入口：
+
+```powershell
+.\install.ps1 -DryRun
+```
+
 安装完成后，之后可以通过 Codex 入口检查或修复安装状态：
 
 ```powershell

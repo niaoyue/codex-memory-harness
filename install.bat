@@ -9,6 +9,7 @@ set "PY_CMD="
 set "PY_NAME="
 set "PY_PREFIX="
 set "DETECTED="
+set "DRY_RUN=0"
 
 if "%AUTO_INSTALL%"=="" set "AUTO_INSTALL=0"
 
@@ -62,6 +63,20 @@ if /I "%~1"=="-SkipAgents" (
 )
 if /I "%~1"=="-SkipSkills" (
     call :append_arg "--skip-skills"
+    shift
+    goto :parse_args
+)
+if /I "%~1"=="-DryRun" (
+    set "DRY_RUN=1"
+    set "AUTO_INSTALL=0"
+    call :append_arg "--dry-run"
+    shift
+    goto :parse_args
+)
+if /I "%~1"=="--dry-run" (
+    set "DRY_RUN=1"
+    set "AUTO_INSTALL=0"
+    call :append_arg "--dry-run"
     shift
     goto :parse_args
 )
@@ -161,6 +176,11 @@ set "PY_PREFIX=%CANDIDATE_PREFIX%"
 exit /b 0
 
 :handle_missing_python
+if "%DRY_RUN%"=="1" (
+    call :write_python_hint
+    if defined DETECTED exit /b 126
+    exit /b 127
+)
 if /I "%AUTO_INSTALL%"=="1" (
     call :install_python_with_winget
     if errorlevel 1 exit /b !ERRORLEVEL!

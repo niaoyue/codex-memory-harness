@@ -69,18 +69,36 @@ def plugin_files(plugin_root: Path) -> dict[str, bool]:
 
 
 def marketplace_status(path: Path, plugin_name: str) -> dict[str, Any]:
-    return {
+    status = {
         "path": str(path),
         "exists": path.exists(),
-        "has_entry": has_marketplace_entry(path, plugin_name),
+        "has_entry": False,
+        "parse_ok": True,
+        "error": "",
     }
+    if not path.exists():
+        return status
+    try:
+        status["has_entry"] = has_marketplace_entry(path, plugin_name)
+    except (AttributeError, TypeError, json.JSONDecodeError) as exc:
+        status["parse_ok"] = False
+        status["error"] = str(exc)
+    return status
 
 
 def has_marketplace_entry(path: Path, plugin_name: str) -> bool:
     if not path.exists():
         return False
     payload = json.loads(path.read_text(encoding="utf-8"))
-    return any(item.get("name") == plugin_name for item in payload.get("plugins", []))
+    if not isinstance(payload, dict):
+        raise TypeError("marketplace JSON must be an object")
+    interface = payload.get("interface", {})
+    if not isinstance(interface, dict):
+        raise TypeError("marketplace interface must be an object")
+    plugins = payload.get("plugins", [])
+    if not isinstance(plugins, list):
+        raise TypeError("marketplace plugins must be a list")
+    return any(item.get("name") == plugin_name for item in plugins)
 
 
 def safe_existing_target(path: Path) -> str:
