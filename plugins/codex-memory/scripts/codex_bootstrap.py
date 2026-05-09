@@ -406,7 +406,7 @@ def inspect_state(cwd: Path, *, init: bool) -> dict[str, Any]:
     if not checks["home_agents_mentions_cli_entrypoints"]:
         recommendations.append("更新全局 AGENTS.md，加入 codex memory doctor/init 启动自检入口。")
     if checks["home_plugin_exists"] and not checks["home_plugin_points_to_current"]:
-        recommendations.append("重新运行 install.bat --update-existing，让 home plugin 更新到当前插件版本。")
+        recommendations.append("重新运行当前包安装器并传入 --update-existing，让 home plugin 更新到当前插件版本。")
     if not selected_project:
         recommendations.append("当前目录未识别为项目；如需项目级记忆，请在项目根目录运行 codex memory init。")
     elif not checks["project_commands_exists"] or not checks["project_profile_exists"]:

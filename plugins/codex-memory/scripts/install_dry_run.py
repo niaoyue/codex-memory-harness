@@ -92,9 +92,12 @@ def build_install_dry_run_plan(
     if scope in ("home", "all"):
         home_plugin = _home_plugin_plan(mode, update_existing=update_existing)
         targets["home_plugin"] = home_plugin
+        targets["codex_config"] = _codex_config_plan()
         if home_plugin.get("status") == "installed_elsewhere":
             blocked_items.append(blocked_target("home_plugin", home_plugin["path"], "installed_elsewhere"))
-            targets.update(home_skipped_targets("installed_elsewhere"))
+            skipped_targets = home_skipped_targets("installed_elsewhere")
+            skipped_targets.pop("codex_config", None)
+            targets.update(skipped_targets)
         else:
             home_plugin_path = _effective_home_plugin_path(home_plugin, mode)
             preview_plugin_path = _preview_home_plugin_files_path(home_plugin, mode)
@@ -104,7 +107,6 @@ def build_install_dry_run_plan(
                 else {}
             )
             home_entry_path = _home_plugin_path()
-            targets["codex_config"] = _codex_config_plan()
             targets["home_hooks_config"] = _hooks_config_plan(
                 home_plugin_path,
                 launcher_family,
@@ -193,7 +195,7 @@ def _home_plugin_plan(mode: str, *, update_existing: bool) -> dict[str, Any]:
             "status": "installed_elsewhere",
             "resolved_path": resolved,
             "would_write": False,
-            "recommended_action": "Run install.bat --update-existing to update this installation to the current package.",
+            "recommended_action": "Run the current package installer with --update-existing to update this installation.",
         }
     return {
         "path": str(dst),

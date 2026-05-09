@@ -165,7 +165,7 @@ def _ensure_home_plugin_install(mode: str, *, update_existing: bool) -> dict[str
                 "created": False,
                 "status": "installed_elsewhere",
                 "resolved_path": _safe_existing_target(dst),
-                "recommended_action": "Run install.bat --update-existing to update this installation to the current package.",
+                "recommended_action": "Run the current package installer with --update-existing to update this installation.",
             }
         replacement = _remove_existing_home_plugin(dst)
     if mode == "copy":
@@ -259,14 +259,13 @@ def install(
             mode,
             update_existing=update_existing,
         )
+        result["codex_config"] = ensure_codex_config(home=_home_root(), plugin_root=_plugin_root())
         if result["home_plugin"].get("status") == "installed_elsewhere":
-            result["codex_config"] = {"skipped": True, "reason": "installed_elsewhere"}
             result["home_marketplace"] = {"skipped": True, "reason": "installed_elsewhere"}
             result["home_agents"] = {"skipped": True, "reason": "installed_elsewhere"}
             result["bundled_skills"] = {"skipped": True, "reason": "installed_elsewhere"}
             result["powershell_profiles"] = []
         else:
-            result["codex_config"] = ensure_codex_config(home=_home_root(), plugin_root=_plugin_root())
             result["hooks_config"] = _ensure_hooks_config(
                 _home_plugin_path(),
                 launcher_family=launcher_family,

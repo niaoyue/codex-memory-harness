@@ -345,9 +345,9 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(ensure_mcp_config.call_args.kwargs["launcher_family"], "posix")
         self.assertEqual(result["launcher_family"], "posix")
 
-    def test_install_skips_codex_config_when_home_plugin_is_installed_elsewhere(self) -> None:
+    def test_install_still_repairs_codex_config_when_home_plugin_is_installed_elsewhere(self) -> None:
         with (
-            mock.patch.object(install_codex_memory, "ensure_codex_config") as ensure_config,
+            mock.patch.object(install_codex_memory, "ensure_codex_config", return_value={"modified": True}) as ensure_config,
             mock.patch.object(install_codex_memory, "_ensure_hooks_config") as ensure_hooks_config,
             mock.patch.object(
                 install_codex_memory,
@@ -365,10 +365,9 @@ class InstallerTests(unittest.TestCase):
                 install_skills=True,
             )
 
-        ensure_config.assert_not_called()
+        ensure_config.assert_called_once()
         ensure_hooks_config.assert_not_called()
-        self.assertEqual(result["codex_config"]["reason"], "installed_elsewhere")
-        self.assertTrue(result["codex_config"]["skipped"])
+        self.assertTrue(result["codex_config"]["modified"])
         self.assertEqual(result["bundled_skills"]["reason"], "installed_elsewhere")
 
     def test_install_can_skip_bundled_skills(self) -> None:

@@ -72,6 +72,40 @@ class InstallDryRunTests(unittest.TestCase):
         self.assertIn("bundled_skills", result["targets"])
         self.assertIn("planned_writes", result)
 
+    def test_install_dry_run_still_plans_codex_config_when_home_plugin_installed_elsewhere(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            home_root = Path(temp_dir)
+            codex_home = home_root / ".codex"
+            codex_home.mkdir(parents=True)
+            (codex_home / "config.toml").write_text(
+                "[features]\ncodex_hooks = true\n",
+                encoding="utf-8",
+            )
+            installed_elsewhere = home_root / "plugins" / "codex-memory"
+            installed_elsewhere.parent.mkdir(parents=True)
+            installed_elsewhere.mkdir()
+            (installed_elsewhere / ".codex-plugin").mkdir()
+            old_home = os.environ.get("CODEX_MEMORY_HOME")
+            os.environ["CODEX_MEMORY_HOME"] = str(home_root)
+            try:
+                result = install_codex_memory.build_install_dry_run_plan(
+                    "auto",
+                    "home",
+                    "none",
+                    install_agents=True,
+                    update_existing=False,
+                    install_skills=True,
+                    mcp_python_command="python",
+                    mcp_python_prefix_args=[],
+                )
+            finally:
+                _restore_env("CODEX_MEMORY_HOME", old_home)
+
+        self.assertEqual(result["targets"]["home_plugin"]["status"], "installed_elsewhere")
+        self.assertEqual(result["targets"]["codex_config"]["action"], "set_features.hooks")
+        self.assertTrue(result["targets"]["codex_config"]["would_write"])
+        self.assertEqual(result["targets"]["home_agents"]["reason"], "installed_elsewhere")
+
     def test_install_dry_run_cli_does_not_write_to_isolated_home(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             env = os.environ.copy()

@@ -104,7 +104,7 @@ class HomePluginInstallTests(unittest.TestCase):
             home_plugin_exists = home_plugin.exists()
 
         self.assertEqual(result["status"], "installed_elsewhere")
-        self.assertIn("install.bat --update-existing", result["recommended_action"])
+        self.assertIn("--update-existing", result["recommended_action"])
         self.assertTrue(home_plugin_exists)
 
     @unittest.skipIf(os.name == "nt", "POSIX symlink semantics differ on Windows.")
