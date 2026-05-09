@@ -655,7 +655,7 @@ docs/AI_DIAGNOSTIC_LOGGING.md
 5. 真实 SubAgent 自动执行器：在宿主支持时按 dispatch plan 启动 specialist/coordinator，并回写超时、取消和失败状态。
 6. 发布级完整验证平台：覆盖渠道包、热更、构建产物、回滚材料和平台配置。
 7. 自动历史记忆挖掘：事件账本、候选挖掘、自动提升、context 注入和治理命令。
-8. Session-worktree 绑定：registry、allocator、heartbeat、stale cleanup 和多 session 合并。
+8. Session-worktree 绑定：最小 registry、allocator、heartbeat 和 write-guard 已有；后续补宿主级强制拦截、stale cleanup、recover/prune 和多 session 合并。
 9. 可选本地语义检索：在不开启网络的前提下增强召回。
 10. Memory archive/cleanup 与 retention policy：提供正式归档、清理、按 `task_id` 删除和索引规模控制命令，作为后续语义索引前置条件。
 

@@ -32,9 +32,9 @@
 | Codex 窗口启动 | PowerShell/POSIX shell wrapper 执行 bootstrap / doctor，必要时初始化缺失项目配置 | 已自动处理 | 仅限经过 `codex` / `codexm` wrapper 的 shell 启动；`codex-raw` 或非 wrapper 启动不会自动执行 |
 | Harness 任务生命周期 | `codex harness start` 触发 `before_task` | 已实现运行时能力 | wrapper 只负责窗口启动，不能单独理解每条用户任务；任务开始仍需要 agent、hook 或自动化调用 harness/controller |
 | Workspace 路由 | `before_task` 生成 route plan 和 SubAgent bindings | 已做 lifecycle 软集成 | route plan/bindings 写入 task metadata；低置信度会降级为只读分析或提示确认 |
-| Session worktree | 写任务绑定 primary checkout 或 managed worktree | 未实现 runtime | 已有方案；后续需要 binding registry、allocator、heartbeat、stale cleanup 和 lifecycle 集成 |
+| Session worktree | 写任务绑定 primary checkout 或 managed worktree | 已实现最小 runtime | 已有 `codex workspace session ...`、`worktree list` 和 `write-guard`；后续仍需宿主级 `before_first_write` 强制拦截、stale cleanup 和多 session 合并 |
 | SubAgent 执行 | 按 binding 绑定 project/domain/cwd/scope/rules/profile | 已实现 binding 和 dispatch plan，不自动执行 | 当前不会自动创建真实 SubAgent；`codex workspace schedule` 只生成可执行计划，宿主或主 agent 使用 SubAgent 时必须带上对应 binding |
-| 发布/提交前 gate | 聚合验证、scope guard、敏感扫描、诊断日志 release gate、`codex xhigh review --uncommitted` | 部分实现 | 验证聚合、scope guard、敏感扫描、基础诊断 release gate 和 review 入口已有；在支持 SubAgent 的宿主中可并行派发 xhigh review runner；review preflight/fingerprint/ledger 仍在路线中，且仍不是完整发布平台 |
+| 发布/提交前 gate | 聚合验证、scope guard、敏感扫描、诊断日志 release gate、`codex xhigh review --uncommitted` | 部分实现 | 验证聚合、scope guard、敏感扫描、基础诊断 release gate、review preflight、diff fingerprint、ledger、runner 恢复和 slice planner 已有；仍不是覆盖渠道包、热更、平台配置和回滚材料的完整发布平台 |
 
 因此，当前“第一步”已经覆盖启动自检和任务路由软集成，但还没有做到只靠 wrapper 自动捕获并编排所有用户任务。
 
@@ -274,4 +274,4 @@ AI 诊断日志只存在于实现和验证循环中。
 - 真实 SubAgent 自动执行器。
 - 发布级完整验证平台。
 - 自动历史记忆挖掘 runtime。
-- session-worktree binding registry、allocator、heartbeat、stale cleanup 和 lifecycle 集成。
+- session-worktree 宿主级强制 lifecycle、stale cleanup 和多 session 合并。

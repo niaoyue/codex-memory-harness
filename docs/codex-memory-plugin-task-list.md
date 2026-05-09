@@ -483,7 +483,7 @@
 - 平台化 eval replay
 - memory archive/cleanup 与 retention policy
 - 自动历史记忆挖掘 runtime、候选自动提升、治理命令和 context 注入
-- session-worktree binding registry、allocator、heartbeat、stale cleanup 和多 session 协作
+- session-worktree 宿主级强制 lifecycle、stale cleanup 和多 session 协作
 
 ## 6. 当前状态与下一步
 
