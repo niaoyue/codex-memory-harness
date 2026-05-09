@@ -16,7 +16,7 @@ PLUGIN_SCRIPTS_DIR = PROJECT_ROOT / "plugins" / "codex-memory" / "scripts"
 if str(PLUGIN_SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(PLUGIN_SCRIPTS_DIR))
 
-import workspace_session
+import workspace_session, workspace_session_cli
 import workspace_session_lock
 
 
@@ -294,8 +294,8 @@ class WorkspaceSessionTests(unittest.TestCase):
                 return 0 if payload.get("ok", True) else 2
 
             args = type("Args", (), {"binding_id": "bind-released"})()
-            with mock.patch.object(workspace_session, "print_json", side_effect=capture):
-                exit_code = workspace_session.cmd_heartbeat(args)
+            with mock.patch.object(workspace_session_cli, "print_json", side_effect=capture):
+                exit_code = workspace_session_cli.cmd_heartbeat(args)
 
         self.assertEqual(exit_code, 2)
         self.assertFalse(payloads[0]["ok"])

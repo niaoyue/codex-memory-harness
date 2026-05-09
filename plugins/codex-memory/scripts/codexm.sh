@@ -245,6 +245,7 @@ Codex Workspace commands:
   doctor|scan|route|verify|bind|schedule|scope-check|summarize
   session status|bind|heartbeat|release
   worktree list
+  worktree prune --dry-run
   write-guard --session-id <id> --task-id <id> [--path <path>]
   game-client init --engine unity|laya|cocos
   project-template init --domain game_server|backoffice_web|design_docs|art_pipeline
