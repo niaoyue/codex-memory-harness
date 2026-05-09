@@ -67,7 +67,7 @@ def project_info(cwd: Path) -> dict[str, str]:
     common_dir = git_text(root, ["rev-parse", "--path-format=absolute", "--git-common-dir"])
     head = git_text(root, ["rev-parse", "HEAD"])
     remote = run_git(root, ["remote", "get-url", "origin"], check=False).stdout.strip()
-    key_basis = f"git:{Path(common_dir).resolve()}|{remote}"
+    key_basis = f"git:{Path(common_dir).resolve()}"
     remote_summary = f"sha1:{hashlib.sha1(remote.encode('utf-8')).hexdigest()}" if remote else ""
     return {
         "project_key": hashlib.sha1(key_basis.encode("utf-8")).hexdigest(),
@@ -99,6 +99,8 @@ def managed_binding_can_release(binding: dict[str, Any]) -> bool:
     try:
         if dirty_paths(path):
             return False
+        if binding.get("worktree_kind") != "managed":
+            return True
         head = run_git(path, ["rev-parse", "HEAD"], check=False).stdout.strip()
     except (OSError, RuntimeError):
         return False
@@ -237,8 +239,11 @@ def bind_session(
     lock_path = acquire_registry_lock()
     try:
         active = active_bindings(info["project_key"])
-        existing = find_existing_binding(active, session_id=session_id, task_id=task_id, mode=mode)
         active_write = [item for item in active if item.get("mode") == "write"]
+        existing = find_existing_binding(active, session_id=session_id, task_id=task_id, mode=mode)
+        existing_write = find_existing_binding(active_write, session_id=session_id, task_id=task_id, mode="write")
+        if mode == "read" and existing_write:
+            return {"ok": True, "action": "reuse_binding", "binding": existing_write}
         same_session_writers = [
             item for item in active_write if item.get("session_id") == session_id and item.get("task_id") != task_id
         ]
@@ -316,7 +321,6 @@ def bind_session(
     finally:
         release_registry_lock(lock_path)
 
-
 def path_outside_effective_cwd(path: str, effective_cwd: Path) -> bool:
     candidate = Path(path)
     base = effective_cwd.resolve(strict=False)
@@ -343,11 +347,16 @@ def write_guard(
     current_root = git_root(project_root).resolve()
     effective_cwd = Path(str(binding["effective_cwd"])).resolve(strict=False)
 
-    outside = [
-        path
-        for path in intended_paths or []
-        if path_outside_effective_cwd(path, effective_cwd)
-    ]
+    if current_root != effective_cwd:
+        return {
+            "ok": False,
+            "action": "switch_to_effective_cwd",
+            "reason": binding.get("reason") or "writes must use the bound effective cwd",
+            "effective_cwd": str(effective_cwd),
+            "binding": binding,
+        }
+
+    outside = [path for path in intended_paths or [] if path_outside_effective_cwd(path, effective_cwd)]
     if outside:
         if binding_result.get("action") != "reuse_binding":
             binding = update_binding(str(binding["binding_id"]), "released")
@@ -358,15 +367,6 @@ def write_guard(
             "effective_cwd": str(effective_cwd),
             "binding": binding,
             "violations": outside,
-        }
-
-    if current_root != effective_cwd:
-        return {
-            "ok": False,
-            "action": "switch_to_effective_cwd",
-            "reason": binding.get("reason") or "writes must use the bound effective cwd",
-            "effective_cwd": str(effective_cwd),
-            "binding": binding,
         }
 
     return {
@@ -386,7 +386,7 @@ def update_binding(binding_id: str, status: str) -> dict[str, Any]:
             raise ValueError(f"binding not found: {binding_id}")
         if status == "active" and binding.get("status") not in ACTIVE_STATUSES:
             return binding
-        if status == "released" and binding.get("worktree_kind") == "managed" and not managed_binding_can_release(binding):
+        if status == "released" and binding.get("mode") == "write" and not managed_binding_can_release(binding):
             status = "released_dirty"
         updated = dict(binding)
         updated["status"] = status

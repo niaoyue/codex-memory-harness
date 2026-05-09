@@ -9,6 +9,7 @@ from pathlib import Path
 LOCK_TIMEOUT_SECONDS = 30.0
 LOCK_STALE_SECONDS = 300.0
 OWNED_LOCK_TOKENS: dict[Path, str] = {}
+OWNED_RECLAIM_TOKENS: dict[Path, str] = {}
 
 
 def acquire_registry_lock(registry_path: Path, created_at: str) -> Path:
@@ -33,6 +34,24 @@ def acquire_registry_lock(registry_path: Path, created_at: str) -> Path:
 
 
 def reclaim_stale_lock(lock_path: Path) -> bool:
+    if not lock_is_stale(lock_path):
+        return False
+    guard_path = acquire_reclaim_guard(lock_path)
+    if guard_path is None:
+        return False
+    try:
+        if not lock_is_stale(lock_path):
+            return False
+        try:
+            lock_path.unlink()
+            return True
+        except FileNotFoundError:
+            return True
+    finally:
+        release_reclaim_guard(guard_path)
+
+
+def lock_is_stale(lock_path: Path) -> bool:
     try:
         age = time.time() - lock_path.stat().st_mtime
     except FileNotFoundError:
@@ -40,13 +59,36 @@ def reclaim_stale_lock(lock_path: Path) -> bool:
     if age < LOCK_STALE_SECONDS:
         return False
     owner_pid = lock_owner_pid(lock_path)
-    if owner_pid is not None and process_is_alive(owner_pid):
-        return False
+    return owner_pid is None or not process_is_alive(owner_pid)
+
+
+def acquire_reclaim_guard(lock_path: Path) -> Path | None:
+    guard_path = reclaim_guard_path(lock_path)
+    token = secrets.token_hex(16)
     try:
-        lock_path.unlink()
-        return True
+        fd = os.open(str(guard_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    except FileExistsError:
+        return None
+    try:
+        os.write(fd, f"pid={os.getpid()} token={token}\n".encode("utf-8"))
+    finally:
+        os.close(fd)
+    OWNED_RECLAIM_TOKENS[lock_key(guard_path)] = token
+    return guard_path
+
+
+def release_reclaim_guard(guard_path: Path) -> None:
+    token = OWNED_RECLAIM_TOKENS.pop(lock_key(guard_path), None)
+    if token is None or lock_owner_token(guard_path) != token:
+        return
+    try:
+        guard_path.unlink()
     except FileNotFoundError:
-        return True
+        pass
+
+
+def reclaim_guard_path(lock_path: Path) -> Path:
+    return lock_path.with_name(f"{lock_path.name}.reclaim")
 
 
 def release_registry_lock(lock_path: Path) -> None:

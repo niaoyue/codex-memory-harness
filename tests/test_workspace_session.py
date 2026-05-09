@@ -277,9 +277,9 @@ class WorkspaceSessionTests(unittest.TestCase):
             ]
             active = workspace_session.active_bindings("project-key")
 
-        self.assertEqual(released["status"], "released")
-        self.assertEqual(heartbeat["status"], "released")
-        self.assertEqual([item["status"] for item in records], ["active", "released"])
+        self.assertEqual(released["status"], "released_dirty")
+        self.assertEqual(heartbeat["status"], "released_dirty")
+        self.assertEqual([item["status"] for item in records], ["active", "released_dirty"])
         self.assertEqual(active, [])
 
     def test_heartbeat_command_fails_after_release(self) -> None:
@@ -299,7 +299,7 @@ class WorkspaceSessionTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 2)
         self.assertFalse(payloads[0]["ok"])
-        self.assertEqual(payloads[0]["binding"]["status"], "released")
+        self.assertEqual(payloads[0]["binding"]["status"], "released_dirty")
 
     def test_write_guard_rejects_absolute_path_outside_effective_cwd(self) -> None:
         with temp_registry() as env:

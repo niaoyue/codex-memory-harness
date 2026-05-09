@@ -103,6 +103,66 @@ class WorkspaceSessionSafetyTests(unittest.TestCase):
         self.assertEqual(second["action"], "release_existing_write_binding_required")
         self.assertEqual([item["task_id"] for item in active], ["first-task"])
 
+    def test_read_bind_reuses_active_write_binding_for_same_session_task(self) -> None:
+        with session_env() as env:
+            repo = env.repo
+            first = workspace_session.write_guard(repo, session_id="lease", task_id="lease-task")
+            read = workspace_session.bind_session(repo, session_id="lease", task_id="lease-task", mode="read")
+            info = workspace_session.project_info(repo)
+            records_after_read = workspace_session.read_records()
+            active_after_read = workspace_session.active_bindings(info["project_key"])
+
+            second = workspace_session.write_guard(repo, session_id="second", task_id="second-task")
+
+        self.assertTrue(first["ok"], first)
+        self.assertEqual(read["action"], "reuse_binding")
+        self.assertEqual(read["binding"]["mode"], "write")
+        self.assertEqual(len(records_after_read), 1)
+        self.assertEqual([item["mode"] for item in active_after_read], ["write"])
+        self.assertFalse(second["ok"], second)
+        self.assertEqual(second["binding"]["worktree_kind"], "managed")
+
+    def test_dirty_primary_write_release_is_marked_dirty(self) -> None:
+        with session_env() as env:
+            repo = env.repo
+            result = workspace_session.write_guard(repo, session_id="primary", task_id="primary-task")
+            write_text(repo / "dirty.txt", "dirty\n")
+
+            released = workspace_session.update_binding(result["binding"]["binding_id"], "released")
+
+        self.assertEqual(released["status"], "released_dirty")
+
+    def test_dirty_primary_absolute_path_preserves_managed_switch_binding(self) -> None:
+        with session_env() as env:
+            repo = env.repo
+            write_text(repo / "dirty.txt", "dirty\n")
+            result = workspace_session.write_guard(
+                repo,
+                session_id="absolute",
+                task_id="absolute-task",
+                intended_paths=[str(repo / "README.md")],
+            )
+            active = workspace_session.active_bindings(workspace_session.project_info(repo)["project_key"])
+
+        self.assertFalse(result["ok"], result)
+        self.assertEqual(result["action"], "switch_to_effective_cwd")
+        self.assertEqual([item["binding_id"] for item in active], [result["binding"]["binding_id"]])
+
+    def test_project_key_stays_stable_when_remote_changes(self) -> None:
+        with session_env() as env:
+            repo = env.repo
+            before = workspace_session.project_info(repo)
+            first = workspace_session.write_guard(repo, session_id="first", task_id="first-task")
+            run_git(repo, ["remote", "add", "origin", "https://example.invalid/repo.git"])
+            after = workspace_session.project_info(repo)
+
+            second = workspace_session.write_guard(repo, session_id="second", task_id="second-task")
+
+        self.assertEqual(after["project_key"], before["project_key"])
+        self.assertTrue(first["ok"], first)
+        self.assertFalse(second["ok"], second)
+        self.assertEqual(second["binding"]["worktree_kind"], "managed")
+
     def test_stale_lock_with_live_owner_is_not_reclaimed_by_age_only(self) -> None:
         with temp_registry() as env:
             lock = env.registry.with_name(f"{env.registry.name}.lock")
@@ -113,6 +173,39 @@ class WorkspaceSessionSafetyTests(unittest.TestCase):
             reclaimed = workspace_session_lock.reclaim_stale_lock(lock)
 
         self.assertFalse(reclaimed)
+
+    def test_stale_lock_reclaim_uses_single_reclaimer_guard(self) -> None:
+        with temp_registry() as env:
+            lock = env.registry.with_name(f"{env.registry.name}.lock")
+            guard = workspace_session_lock.reclaim_guard_path(lock)
+            lock.write_text("pid=0 token=old created_at=old\n", encoding="utf-8")
+            guard.write_text("pid=0 token=other\n", encoding="utf-8")
+            old = time.time() - workspace_session_lock.LOCK_STALE_SECONDS - 5
+            os.utime(lock, (old, old))
+
+            reclaimed = workspace_session_lock.reclaim_stale_lock(lock)
+            lock_still_exists = lock.exists()
+
+            guard.unlink()
+
+        self.assertFalse(reclaimed)
+        self.assertTrue(lock_still_exists)
+
+    def test_stale_lock_reclaim_releases_guard_after_unlink(self) -> None:
+        with temp_registry() as env:
+            lock = env.registry.with_name(f"{env.registry.name}.lock")
+            guard = workspace_session_lock.reclaim_guard_path(lock)
+            lock.write_text("pid=0 token=old created_at=old\n", encoding="utf-8")
+            old = time.time() - workspace_session_lock.LOCK_STALE_SECONDS - 5
+            os.utime(lock, (old, old))
+
+            reclaimed = workspace_session_lock.reclaim_stale_lock(lock)
+            lock_still_exists = lock.exists()
+            guard_still_exists = guard.exists()
+
+        self.assertTrue(reclaimed)
+        self.assertFalse(lock_still_exists)
+        self.assertFalse(guard_still_exists)
 
     def test_stale_former_owner_does_not_release_new_owner_lock(self) -> None:
         with temp_registry() as env:
