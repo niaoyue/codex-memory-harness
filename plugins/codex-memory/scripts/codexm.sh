@@ -16,6 +16,7 @@ WORKSPACE_ROUTER_SCRIPT="$SCRIPT_DIR/workspace_router.py"
 WORKSPACE_VERIFIER_SCRIPT="$SCRIPT_DIR/workspace_verifier.py"
 WORKSPACE_SUBAGENTS_SCRIPT="$SCRIPT_DIR/workspace_subagents.py"
 SUBAGENT_SCHEDULER_SCRIPT="$SCRIPT_DIR/subagent_scheduler.py"
+WORKSPACE_SESSION_SCRIPT="$SCRIPT_DIR/workspace_session.py"
 REVIEW_GATE_SCRIPT="$SCRIPT_DIR/review_gate_runner.py"
 REVIEW_WORKFLOW_SCRIPT="$SCRIPT_DIR/review_workflow.py"
 GAME_CLIENT_PROFILES_SCRIPT="$SCRIPT_DIR/game_client_profiles.py"
@@ -242,6 +243,9 @@ write_workspace_help() {
     cat <<'EOF'
 Codex Workspace commands:
   doctor|scan|route|verify|bind|schedule|scope-check|summarize
+  session status|bind|heartbeat|release
+  worktree list
+  write-guard --session-id <id> --task-id <id> [--path <path>]
   game-client init --engine unity|laya|cocos
   project-template init --domain game_server|backoffice_web|design_docs|art_pipeline
 EOF
@@ -334,6 +338,7 @@ invoke_workspace() {
         verify) run_py "$WORKSPACE_VERIFIER_SCRIPT" --project-root "$cwd" "$@" ;;
         bind|scope-check|summarize) run_py "$WORKSPACE_SUBAGENTS_SCRIPT" --project-root "$cwd" "$command_name" "$@" ;;
         schedule) run_py "$SUBAGENT_SCHEDULER_SCRIPT" --project-root "$cwd" "$@" ;;
+        session|worktree|write-guard) run_py "$WORKSPACE_SESSION_SCRIPT" --project-root "$cwd" "$command_name" "$@" ;;
         game-client) run_py "$GAME_CLIENT_PROFILES_SCRIPT" --project-root "$cwd" "$@" ;;
         project-template) run_py "$WORKSPACE_BUSINESS_TEMPLATES_SCRIPT" --project-root "$cwd" "$@" ;;
         *) echo "Unknown Codex Workspace command: $command_name. Run 'codex workspace help' for usage." >&2; exit 64 ;;

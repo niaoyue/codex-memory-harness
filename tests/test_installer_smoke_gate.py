@@ -40,6 +40,7 @@ class InstallerSmokeGateTests(unittest.TestCase):
         self.assertIn("CODEX_MEMORY_HOME", verifier)
         self.assertIn("CODEX_MEMORY_CWD", verifier)
         self.assertIn("PYTHONDONTWRITEBYTECODE", verifier)
+        self.assertIn("BEHAVIOR_TEST_TIMEOUT_SECONDS", verifier)
         self.assertIn("compile(source", verifier)
         self.assertNotIn("py_compile", verifier)
         self.assertIn("harness-release-gate", verifier)

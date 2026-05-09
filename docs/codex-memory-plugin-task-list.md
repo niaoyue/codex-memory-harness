@@ -94,9 +94,9 @@
 | T76 | 22 | 实现 findings loop | 结构化记录 findings、resolve/reopen、修复后强制重跑最终 gate | T74,T75 | done |
 | T77 | 22 | 实现 review slice planner | 按路径、风险、删除/生成文件和验证边界输出 reviewable slices | T74 | done |
 | T78 | 23 | 设计 session-worktree 绑定方案 | `docs/SESSION_WORKTREE_BINDING.md`，明确 lease、heartbeat、stale、cleanup、多 session 同 task | T52,T53 | done |
-| T79 | 23 | 实现 binding registry | 用户私有 registry、project_key、session_id、task_id、binding_id、file lock 和 heartbeat | T78 | todo |
-| T80 | 23 | 实现 worktree allocator | 单 session 绑定 primary checkout，并发写同项目时创建 managed worktree 和 session branch | T79 | todo |
-| T81 | 23 | 集成 session binding lifecycle | before_task/before_first_write/after_tool/before_response/on_task_complete 维护 binding 和 effective_cwd | T80,T52 | todo |
+| T79 | 23 | 实现 binding registry | 用户私有 registry、project_key、session_id、task_id、binding_id、file lock 和 heartbeat | T78 | done |
+| T80 | 23 | 实现 worktree allocator | 单 session 绑定 primary checkout，并发写同项目时创建 managed worktree 和 session branch | T79 | done |
+| T81 | 23 | 集成 session binding lifecycle | 最小 `write-guard` 已落地；完整 before_task/before_first_write/after_tool/before_response/on_task_complete 强制接入仍需后续 hook/宿主支持 | T80,T52 | doing |
 | T82 | 23 | 实现 stale 与 cleanup 治理 | doctor 展示 stale/dirty orphan/prunable，dry-run prune，confirm 后只清理 clean managed worktree | T81,T65 | todo |
 | T83 | 23 | 支持多 session 同 task 协作 | 与 SubAgent binding/scope guard 联动，coordinator 合并 specialist branches，final gate 绑定 integration worktree | T81,T53,T74 | todo |
 
@@ -523,4 +523,4 @@
 - Step 34 进行中：安装器 dry-run、旧全局 memory marker 迁移工具和 custom agents 模板已完成；memory archive/cleanup 与可选语义检索 provider 尚未实现。
 - Step 35 计划：自动历史记忆挖掘 runtime。该能力以自动化为默认目标：低风险高置信用户习惯自动 accepted，高风险、冲突或低证据候选才进入待确认队列，避免要求用户每次手动整理。
 - Step 36 已完成：review gate 优化 runtime 已提供 `codex review status/preflight/plan/record/findings/ledger`，保留 `codex xhigh review --uncommitted` 最终语义，通过 preflight、diff fingerprint、review ledger、runner 恢复记录和 slice planner 降低长耗时与重复失败。
-- Step 37 计划：session-worktree 绑定 runtime。该能力让写任务自动获得明确 `effective_cwd`，并发写同一项目时创建 managed worktree，通过 lease、heartbeat、stale cleanup 和 scope guard 管理生命周期。
+- Step 37 进行中：最小 session-worktree write guard 已提供 `codex workspace session ...`、`codex workspace worktree list` 和 `codex workspace write-guard ...`；当前能在 dirty primary checkout 或已有其他 active write lease 时创建 managed worktree 并返回 `effective_cwd`。后续还需把 before_first_write 做成宿主/Hook 强制拦截，并补 stale cleanup 与多 session 合并。

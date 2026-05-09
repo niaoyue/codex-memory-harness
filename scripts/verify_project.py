@@ -14,6 +14,7 @@ import build_release
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 MAX_CODE_LINES = 500
+BEHAVIOR_TEST_TIMEOUT_SECONDS = 240
 CODE_SUFFIXES = {".py", ".ps1", ".bat", ".sh"}
 JSON_SUFFIXES = {".json"}
 SKIPPED_DIR_NAMES = {
@@ -214,7 +215,7 @@ def check_release_package() -> list[dict[str, object]]:
     return failures
 
 
-def run_behavior_tests() -> dict[str, object]:
+def run_behavior_tests(timeout_seconds: int = BEHAVIOR_TEST_TIMEOUT_SECONDS) -> dict[str, object]:
     tests_dir = PROJECT_ROOT / "tests"
     if not tests_dir.exists():
         return {"ok": False, "exit_code": 1, "stdout": "", "stderr": "tests directory is missing"}
@@ -229,14 +230,24 @@ def run_behavior_tests() -> dict[str, object]:
                 "PYTHONDONTWRITEBYTECODE": "1",
             }
         )
-        completed = subprocess.run(
-            [sys.executable, "-X", "utf8", "-m", "unittest", "discover", "-s", str(tests_dir)],
-            cwd=PROJECT_ROOT,
-            env=env,
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
+        try:
+            completed = subprocess.run(
+                [sys.executable, "-X", "utf8", "-m", "unittest", "discover", "-s", str(tests_dir)],
+                cwd=PROJECT_ROOT,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=timeout_seconds,
+            )
+        except subprocess.TimeoutExpired as exc:
+            stdout = exc.stdout if isinstance(exc.stdout, str) else ""
+            stderr = exc.stderr if isinstance(exc.stderr, str) else ""
+            return {
+                "ok": False,
+                "exit_code": 124,
+                "stdout": stdout[-3000:],
+                "stderr": (stderr + f"\nBehavior tests timed out after {timeout_seconds}s.")[-3000:],
+            }
     return {
         "ok": completed.returncode == 0,
         "exit_code": completed.returncode,

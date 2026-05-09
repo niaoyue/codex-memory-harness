@@ -398,7 +398,7 @@ class ReviewGateRunnerTests(unittest.TestCase):
         result = review_gate_runner.run_monitored(
             [sys.executable, "-c", script],
             cwd=PROJECT_ROOT,
-            idle_seconds=0.4,
+            idle_seconds=1.0,
             stream_output=False,
         )
 

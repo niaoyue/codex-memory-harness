@@ -23,6 +23,7 @@ $WorkspaceRouterScript = Join-Path $ScriptRoot "workspace_router.py"
 $WorkspaceVerifierScript = Join-Path $ScriptRoot "workspace_verifier.py"
 $WorkspaceSubagentsScript = Join-Path $ScriptRoot "workspace_subagents.py"
 $SubagentSchedulerScript = Join-Path $ScriptRoot "subagent_scheduler.py"
+$WorkspaceSessionScript = Join-Path $ScriptRoot "workspace_session.py"
 $ReviewGateScript = Join-Path $ScriptRoot "review_gate_runner.py"
 $ReviewWorkflowScript = Join-Path $ScriptRoot "review_workflow.py"
 $GameClientProfilesScript = Join-Path $ScriptRoot "game_client_profiles.py"
@@ -76,7 +77,6 @@ function Resolve-PythonRuntime {
     }
     return [pscustomobject]@{ Command = $null; PrefixArgs = @(); Detected = $detected }
 }
-
 function Write-PythonDependencyHint {
     param([string[]]$Detected = @())
     Write-Host "Python 3.11 or newer is required to run Codex Memory commands." -ForegroundColor Yellow
@@ -96,7 +96,6 @@ function Require-PythonRuntime {
     }
     return $runtime
 }
-
 function Invoke-PythonScriptCapture {
     param([Parameter(Mandatory = $true)][string]$ScriptPath, [string[]]$Arguments = @())
     $runtime = Require-PythonRuntime
@@ -174,6 +173,7 @@ function Write-WorkspaceHelp {
     @"
 Codex Workspace 命令：
   doctor|scan|route|verify|bind|schedule|scope-check|summarize
+  session status|bind|heartbeat|release; worktree list; write-guard --session-id <id> --task-id <id> [--path <path>]
   game-client init --engine unity|laya|cocos
   project-template init --domain game_server|backoffice_web|design_docs|art_pipeline
 "@
@@ -250,7 +250,6 @@ function Invoke-MemoryCommand {
         }
     }
 }
-
 function Invoke-HarnessCommand {
     param([string[]]$Arguments = @())
     $cwd = (Get-Location).ProviderPath
@@ -281,7 +280,6 @@ function Invoke-HarnessCommand {
         }
     }
 }
-
 function Invoke-PackageCommand {
     param([string[]]$Arguments = @())
     $cwd = (Get-Location).ProviderPath
@@ -312,7 +310,6 @@ function Invoke-PackageCommand {
         }
     }
 }
-
 function Invoke-WorkspaceCommand {
     param([string[]]$Arguments = @())
     $cwd = (Get-Location).ProviderPath
@@ -320,10 +317,8 @@ function Invoke-WorkspaceCommand {
         Write-WorkspaceHelp
         exit 0
     }
-
     $command = $Arguments[0].ToLowerInvariant()
     $remaining = if ($Arguments.Count -gt 1) { $Arguments[1..($Arguments.Count - 1)] } else { @() }
-
     switch ($command) {
         "doctor" {
             Invoke-PythonScriptAndExit -ScriptPath $WorkspaceScript -Arguments (@("--workspace-root", $cwd, "doctor") + $remaining)
@@ -341,6 +336,9 @@ function Invoke-WorkspaceCommand {
             Invoke-PythonScriptAndExit -ScriptPath $WorkspaceSubagentsScript -Arguments (@("--project-root", $cwd, "bind") + $remaining)
         }
         "schedule" { Invoke-PythonScriptAndExit -ScriptPath $SubagentSchedulerScript -Arguments (@("--project-root", $cwd) + $remaining) }
+        "session" { Invoke-PythonScriptAndExit -ScriptPath $WorkspaceSessionScript -Arguments (@("--project-root", $cwd, $command) + $remaining) }
+        "worktree" { Invoke-PythonScriptAndExit -ScriptPath $WorkspaceSessionScript -Arguments (@("--project-root", $cwd, $command) + $remaining) }
+        "write-guard" { Invoke-PythonScriptAndExit -ScriptPath $WorkspaceSessionScript -Arguments (@("--project-root", $cwd, $command) + $remaining) }
         "game-client" { Invoke-PythonScriptAndExit -ScriptPath $GameClientProfilesScript -Arguments (@("--project-root", $cwd) + $remaining) }
         "project-template" { Invoke-PythonScriptAndExit -ScriptPath $WorkspaceBusinessTemplatesScript -Arguments (@("--project-root", $cwd) + $remaining) }
         "scope-check" {

@@ -87,13 +87,13 @@ flowchart TD
 建议路径：
 
 ```text
-<repo-parent>/.codex-worktrees/<repo-name>/<task-id>-<session-short>/
+<repo-parent>/.codex-worktrees/<repo-name>/<task-slug>-<task-digest>-<session-short>/
 ```
 
 建议分支：
 
 ```text
-codex/<task-id>/<session-short>
+codex/<task-slug>-<task-digest>/<session-short>
 ```
 
 命名要求：
@@ -198,14 +198,17 @@ doctor 或 session start 应输出：
 
 ```powershell
 codex workspace session status
-codex workspace session bind --task-id <task-id> --mode read|write
+codex workspace session bind --session-id <session-id> --task-id <task-id> --mode read|write
 codex workspace session heartbeat --binding-id <binding-id>
 codex workspace session release --binding-id <binding-id>
 codex workspace worktree list
+codex workspace write-guard --session-id <session-id> --task-id <task-id> [--path <path>]
 codex workspace worktree prune --dry-run
 codex workspace worktree prune --confirm
 codex workspace worktree recover <binding-id>
 ```
+
+当前最小 runtime 已实现 `session status/bind/heartbeat/release`、`worktree list` 和 `write-guard`。`write-guard` 会在 primary checkout dirty 或同一项目已有其他 active write lease 时创建 managed worktree，并返回 `switch_to_effective_cwd` 与新的 `effective_cwd`。完整的宿主级 `before_first_write` 拦截、stale/prune/recover 和多 session 合并仍是后续任务。
 
 `bind` 返回结构化结果：
 
