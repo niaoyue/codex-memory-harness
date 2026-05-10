@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import subprocess
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -28,6 +29,7 @@ def build_cleanup_report(
         "stale_bindings": [item for item in inspected if item["computed_status"] == "stale"],
         "dirty_orphans": [item for item in inspected if item["cleanup_state"] == "dirty_orphan"],
         "prunable": [item for item in inspected if item["cleanup_state"] == "prunable"],
+        "pruned_bindings": [item for item in inspected if item["cleanup_state"] == "pruned"],
         "needs_user_review": [
             item for item in inspected if item["cleanup_state"] in {"dirty_orphan", "needs_user_review"}
         ],
@@ -53,8 +55,68 @@ def build_prune_plan(
         "candidates": candidates,
         "blocked": [
             item for item in report["bindings"]
-            if item["worktree_kind"] == "managed" and item["cleanup_state"] != "prunable"
+            if item["worktree_kind"] == "managed" and item["cleanup_state"] not in {"prunable", "pruned"}
         ],
+    }
+
+
+def execute_prune_confirm(
+    project_info: dict[str, str],
+    bindings: list[dict[str, Any]],
+    registry_path: Path,
+    record_pruned: Callable[[dict[str, Any]], None],
+    *,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    report = build_cleanup_report(project_info, bindings, registry_path, now=now)
+    latest_by_id = {str(binding.get("binding_id") or ""): binding for binding in bindings}
+    timestamp = format_timestamp(now)
+    pruned: list[dict[str, Any]] = []
+    failed: list[dict[str, Any]] = []
+    blocked = [
+        item for item in report["bindings"]
+        if item["worktree_kind"] == "managed" and item["cleanup_state"] not in {"prunable", "pruned"}
+    ]
+    candidates: list[dict[str, Any]] = []
+
+    for candidate in report["prunable"]:
+        guard = validate_prune_candidate(project_info, candidate)
+        if guard["ok"]:
+            candidates.append({**candidate, "prune_guard": guard})
+        else:
+            blocked.append({**candidate, "prune_guard": guard})
+
+    for candidate in candidates:
+        guard = candidate["prune_guard"]
+        binding_id = str(candidate["binding_id"])
+        raw = latest_by_id.get(binding_id)
+        if raw is None:
+            failed.append({**candidate, "error": "binding vanished before prune"})
+            break
+        try:
+            run_git(Path(project_info["project_root"]), ["worktree", "remove", guard["path"]])
+            updated = dict(raw)
+            updated["status"] = "pruned"
+            updated["updated_at"] = timestamp
+            updated["pruned_at"] = timestamp
+            updated["reason"] = "managed worktree pruned after explicit confirm"
+            record_pruned(updated)
+            pruned.append({**candidate, "status_after": "pruned"})
+        except (OSError, RuntimeError, subprocess.SubprocessError) as exc:
+            failed.append({**candidate, "error": str(exc)})
+            break
+
+    return {
+        "ok": not failed,
+        "dry_run": False,
+        "project_key": report["project_key"],
+        "project_root": report["project_root"],
+        "registry_path": report["registry_path"],
+        "candidate_count": len(candidates),
+        "pruned_count": len(pruned),
+        "pruned": pruned,
+        "blocked": blocked,
+        "failed": failed,
     }
 
 
@@ -86,6 +148,8 @@ def classify_cleanup_state(binding: dict[str, Any], git_state: dict[str, Any], *
     status = str(binding.get("status") or "")
     if binding.get("worktree_kind") != "managed":
         return "stale" if stale else "not_managed"
+    if status == "pruned":
+        return "pruned"
     if status == "released" and git_state.get("clean_at_base"):
         return "prunable"
     if stale and not git_state.get("clean_at_base"):
@@ -118,11 +182,67 @@ def cleanup_reason(
         if git_state.get("head") and not git_state.get("base_head_matches"):
             return "managed worktree branch is ahead or no longer at the recorded base head"
         return "managed worktree is not safe to prune automatically"
+    if cleanup_state == "pruned":
+        return "managed worktree was already pruned"
     if binding.get("worktree_kind") != "managed":
         return "primary checkout bindings are never pruned"
     if stale:
         return "binding heartbeat exceeded the stale threshold"
     return "binding is still active"
+
+
+def validate_prune_candidate(project_info: dict[str, str], candidate: dict[str, Any]) -> dict[str, Any]:
+    errors: list[str] = []
+    git_state = candidate.get("git") if isinstance(candidate.get("git"), dict) else {}
+    raw_path = str(candidate.get("effective_cwd") or git_state.get("path") or "")
+    path = Path(raw_path)
+    if candidate.get("cleanup_state") != "prunable":
+        errors.append("cleanup_state is not prunable")
+    if candidate.get("worktree_kind") != "managed":
+        errors.append("binding is not a managed worktree")
+    if not raw_path:
+        errors.append("effective_cwd is empty")
+    if not git_state.get("exists"):
+        errors.append("worktree path does not exist")
+    if not git_state.get("is_git_worktree"):
+        errors.append("path is not a git worktree")
+    if not git_state.get("status_ok"):
+        errors.append("git status did not complete successfully")
+    if not git_state.get("clean_at_base"):
+        errors.append("worktree is not clean at the recorded base head")
+
+    managed_root = managed_worktree_root(project_info)
+    resolved_path = path.resolve(strict=False)
+    resolved_managed_root = managed_root.resolve(strict=False)
+    project_root = Path(project_info["project_root"]).resolve(strict=False)
+    if not path.is_absolute():
+        errors.append("effective_cwd must be absolute")
+    if resolved_path == project_root:
+        errors.append("refusing to prune the project root")
+    if resolved_path == resolved_managed_root:
+        errors.append("refusing to prune the managed worktree container")
+    try:
+        resolved_path.relative_to(resolved_managed_root)
+    except ValueError:
+        errors.append("effective_cwd is outside the managed worktree container")
+
+    return {
+        "ok": not errors,
+        "errors": errors,
+        "path": str(resolved_path),
+        "managed_root": str(resolved_managed_root),
+    }
+
+
+def managed_worktree_root(project_info: dict[str, str]) -> Path:
+    git_common_dir = str(project_info.get("git_common_dir") or "").strip()
+    anchor = Path(git_common_dir).parent if git_common_dir else Path(project_info["project_root"])
+    return anchor.parent / ".codex-worktrees" / anchor.name
+
+
+def format_timestamp(now: datetime | None = None) -> str:
+    current = now or datetime.now(timezone.utc)
+    return current.astimezone(timezone.utc).replace(microsecond=0).isoformat()
 
 
 def inspect_worktree(binding: dict[str, Any]) -> dict[str, Any]:

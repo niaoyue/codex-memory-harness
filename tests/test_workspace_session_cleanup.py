@@ -11,7 +11,7 @@ TESTS_DIR = Path(__file__).resolve().parent
 if str(TESTS_DIR) not in sys.path:
     sys.path.insert(0, str(TESTS_DIR))
 
-from test_workspace_session import session_env, write_text, workspace_session
+from test_workspace_session import _info, session_env, temp_registry, write_text, workspace_session
 import workspace_session_cli
 import workspace_session_cleanup
 
@@ -37,6 +37,55 @@ class WorkspaceSessionCleanupTests(unittest.TestCase):
         self.assertEqual(plan["candidate_count"], 1)
         self.assertEqual(plan["candidates"][0]["cleanup_state"], "prunable")
         self.assertTrue(managed_exists_after_plan, "dry-run cleanup must not delete the worktree")
+
+    def test_confirm_prunes_released_clean_managed_worktree(self) -> None:
+        with session_env() as env:
+            repo = env.repo
+            write_text(repo / "primary-dirty.txt", "dirty\n")
+            result = workspace_session.write_guard(repo, session_id="confirm", task_id="confirm-task")
+            managed = Path(result["effective_cwd"])
+            released = workspace_session.update_binding(result["binding"]["binding_id"], "released")
+
+            prune = workspace_session.worktree_prune_confirm(repo)
+            latest = {
+                item["binding_id"]: item
+                for item in workspace_session.latest_bindings()
+            }
+            follow_up_plan = workspace_session.worktree_prune_plan(repo)
+
+        self.assertEqual(released["status"], "released")
+        self.assertTrue(prune["ok"], prune)
+        self.assertFalse(prune["dry_run"])
+        self.assertEqual(prune["pruned_count"], 1)
+        self.assertEqual(prune["pruned"][0]["binding_id"], released["binding_id"])
+        self.assertFalse(managed.exists(), "confirmed cleanup should remove the managed worktree")
+        self.assertEqual(latest[released["binding_id"]]["status"], "pruned")
+        self.assertEqual(follow_up_plan["candidate_count"], 0)
+
+    def test_confirm_blocks_paths_outside_managed_container(self) -> None:
+        with temp_registry() as env:
+            project_root = env.root / "repo"
+            outside = env.root / "outside"
+            outside.mkdir(parents=True)
+            candidate = {
+                "binding_id": "bind-outside",
+                "cleanup_state": "prunable",
+                "worktree_kind": "managed",
+                "effective_cwd": str(outside),
+                "git": {
+                    "path": str(outside),
+                    "exists": True,
+                    "is_git_worktree": True,
+                    "status_ok": True,
+                    "dirty_paths": [],
+                    "clean_at_base": True,
+                },
+            }
+
+            guard = workspace_session_cleanup.validate_prune_candidate(_info(project_root), candidate)
+
+        self.assertFalse(guard["ok"])
+        self.assertIn("effective_cwd is outside the managed worktree container", guard["errors"])
 
     def test_stale_dirty_managed_worktree_requires_user_review(self) -> None:
         with session_env() as env:
@@ -99,7 +148,7 @@ class WorkspaceSessionCleanupTests(unittest.TestCase):
 
     def test_worktree_prune_requires_dry_run_flag(self) -> None:
         with session_env() as env:
-            args = type("Args", (), {"project_root": str(env.repo), "dry_run": False})()
+            args = type("Args", (), {"project_root": str(env.repo), "dry_run": False, "confirm": False})()
             payloads: list[dict[str, object]] = []
 
             def capture(payload: dict[str, object]) -> int:
@@ -112,6 +161,21 @@ class WorkspaceSessionCleanupTests(unittest.TestCase):
                 exit_code = workspace_session_cli.cmd_worktree_prune(args)
             finally:
                 workspace_session_cli.print_json = original_print_json
+
+        self.assertEqual(exit_code, 2)
+        self.assertFalse(payloads[0]["ok"])
+
+    def test_worktree_prune_rejects_conflicting_flags(self) -> None:
+        with session_env() as env:
+            args = type("Args", (), {"project_root": str(env.repo), "dry_run": True, "confirm": True})()
+            payloads: list[dict[str, object]] = []
+
+            def capture(payload: dict[str, object]) -> int:
+                payloads.append(payload)
+                return 0 if payload.get("ok", True) else 2
+
+            with mock.patch.object(workspace_session_cli, "print_json", side_effect=capture):
+                exit_code = workspace_session_cli.cmd_worktree_prune(args)
 
         self.assertEqual(exit_code, 2)
         self.assertFalse(payloads[0]["ok"])

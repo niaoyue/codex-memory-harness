@@ -97,7 +97,7 @@
 | T79 | 23 | 实现 binding registry | 用户私有 registry、project_key、session_id、task_id、binding_id、file lock 和 heartbeat | T78 | done |
 | T80 | 23 | 实现 worktree allocator | 单 session 绑定 primary checkout，并发写同项目时创建 managed worktree 和 session branch | T79 | done |
 | T81 | 23 | 集成 session binding lifecycle | 最小 `write-guard` 已落地；完整 before_task/before_first_write/after_tool/before_response/on_task_complete 强制接入仍需后续 hook/宿主支持 | T80,T52 | doing |
-| T82 | 23 | 实现 stale 与 cleanup 治理 | `worktree list` 已展示 stale/dirty orphan/prunable，`worktree prune --dry-run` 已输出候选；confirm 清理 clean managed worktree 仍待后续实现 | T81,T65 | doing |
+| T82 | 23 | 实现 stale 与 cleanup 治理 | `worktree list` 已展示 stale/dirty orphan/prunable/pruned，`worktree prune --dry-run` 已输出候选，`worktree prune --confirm` 已重新校验并清理 clean managed worktree；recover 仍待后续实现 | T81,T65 | doing |
 | T83 | 23 | 支持多 session 同 task 协作 | 与 SubAgent binding/scope guard 联动，coordinator 合并 specialist branches，final gate 绑定 integration worktree | T81,T53,T74 | todo |
 
 ## 3. 当前推荐执行步
@@ -524,4 +524,4 @@
 - Step 35 计划：自动历史记忆挖掘 runtime。该能力以自动化为默认目标：低风险高置信用户习惯自动 accepted，高风险、冲突或低证据候选才进入待确认队列，避免要求用户每次手动整理。
 - Step 36 已完成：review gate 优化 runtime 已提供 `codex review status/preflight/plan/record/findings/ledger`，保留 `codex xhigh review --uncommitted` 最终语义，通过 preflight、diff fingerprint、review ledger、runner 恢复记录和 slice planner 降低长耗时与重复失败。
 - Step 37 进行中：最小 session-worktree write guard 已提供 `codex workspace session ...`、`codex workspace worktree list` 和 `codex workspace write-guard ...`；当前能在 dirty primary checkout 或已有其他 active write lease 时创建 managed worktree 并返回 `effective_cwd`。后续还需把 before_first_write 做成宿主/Hook 强制拦截，并补 stale cleanup 与多 session 合并。
-- Step 38 进行中：stale/cleanup 治理已完成只读与 dry-run 切片；`codex workspace worktree list` 会展示 active、stale、dirty orphan、prunable 和 needs_user_review，`codex workspace worktree prune --dry-run` 只输出 released 且 clean at base 的 managed worktree 候选，不执行删除。后续还需实现 `--confirm` 的严格路径护栏和实际清理。
+- Step 38 进行中：stale/cleanup 治理已完成只读、dry-run 和 confirm 清理切片；`codex workspace worktree list` 会展示 active、stale、dirty orphan、prunable、pruned 和 needs_user_review，`codex workspace worktree prune --dry-run` 只输出 released 且 clean at base 的 managed worktree 候选，不执行删除，`codex workspace worktree prune --confirm` 会重新校验 Git 状态和 managed worktree 容器路径后执行 `git worktree remove` 并把 binding 标记为 `pruned`。后续还需实现 recover 与多 session 合并。

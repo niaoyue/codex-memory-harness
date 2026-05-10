@@ -47,8 +47,9 @@ def build_parser() -> argparse.ArgumentParser:
     worktree_sub = worktree.add_subparsers(dest="worktree_command", required=True)
     list_cmd = worktree_sub.add_parser("list", help="List bindings and cleanup state for the current project.")
     list_cmd.set_defaults(func=cmd_worktree_list)
-    prune_cmd = worktree_sub.add_parser("prune", help="Show managed worktrees that are safe to prune.")
+    prune_cmd = worktree_sub.add_parser("prune", help="Prune released clean managed worktrees.")
     prune_cmd.add_argument("--dry-run", action="store_true", help="Only report candidates; do not delete worktrees.")
+    prune_cmd.add_argument("--confirm", action="store_true", help="Remove safe candidates after re-validating guards.")
     prune_cmd.set_defaults(func=cmd_worktree_prune)
     return parser
 
@@ -94,9 +95,13 @@ def cmd_worktree_list(args: argparse.Namespace) -> int:
 
 
 def cmd_worktree_prune(args: argparse.Namespace) -> int:
-    if not args.dry_run:
-        return print_json({"ok": False, "error": "only worktree prune --dry-run is implemented"})
-    return print_json(workspace_session.worktree_prune_plan(Path(args.project_root)))
+    if args.dry_run and args.confirm:
+        return print_json({"ok": False, "error": "choose only one of --dry-run or --confirm"})
+    if args.dry_run:
+        return print_json(workspace_session.worktree_prune_plan(Path(args.project_root)))
+    if args.confirm:
+        return print_json(workspace_session.worktree_prune_confirm(Path(args.project_root)))
+    return print_json({"ok": False, "error": "worktree prune requires --dry-run or --confirm"})
 
 
 def main(argv: list[str] | None = None) -> int:
