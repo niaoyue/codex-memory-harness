@@ -208,7 +208,7 @@ codex workspace worktree prune --confirm
 codex workspace worktree recover <binding-id>
 ```
 
-当前最小 runtime 已实现 `session status/bind/heartbeat/release`、`worktree list`、`worktree prune --dry-run`、`worktree prune --confirm` 和 `write-guard`。`write-guard` 会在 primary checkout dirty 或同一项目已有其他 active write lease 时创建 managed worktree，并返回 `switch_to_effective_cwd` 与新的 `effective_cwd`。`worktree list` 已能展示 stale、dirty orphan、prunable、pruned 和 needs_user_review，`worktree prune --dry-run` 只输出 released 且 clean at base 的 managed worktree 候选，不执行删除。`worktree prune --confirm` 会重新校验 released、clean at base、Git worktree 状态和 managed worktree 容器路径，只用 `git worktree remove` 删除安全候选并把 binding 标记为 `pruned`。完整的宿主级 `before_first_write` 拦截、recover 和多 session 合并仍是后续任务。
+当前最小 runtime 已实现 `session status/bind/heartbeat/release`、`worktree list`、`worktree prune --dry-run`、`worktree prune --confirm`、`worktree recover <binding-id>` 和 `write-guard`。`write-guard` 会在 primary checkout dirty 或同一项目已有其他 active write lease 时创建 managed worktree，并返回 `switch_to_effective_cwd` 与新的 `effective_cwd`。`worktree list` 已能展示 stale、dirty orphan、prunable、pruned 和 needs_user_review，`worktree prune --dry-run` 只输出 released 且 clean at base 的 managed worktree 候选，不执行删除。`worktree prune --confirm` 会重新校验 released、clean at base、Git worktree 状态和 managed worktree 容器路径，只用 `git worktree remove` 删除安全候选并把 binding 标记为 `pruned`。`worktree recover <binding-id>` 只会把路径仍存在、仍是 managed worktree、clean 且 HEAD 等于记录 base head 的 stale/prunable binding 恢复为 active；dirty、HEAD 偏离、路径缺失、非 managed 或已 pruned 的 binding 只输出阻断原因，不自动覆盖或重建。完整的宿主级 `before_first_write` 拦截和多 session 合并仍是后续任务。
 
 `bind` 返回结构化结果：
 
@@ -289,6 +289,7 @@ Session-worktree binding 是 workspace routing 的执行目录层：
 - `worktree list` 展示 stale、dirty orphan、prunable 和 pruned。
 - 已实现 dry-run prune。
 - confirm 后只清理 clean managed worktree，并在 registry 中标记为 `pruned`。
+- 已实现 `worktree recover <binding-id>`，只恢复 clean at base 的 managed stale/prunable binding。
 
 #### Phase SW-5：多 Session 同 Task
 

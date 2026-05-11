@@ -62,6 +62,88 @@ class WorkspaceSessionCleanupTests(unittest.TestCase):
         self.assertEqual(latest[released["binding_id"]]["status"], "pruned")
         self.assertEqual(follow_up_plan["candidate_count"], 0)
 
+    def test_recover_released_clean_managed_worktree(self) -> None:
+        with session_env() as env:
+            repo = env.repo
+            write_text(repo / "primary-dirty.txt", "dirty\n")
+            result = workspace_session.write_guard(repo, session_id="recover", task_id="recover-task")
+            released = workspace_session.update_binding(result["binding"]["binding_id"], "released")
+
+            recovered = workspace_session.worktree_recover(repo, released["binding_id"])
+            latest = {
+                item["binding_id"]: item
+                for item in workspace_session.latest_bindings()
+            }
+
+        self.assertTrue(recovered["ok"], recovered)
+        self.assertEqual(recovered["action"], "recovered")
+        self.assertEqual(recovered["effective_cwd"], released["effective_cwd"])
+        self.assertEqual(latest[released["binding_id"]]["status"], "active")
+
+    def test_recover_clean_stale_managed_worktree(self) -> None:
+        with session_env() as env:
+            repo = env.repo
+            write_text(repo / "primary-dirty.txt", "dirty\n")
+            result = workspace_session.write_guard(repo, session_id="recover-stale", task_id="recover-stale-task")
+            stale = dict(result["binding"], heartbeat_at=OLD_HEARTBEAT, updated_at=OLD_HEARTBEAT)
+            workspace_session.append_record(stale)
+
+            recovered = workspace_session.worktree_recover(repo, stale["binding_id"])
+            latest = {
+                item["binding_id"]: item
+                for item in workspace_session.latest_bindings()
+            }
+
+        self.assertTrue(recovered["ok"], recovered)
+        self.assertEqual(recovered["action"], "recovered")
+        self.assertEqual(latest[stale["binding_id"]]["status"], "active")
+        self.assertNotEqual(latest[stale["binding_id"]]["heartbeat_at"], OLD_HEARTBEAT)
+
+    def test_recover_can_run_from_target_managed_worktree(self) -> None:
+        with session_env() as env:
+            repo = env.repo
+            write_text(repo / "primary-dirty.txt", "dirty\n")
+            result = workspace_session.write_guard(repo, session_id="recover-cwd", task_id="recover-cwd-task")
+            managed = Path(result["effective_cwd"])
+            stale = dict(result["binding"], heartbeat_at=OLD_HEARTBEAT, updated_at=OLD_HEARTBEAT)
+            workspace_session.append_record(stale)
+
+            recovered = workspace_session.worktree_recover(managed, stale["binding_id"])
+
+        self.assertTrue(recovered["ok"], recovered)
+        self.assertEqual(recovered["action"], "recovered")
+        self.assertEqual(Path(recovered["effective_cwd"]).resolve(), managed.resolve())
+
+    def test_recover_dirty_stale_worktree_requires_user_review(self) -> None:
+        with session_env() as env:
+            repo = env.repo
+            write_text(repo / "primary-dirty.txt", "dirty\n")
+            result = workspace_session.write_guard(repo, session_id="recover-dirty", task_id="recover-dirty-task")
+            managed = Path(result["effective_cwd"])
+            write_text(managed / "dirty.txt", "dirty\n")
+            stale = dict(result["binding"], heartbeat_at=OLD_HEARTBEAT, updated_at=OLD_HEARTBEAT)
+            workspace_session.append_record(stale)
+
+            recovered = workspace_session.worktree_recover(repo, stale["binding_id"])
+
+        self.assertFalse(recovered["ok"], recovered)
+        self.assertEqual(recovered["action"], "needs_user_review")
+        self.assertIn("worktree has dirty paths", recovered["recover_guard"]["errors"])
+
+    def test_recover_pruned_binding_is_blocked(self) -> None:
+        with session_env() as env:
+            repo = env.repo
+            write_text(repo / "primary-dirty.txt", "dirty\n")
+            result = workspace_session.write_guard(repo, session_id="recover-pruned", task_id="recover-pruned-task")
+            released = workspace_session.update_binding(result["binding"]["binding_id"], "released")
+            prune = workspace_session.worktree_prune_confirm(repo)
+
+            recovered = workspace_session.worktree_recover(repo, released["binding_id"])
+
+        self.assertTrue(prune["ok"], prune)
+        self.assertFalse(recovered["ok"], recovered)
+        self.assertEqual(recovered["action"], "cannot_recover_pruned")
+
     def test_confirm_blocks_paths_outside_managed_container(self) -> None:
         with temp_registry() as env:
             project_root = env.root / "repo"

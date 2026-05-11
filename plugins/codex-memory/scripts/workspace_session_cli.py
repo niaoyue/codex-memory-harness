@@ -51,6 +51,9 @@ def build_parser() -> argparse.ArgumentParser:
     prune_cmd.add_argument("--dry-run", action="store_true", help="Only report candidates; do not delete worktrees.")
     prune_cmd.add_argument("--confirm", action="store_true", help="Remove safe candidates after re-validating guards.")
     prune_cmd.set_defaults(func=cmd_worktree_prune)
+    recover_cmd = worktree_sub.add_parser("recover", help="Recover a safe managed worktree binding.")
+    recover_cmd.add_argument("binding_id")
+    recover_cmd.set_defaults(func=cmd_worktree_recover)
     return parser
 
 
@@ -102,6 +105,10 @@ def cmd_worktree_prune(args: argparse.Namespace) -> int:
     if args.confirm:
         return print_json(workspace_session.worktree_prune_confirm(Path(args.project_root)))
     return print_json({"ok": False, "error": "worktree prune requires --dry-run or --confirm"})
+
+
+def cmd_worktree_recover(args: argparse.Namespace) -> int:
+    return print_json(workspace_session.worktree_recover(Path(args.project_root), args.binding_id))
 
 
 def main(argv: list[str] | None = None) -> int:

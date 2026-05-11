@@ -120,6 +120,78 @@ def execute_prune_confirm(
     }
 
 
+def execute_recover_binding(
+    project_info: dict[str, str],
+    bindings: list[dict[str, Any]],
+    registry_path: Path,
+    binding_id: str,
+    record_recovered: Callable[[dict[str, Any]], None],
+    *,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    report = build_cleanup_report(project_info, bindings, registry_path, now=now)
+    target = next((item for item in report["bindings"] if item["binding_id"] == binding_id), None)
+    latest_by_id = {str(binding.get("binding_id") or ""): binding for binding in bindings}
+    if target is None:
+        return {
+            "ok": False,
+            "action": "binding_not_found",
+            "binding_id": binding_id,
+            "project_key": report["project_key"],
+            "project_root": report["project_root"],
+            "registry_path": report["registry_path"],
+            "error": "binding is not registered for this project",
+        }
+    if target["cleanup_state"] == "pruned":
+        return {
+            "ok": False,
+            "action": "cannot_recover_pruned",
+            "binding": target,
+            "error": "binding is already pruned and cannot be recovered automatically",
+        }
+    if target["computed_status"] == "active" and target["cleanup_state"] == "active":
+        return {
+            "ok": True,
+            "action": "already_active",
+            "binding": target,
+            "effective_cwd": target["effective_cwd"],
+        }
+
+    guard = validate_recover_candidate(project_info, target)
+    if not guard["ok"]:
+        return {
+            "ok": False,
+            "action": recover_block_action(target),
+            "binding": target,
+            "recover_guard": guard,
+            "error": "binding requires manual review before recovery",
+        }
+
+    raw = latest_by_id.get(binding_id)
+    if raw is None:
+        return {
+            "ok": False,
+            "action": "binding_not_found",
+            "binding_id": binding_id,
+            "error": "binding vanished before recovery",
+        }
+    timestamp = format_timestamp(now)
+    updated = dict(raw)
+    updated["status"] = "active"
+    updated["updated_at"] = timestamp
+    updated["heartbeat_at"] = timestamp
+    updated["reason"] = "managed worktree recovered after explicit recover command"
+    record_recovered(updated)
+    return {
+        "ok": True,
+        "action": "recovered",
+        "binding": target,
+        "recover_guard": guard,
+        "recovered_binding": updated,
+        "effective_cwd": updated["effective_cwd"],
+    }
+
+
 def inspect_binding(binding: dict[str, Any], *, now: datetime | None = None) -> dict[str, Any]:
     git_state = inspect_worktree(binding)
     stale = binding_is_stale(binding, now=now)
@@ -189,6 +261,59 @@ def cleanup_reason(
     if stale:
         return "binding heartbeat exceeded the stale threshold"
     return "binding is still active"
+
+
+def recover_block_action(candidate: dict[str, Any]) -> str:
+    cleanup_state = str(candidate.get("cleanup_state") or "")
+    if cleanup_state in {"dirty_orphan", "needs_user_review"}:
+        return "needs_user_review"
+    if candidate.get("worktree_kind") != "managed":
+        return "not_managed"
+    return "not_recoverable"
+
+
+def validate_recover_candidate(project_info: dict[str, str], candidate: dict[str, Any]) -> dict[str, Any]:
+    errors: list[str] = []
+    git_state = candidate.get("git") if isinstance(candidate.get("git"), dict) else {}
+    cleanup_state = str(candidate.get("cleanup_state") or "")
+    raw_path = str(candidate.get("effective_cwd") or git_state.get("path") or "")
+    path = Path(raw_path)
+
+    if cleanup_state not in {"stale", "prunable"}:
+        errors.append("cleanup_state is not recoverable")
+    if candidate.get("worktree_kind") != "managed":
+        errors.append("binding is not a managed worktree")
+    if not raw_path:
+        errors.append("effective_cwd is empty")
+    if not git_state.get("exists"):
+        errors.append("worktree path does not exist")
+    if not git_state.get("is_git_worktree"):
+        errors.append("path is not a git worktree")
+    if not git_state.get("status_ok"):
+        errors.append("git status did not complete successfully")
+    if git_state.get("dirty_paths"):
+        errors.append("worktree has dirty paths")
+    if not git_state.get("base_head_matches"):
+        errors.append("worktree HEAD does not match the recorded base head")
+
+    managed_root = managed_worktree_root(project_info)
+    resolved_path = path.resolve(strict=False)
+    resolved_managed_root = managed_root.resolve(strict=False)
+    if not path.is_absolute():
+        errors.append("effective_cwd must be absolute")
+    if resolved_path == resolved_managed_root:
+        errors.append("refusing to recover the managed worktree container")
+    try:
+        resolved_path.relative_to(resolved_managed_root)
+    except ValueError:
+        errors.append("effective_cwd is outside the managed worktree container")
+
+    return {
+        "ok": not errors,
+        "errors": errors,
+        "path": str(resolved_path),
+        "managed_root": str(resolved_managed_root),
+    }
 
 
 def validate_prune_candidate(project_info: dict[str, str], candidate: dict[str, Any]) -> dict[str, Any]:

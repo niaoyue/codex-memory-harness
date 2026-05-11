@@ -173,7 +173,7 @@ function Write-WorkspaceHelp {
     @"
 Codex Workspace 命令：
   doctor|scan|route|verify|bind|schedule|scope-check|summarize
-  session status|bind|heartbeat|release; worktree list|prune --dry-run|--confirm; write-guard --session-id <id> --task-id <id> [--path <path>]
+  session status|bind|heartbeat|release; worktree list|prune --dry-run|--confirm|recover <binding-id>; write-guard --session-id <id> --task-id <id> [--path <path>]
   game-client init --engine unity|laya|cocos
   project-template init --domain game_server|backoffice_web|design_docs|art_pipeline
 "@

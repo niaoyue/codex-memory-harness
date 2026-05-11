@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from workspace_session_cleanup import build_cleanup_report, build_prune_plan, execute_prune_confirm
+from workspace_session_cleanup import build_cleanup_report, build_prune_plan, execute_prune_confirm, execute_recover_binding
 from workspace_session_lock import acquire_registry_lock as acquire_lock
 from workspace_session_lock import release_registry_lock
 
@@ -431,6 +431,15 @@ def worktree_prune_confirm(project_root: Path) -> dict[str, Any]:
     try:
         info, bindings = project_bindings(project_root)
         return execute_prune_confirm(info, bindings, registry_path(), append_record)
+    finally:
+        release_registry_lock(lock_path)
+
+
+def worktree_recover(project_root: Path, binding_id: str) -> dict[str, Any]:
+    lock_path = acquire_registry_lock()
+    try:
+        info, bindings = project_bindings(project_root)
+        return execute_recover_binding(info, bindings, registry_path(), binding_id, append_record)
     finally:
         release_registry_lock(lock_path)
 
