@@ -99,6 +99,10 @@
 | T81 | 23 | 集成 session binding lifecycle | 最小 `write-guard` 已落地；完整 before_task/before_first_write/after_tool/before_response/on_task_complete 强制接入仍需后续 hook/宿主支持 | T80,T52 | doing |
 | T82 | 23 | 实现 stale 与 cleanup 治理 | `worktree list` 已展示 stale/dirty orphan/prunable/pruned，`worktree prune --dry-run` 已输出候选，`worktree prune --confirm` 已重新校验并清理 clean managed worktree，`worktree recover <binding-id>` 已能恢复 clean at base 的 managed stale/prunable binding 并阻断 dirty/pruned/非 managed 场景 | T81,T65 | done |
 | T83 | 23 | 支持多 session 同 task 协作 | 与 SubAgent binding/scope guard 联动，coordinator 合并 specialist branches，final gate 绑定 integration worktree | T81,T53,T74 | todo |
+| T84 | 24 | 引入 OpenSpec change contract 与需求完整性门禁 | `openspec/` profile、`change-governance` spec、OpenSpec/BMAD 集成 proposal/design/tasks/spec delta；本切片仅落地文档，不实现 runtime | T24,T76,T81 | done |
+| T85 | 24 | 定义 BMAD upstream planning policy | 明确何时进入 Product Brief/PRFAQ/PRD/Architecture/Epic/Story/Readiness，何时直接进入 OpenSpec change contract | T84 | done |
+| T86 | 24 | 调研并适配 OpenSpec/BMAD 上游核心代码复用 | 已核对 license、版本、entrypoint、依赖、telemetry、storage 和安全边界；决策为先做命令/插件 adapter，vendoring 仅在 adapter 不足时按 pinned source + LICENSE/NOTICE 执行，不重写上游 core | T84,T85 | done |
+| T87 | 24 | 实现严格 Requirements Integrity Gate runtime | 已完成最小 runtime 切片：docs/tooling governance adapter 任务不再误判为 product `feature_story`，verification artifact touched paths 不再触发 adaptive release route；完整输出 schema、BMAD upstream 判定、spec/implementation 冲突和 before-write 阻断仍需后续切片 | T84,T86 | doing |
 
 ## 3. 当前推荐执行步
 

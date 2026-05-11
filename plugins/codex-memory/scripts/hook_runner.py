@@ -27,7 +27,11 @@ from hook_runner_utils import (
 import init_storage
 from memory_store import MemoryStore
 from retrieval_store import RetrievalEngine
-from workspace_artifact_filters import is_subagent_artifact
+from workspace_artifact_filters import (
+    is_subagent_artifact,
+    routing_excluded_paths as filtered_routing_excluded_paths,
+    routing_touched_paths as filtered_routing_touched_paths,
+)
 import workspace_lifecycle
 import workspace_memory_writer
 
@@ -106,12 +110,12 @@ class HookRunner:
             or _string(current_state.get("objective"))
         )
         metadata = _merge_dicts(current_state.get("metadata"), payload.get("metadata"))
+        routing_excluded_paths = _without_paths(_string_list(metadata.get("routing_excluded_paths")), _string_list(payload.get("working_set")))
+        metadata["routing_excluded_paths"] = routing_excluded_paths
+        routing_working_set = _merge_lists(_without_paths(_string_list(current_state.get("working_set")), routing_excluded_paths), _string_list(payload.get("working_set")))
         routing_payload = {
             "objective": objective,
-            "working_set": _merge_lists(
-                _string_list(current_state.get("working_set")),
-                _string_list(payload.get("working_set")),
-            ),
+            "working_set": routing_working_set,
             "cwd": payload.get("cwd"),
             "metadata": metadata,
         }
@@ -171,28 +175,41 @@ class HookRunner:
             or "Tool executed."
         )
         touched_paths = _string_list(payload.get("touched_paths")) or _string_list(payload.get("files"))
+        routing_touched_paths = filtered_routing_touched_paths(tool_name, payload, touched_paths)
         metadata = _merge_dicts(current_state.get("metadata"), payload.get("metadata"))
+        existing_excluded_paths = _string_list(metadata.get("routing_excluded_paths"))
+        owned_working_set = _without_paths(_merge_lists(_string_list(current_state.get("working_set")), _string_list(payload.get("working_set"))), existing_excluded_paths)
+        stored_excluded_paths = _without_paths(existing_excluded_paths, routing_touched_paths)
+        candidate_excluded_paths = _without_paths(filtered_routing_excluded_paths(tool_name, payload, touched_paths), owned_working_set)
+        routing_excluded_paths = _merge_lists(stored_excluded_paths, candidate_excluded_paths)
+        if routing_excluded_paths:
+            metadata["routing_excluded_paths"] = routing_excluded_paths
+        else:
+            metadata.pop("routing_excluded_paths", None)
         previous_routing = metadata.get("workspace_routing") if isinstance(metadata.get("workspace_routing"), dict) else {}
         previous_bindings = previous_routing.get("bindings") if isinstance(previous_routing, dict) else None
-        adaptive_routing = workspace_lifecycle.safe_workspace_routing(
-            resolved_task_id,
-            _with_transient_routing_fields(
-                payload,
-                {
-                    "objective": current_state.get("objective"),
-                    "working_set": _merge_lists(_string_list(current_state.get("working_set")), touched_paths),
-                    "touched_paths": touched_paths,
-                    "cwd": payload.get("cwd"),
-                    "metadata": metadata,
-                },
-            ),
-        )
+        adaptive_routing = {}
+        if routing_touched_paths or _has_routing_signal(payload) or _has_routing_metadata(payload):
+            previous_working_set = _without_paths(_string_list(current_state.get("working_set")), routing_excluded_paths)
+            adaptive_routing = workspace_lifecycle.safe_workspace_routing(
+                resolved_task_id,
+                _with_transient_routing_fields(
+                    payload,
+                    {
+                        "objective": current_state.get("objective"),
+                        "working_set": _merge_lists(previous_working_set, routing_touched_paths),
+                        "touched_paths": routing_touched_paths,
+                        "cwd": payload.get("cwd"),
+                        "metadata": metadata,
+                    },
+                ),
+            )
         workspace_routing = dict(previous_routing) if previous_routing else adaptive_routing
         if workspace_routing:
             if previous_routing and adaptive_routing:
                 workspace_lifecycle.merge_adaptive_routing(workspace_routing, adaptive_routing)
             signals = payload.get("signals") if isinstance(payload.get("signals"), dict) else {}
-            explicit_scope = any(_string(payload.get(key)) for key in ("binding_id", "subagent_id", "project_id"))
+            explicit_scope = _has_explicit_scope(payload)
             scope_source_bindings = previous_bindings or workspace_routing.get("bindings")
             if not explicit_scope and isinstance(adaptive_routing.get("bindings"), list):
                 scope_source_bindings = adaptive_routing["bindings"]
@@ -387,6 +404,26 @@ def _copy_transient_routing_fields(source: dict[str, Any], target: dict[str, Any
 
 def _with_transient_routing_fields(source: dict[str, Any], target: dict[str, Any]) -> dict[str, Any]:
     return _copy_transient_routing_fields(source, target)
+
+
+def _has_routing_signal(payload: dict[str, Any]) -> bool:
+    signals = payload.get("signals") if isinstance(payload.get("signals"), dict) else {}
+    return isinstance(signals.get("route_plan"), dict) or isinstance(signals.get("verification_aggregation"), dict)
+
+
+def _has_routing_metadata(payload: dict[str, Any]) -> bool:
+    keys = ("acceptance", "acceptance_criteria", "architecture", "architecture_notes", "requirement_sources", "design_docs", "source_docs", "requirements", "rollback", "rollback_plan", "task_intent", "intent")
+    metadata = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
+    return any(key in payload or key in metadata for key in keys)
+
+
+def _without_paths(paths: list[str], excluded: list[str]) -> list[str]:
+    excluded_set = set(excluded)
+    return [path for path in paths if path not in excluded_set]
+
+
+def _has_explicit_scope(payload: dict[str, Any]) -> bool:
+    return any(_string(payload.get(key)) for key in ("binding_id", "subagent_id", "project_id"))
 
 
 def _cleanup_demo_task(task_id: str) -> None:

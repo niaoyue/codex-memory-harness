@@ -409,6 +409,65 @@ class RequirementsGateTests(unittest.TestCase):
         self.assertTrue(gate["blocking"])
         self.assertIn("acceptance_criteria", {item["field"] for item in gate["missing"]})
 
+    def test_tooling_governance_adapter_task_is_not_feature_story(self) -> None:
+        gate = requirements_gate.evaluate(
+            {
+                "objective": (
+                    "完成 T86：核对 OpenSpec/BMAD 上游核心代码复用边界并落地复用决策文档，"
+                    "不复制第三方代码、不实现 runtime。"
+                )
+            },
+            {
+                "text": "完成 T86 核对 upstream adapter 复用边界 不实现 runtime",
+                "paths": ["openspec/changes/integrate-openspec-bmad-governance/upstream-reuse-decision.md"],
+                "cwd": "",
+            },
+            mode="multi_project_parallel",
+            task_type="docs",
+            risk_level="medium",
+            domains=["workspace_meta", "design_docs"],
+        )
+
+        self.assertEqual(gate["task_intent"], "tech_task")
+        self.assertEqual(gate["status"], "passed")
+        self.assertFalse(gate["blocking"])
+        for text in ("add task-list entry for upstream adapter decision docs", "add runtime guide", "add adapter README", "add runtime release notes", "implement governance docs", "新增工具治理文档", "实现治理文档"):
+            gate = requirements_gate.evaluate(
+                {"objective": text},
+                {"text": text, "paths": [], "cwd": ""},
+                mode="multi_project_parallel",
+                task_type="docs",
+                risk_level="medium",
+                domains=["workspace_meta", "design_docs"],
+            )
+            self.assertEqual(gate["task_intent"], "tech_task")
+            self.assertFalse(gate["blocking"])
+
+    def test_runtime_adapter_implementation_still_requires_requirements(self) -> None:
+        cases = (
+            ("implement runtime adapter", "implementation", "feature_story"),
+            ("implement runtime adapter according to design docs", "docs", "feature_story"),
+            ("implement runtime adapter using design docs", "docs", "feature_story"),
+            ("implement runtime adapter with design docs", "docs", "feature_story"),
+            ("根据设计文档实现 runtime adapter", "docs", "feature_story"),
+            ("add runtime adapter according to design docs", "docs", "feature_story"),
+            ("refactor runtime adapter design docs", "general", "system_change"),
+            ("接入 upstream adapter 设计", "general", "system_change"),
+        )
+        for text, task_type, expected_intent in cases:
+            with self.subTest(text=text):
+                gate = requirements_gate.evaluate(
+                    {"objective": text},
+                    {"text": text, "paths": [], "cwd": ""},
+                    mode="single_project",
+                    task_type=task_type,
+                    risk_level="medium",
+                    domains=["design_docs"] if task_type == "docs" else ["workspace_meta"],
+                )
+                self.assertEqual(gate["task_intent"], expected_intent)
+                self.assertEqual(gate["status"], "needs_clarification")
+                self.assertTrue(gate["blocking"])
+
 
 def _unity_project(path: Path) -> None:
     path.joinpath("Assets").mkdir(parents=True, exist_ok=True)

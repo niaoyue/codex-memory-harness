@@ -86,6 +86,212 @@ class WorkspaceReviewRegressionTests(unittest.TestCase):
         self.assertNotIn("scope_guard", routing)
         self.assertTrue(review["result"]["workspace_routing_review"]["ok"])
 
+    def test_bound_verification_paths_do_not_trigger_adaptive_routing(self) -> None:
+        release_plan = _client_route_plan()
+        release_plan["task_type"] = "release"
+        release_plan["risk_level"] = "release_blocking"
+        with _memory_env():
+            with mock.patch.object(
+                workspace_lifecycle.workspace_router,
+                "build_route_plan",
+                side_effect=[_client_route_plan(), release_plan],
+            ) as build_route_plan:
+                runner = hook_runner.HookRunner(memory_store=memory_store.MemoryStore())
+                runner.run_event("before_task", {"task_id": "route-task", "objective": "Fix client UI"})
+                result = runner.run_event(
+                    "after_tool",
+                    {
+                        "task_id": "route-task",
+                        "binding_id": "binding-client-route",
+                        "subagent_id": "agent-client-route",
+                        "tool_name": "verification_runner",
+                        "phase": "verification",
+                        "touched_paths": ["scripts/build_release.py"],
+                    },
+                )
+
+        routing = result["result"]["task_state"]["metadata"]["workspace_routing"]
+        self.assertEqual(build_route_plan.call_count, 1)
+        self.assertNotIn("adaptive_route_plan", routing)
+        self.assertFalse(routing["scope_guard"][0]["ok"])
+        self.assertEqual(routing["scope_guard"][0]["violations"][0]["path"], "scripts/build_release.py")
+
+    def test_verification_tool_alias_paths_do_not_trigger_adaptive_routing(self) -> None:
+        release_plan = _client_route_plan()
+        release_plan["task_type"] = "release"
+        release_plan["risk_level"] = "release_blocking"
+        with _memory_env():
+            with mock.patch.object(
+                workspace_lifecycle.workspace_router,
+                "build_route_plan",
+                side_effect=[_client_route_plan(), release_plan],
+            ) as build_route_plan:
+                runner = hook_runner.HookRunner(memory_store=memory_store.MemoryStore())
+                runner.run_event("before_task", {"task_id": "route-task", "objective": "Fix client UI"})
+                result = runner.run_event(
+                    "after_tool",
+                    {
+                        "task_id": "route-task",
+                        "tool": "verification_runner",
+                        "touched_paths": ["scripts/build_release.py"],
+                    },
+                )
+
+        routing = result["result"]["task_state"]["metadata"]["workspace_routing"]
+        self.assertEqual(build_route_plan.call_count, 1)
+        self.assertNotIn("adaptive_route_plan", routing)
+
+    def test_workspace_verification_paths_do_not_trigger_adaptive_routing(self) -> None:
+        release_plan = _client_route_plan()
+        release_plan["task_type"] = "release"
+        release_plan["risk_level"] = "release_blocking"
+        with _memory_env():
+            with mock.patch.object(
+                workspace_lifecycle.workspace_router,
+                "build_route_plan",
+                side_effect=[_client_route_plan(), release_plan],
+            ) as build_route_plan:
+                runner = hook_runner.HookRunner(memory_store=memory_store.MemoryStore())
+                runner.run_event("before_task", {"task_id": "route-task", "objective": "Fix client UI"})
+                result = runner.run_event(
+                    "after_tool",
+                    {
+                        "task_id": "route-task",
+                        "tool_name": "workspace_verifier",
+                        "phase": "workspace_verification",
+                        "touched_paths": ["scripts/build_release.py"],
+                    },
+                )
+
+        routing = result["result"]["task_state"]["metadata"]["workspace_routing"]
+        self.assertEqual(build_route_plan.call_count, 1)
+        self.assertNotIn("adaptive_route_plan", routing)
+
+    def test_after_tool_metadata_only_updates_adaptive_routing(self) -> None:
+        updated_plan = _client_route_plan()
+        updated_plan["requirements_gate"] = {"status": "passed", "blocking": False}
+        with _memory_env():
+            with mock.patch.object(
+                workspace_lifecycle.workspace_router,
+                "build_route_plan",
+                side_effect=[_client_route_plan(), updated_plan, updated_plan],
+            ) as build_route_plan:
+                runner = hook_runner.HookRunner(memory_store=memory_store.MemoryStore())
+                runner.run_event(
+                    "before_task",
+                    {"task_id": "route-task", "objective": "Add feature", "working_set": ["client/Assets/Login.cs"]},
+                )
+                runner.run_event(
+                    "after_tool",
+                    {"task_id": "route-task", "tool_name": "verification_runner", "touched_paths": ["scripts/build_release.py"]},
+                )
+                result = runner.run_event(
+                    "after_tool",
+                    {
+                        "task_id": "route-task",
+                        "tool_name": "planning",
+                        "metadata": {"acceptance": ["opens"], "requirement_sources": ["issue-1"]},
+                    },
+                )
+                runner.run_event("before_task", {"task_id": "route-task", "objective": "Add feature"})
+
+        routing = result["result"]["task_state"]["metadata"]["workspace_routing"]
+        self.assertEqual(build_route_plan.call_count, 3)
+        for call in build_route_plan.call_args_list[1:]:
+            self.assertNotIn("scripts/build_release.py", call.args[1]["working_set"])
+        self.assertIn("scripts/build_release.py", result["result"]["task_state"]["working_set"])
+        self.assertEqual(routing["adaptive_route_plan"]["requirements_gate"]["status"], "passed")
+
+    def test_after_tool_source_docs_metadata_updates_adaptive_routing(self) -> None:
+        updated_plan = _client_route_plan()
+        updated_plan["requirements_gate"] = {"status": "passed", "blocking": False}
+        with _memory_env():
+            with mock.patch.object(
+                workspace_lifecycle.workspace_router,
+                "build_route_plan",
+                side_effect=[_client_route_plan(), updated_plan],
+            ) as build_route_plan:
+                runner = hook_runner.HookRunner(memory_store=memory_store.MemoryStore())
+                runner.run_event(
+                    "before_task",
+                    {"task_id": "route-task", "objective": "Add feature", "working_set": ["client/Assets/Login.cs"]},
+                )
+                result = runner.run_event(
+                    "after_tool",
+                    {"task_id": "route-task", "tool_name": "planning", "metadata": {"design_docs": ["docs/design.md"]}},
+                )
+
+        routing = result["result"]["task_state"]["metadata"]["workspace_routing"]
+        self.assertEqual(build_route_plan.call_count, 2)
+        self.assertEqual(routing["adaptive_route_plan"]["requirements_gate"]["status"], "passed")
+
+    def test_real_edit_clears_prior_verification_routing_exclusion(self) -> None:
+        with _memory_env():
+            with mock.patch.object(
+                workspace_lifecycle.workspace_router,
+                "build_route_plan",
+                side_effect=[_client_route_plan(), _client_route_plan(), _client_route_plan()],
+            ) as build_route_plan:
+                runner = hook_runner.HookRunner(memory_store=memory_store.MemoryStore())
+                runner.run_event("before_task", {"task_id": "route-task", "objective": "Update docs"})
+                runner.run_event(
+                    "after_tool",
+                    {"task_id": "route-task", "tool_name": "verification_runner", "touched_paths": ["scripts/build_release.py"]},
+                )
+                edit = runner.run_event(
+                    "after_tool",
+                    {"task_id": "route-task", "tool_name": "edit", "touched_paths": ["scripts/build_release.py"]},
+                )
+                runner.run_event("before_task", {"task_id": "route-task", "objective": "Update docs"})
+
+        metadata = edit["result"]["task_state"]["metadata"]
+        self.assertNotIn("scripts/build_release.py", metadata.get("routing_excluded_paths", []))
+        self.assertIn("scripts/build_release.py", build_route_plan.call_args.args[1]["working_set"])
+
+    def test_verification_does_not_exclude_existing_working_set_path(self) -> None:
+        with _memory_env():
+            with mock.patch.object(
+                workspace_lifecycle.workspace_router,
+                "build_route_plan",
+                side_effect=[_client_route_plan(), _client_route_plan(), _client_route_plan()],
+            ) as build_route_plan:
+                runner = hook_runner.HookRunner(memory_store=memory_store.MemoryStore())
+                runner.run_event(
+                    "before_task",
+                    {"task_id": "route-task", "objective": "Update release script", "working_set": ["scripts/build_release.py"]},
+                )
+                verification = runner.run_event(
+                    "after_tool",
+                    {"task_id": "route-task", "tool_name": "verification_runner", "touched_paths": ["scripts/build_release.py"]},
+                )
+                runner.run_event("before_task", {"task_id": "route-task", "objective": "Update release script"})
+
+        metadata = verification["result"]["task_state"]["metadata"]
+        self.assertNotIn("scripts/build_release.py", metadata.get("routing_excluded_paths", []))
+        self.assertIn("scripts/build_release.py", build_route_plan.call_args.args[1]["working_set"])
+
+    def test_before_task_explicit_working_set_clears_verification_exclusion(self) -> None:
+        with _memory_env():
+            with mock.patch.object(
+                workspace_lifecycle.workspace_router,
+                "build_route_plan",
+                side_effect=[_client_route_plan(), _client_route_plan()],
+            ) as build_route_plan:
+                runner = hook_runner.HookRunner(memory_store=memory_store.MemoryStore())
+                runner.run_event("before_task", {"task_id": "route-task", "objective": "Update docs", "working_set": ["docs/guide.md"]})
+                runner.run_event(
+                    "after_tool",
+                    {"task_id": "route-task", "tool_name": "verification_runner", "touched_paths": ["scripts/build_release.py"]},
+                )
+                result = runner.run_event(
+                    "before_task",
+                    {"task_id": "route-task", "objective": "Update release script", "working_set": ["scripts/build_release.py"]},
+                )
+
+        metadata = result["result"]["task_state"]["metadata"]
+        self.assertNotIn("scripts/build_release.py", metadata.get("routing_excluded_paths", []))
+        self.assertIn("scripts/build_release.py", build_route_plan.call_args.args[1]["working_set"])
+
     def test_coordinator_summary_ignores_verification_runner_artifacts(self) -> None:
         bindings = workspace_subagents.create_bindings(_route_plan())
         client = next(item for item in bindings if item.get("project_id") == "client-unity")

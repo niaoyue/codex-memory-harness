@@ -134,6 +134,34 @@ class WorkspaceHookIntegrationTests(unittest.TestCase):
         self.assertFalse(routing["scope_guard"][0]["ok"])
         self.assertEqual(routing["scope_guard"][0]["violations"][0]["path"], "server/api/login.proto")
 
+    def test_bound_verification_artifact_keeps_scope_guard_paths(self) -> None:
+        with MemoryEnv():
+            with routing_mocks():
+                runner = hook_runner.HookRunner(memory_store=memory_store.MemoryStore())
+                runner.run_event(
+                    "before_task",
+                    {
+                        "task_id": "route-task",
+                        "objective": "Fix client UI",
+                        "working_set": ["client/Assets/Login.cs"],
+                    },
+                )
+                result = runner.run_event(
+                    "after_tool",
+                    {
+                        "task_id": "route-task",
+                        "binding_id": "binding-client-route",
+                        "subagent_id": "agent-client-route",
+                        "tool_name": "custom-checkpoint",
+                        "phase": "verification",
+                        "touched_paths": ["server/api/login.proto"],
+                    },
+                )
+
+        routing = result["result"]["task_state"]["metadata"]["workspace_routing"]
+        self.assertFalse(routing["scope_guard"][0]["ok"])
+        self.assertEqual(routing["scope_guard"][0]["violations"][0]["path"], "server/api/login.proto")
+
     def test_before_response_reports_workspace_routing_degradation(self) -> None:
         with MemoryEnv():
             with mock.patch.object(workspace_lifecycle.workspace_router, "build_route_plan", side_effect=RuntimeError("boom")):
@@ -429,5 +457,44 @@ class WorkspaceHookIntegrationTests(unittest.TestCase):
         scope_guard = result["result"]["task_state"]["metadata"]["workspace_routing"]["scope_guard"]
         self.assertTrue(scope_guard[0]["ok"], scope_guard[0]["violations"])
 
+    def test_verification_artifact_paths_do_not_trigger_adaptive_release_route(self) -> None:
+        release_plan = route_plan()
+        release_plan["task_type"] = "release"
+        release_plan["risk_level"] = "release_blocking"
+        release_plan["requirements_gate"] = {
+            "blocking": True,
+            "open_questions": ["发布、热更或渠道包失败时的回滚方式是什么？"],
+        }
+        with MemoryEnv():
+            with mock.patch.object(
+                workspace_lifecycle.workspace_router,
+                "build_route_plan",
+                side_effect=[route_plan(), release_plan],
+            ) as build_route_plan:
+                runner = hook_runner.HookRunner(memory_store=memory_store.MemoryStore())
+                runner.run_event(
+                    "before_task",
+                    {
+                        "task_id": "route-task",
+                        "objective": "Update governance docs",
+                        "working_set": ["docs/guide.md"],
+                    },
+                )
+                result = runner.run_event(
+                    "after_tool",
+                    {
+                        "task_id": "route-task",
+                        "tool_name": "verification_runner",
+                        "phase": "verification", "project_id": "workspace-root",
+                        "summary": "Verification runner executed 3 command(s): 3 passed, 0 failed.",
+                        "touched_paths": ["scripts/build_release.py", "tests/"],
+                    },
+                )
+
+        routing = result["result"]["task_state"]["metadata"]["workspace_routing"]
+        self.assertEqual(build_route_plan.call_count, 1)
+        self.assertNotIn("adaptive_route_plan", routing)
+        self.assertNotIn("scope_guard", routing)
+        self.assertIn("scripts/build_release.py", result["result"]["task_state"]["working_set"])
 if __name__ == "__main__":
     unittest.main()

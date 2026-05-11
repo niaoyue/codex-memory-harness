@@ -47,8 +47,85 @@ SYSTEM_WORDS = (
     "重构",
     "接入",
 )
-TECH_WORDS = ("tech debt", "cleanup", "lint", "test", "tests", "testing", "ci", "工具", "技术债", "治理", "测试")
-DOC_WORDS = ("doc", "docs", "gdd", "文档", "策划", "说明")
+TECH_WORDS = (
+    "tech debt",
+    "cleanup",
+    "lint",
+    "test",
+    "tests",
+    "testing",
+    "ci",
+    "技术债",
+    "测试",
+)
+CONTEXTUAL_TECH_WORDS = (
+    "adapter",
+    "adapters",
+    "tooling",
+    "governance",
+    "runtime",
+    "upstream",
+    "工具",
+    "治理",
+    "适配",
+    "复用",
+    "上游",
+)
+NON_IMPLEMENTATION_CONTEXT_WORDS = (
+    "doc",
+    "docs",
+    "documentation",
+    "spec",
+    "specs",
+    "proposal",
+    "design",
+    "decision",
+    "planning",
+    "research",
+    "audit",
+    "verify",
+    "check",
+    "boundary",
+    "license",
+    "telemetry",
+    "文档",
+    "规划",
+    "设计",
+    "决策",
+    "调研",
+    "核对",
+    "边界",
+    "不实现",
+    "不复制",
+)
+DOC_TARGET_PHRASES = (
+    "governance docs",
+    "decision docs",
+    "task-list",
+    "task list",
+    "docs for",
+    "documentation for",
+    "治理文档",
+    "决策文档",
+    "说明文档",
+)
+DESIGN_SOURCE_PHRASES = (
+    "according to design doc",
+    "from design doc",
+    "per design doc",
+    "based on design doc",
+    "using design doc",
+    "with design doc",
+    "according to proposal",
+    "from proposal",
+    "per proposal",
+    "based on proposal",
+    "using proposal",
+    "with proposal",
+    "根据设计文档",
+    "按设计文档",
+    "基于设计文档",
+)
 DESIGN_SOURCE_WORDS = ("gdd", "design doc", "requirements", "策划", "需求文档", "设计文档")
 VALID_INTENTS = {
     "bugfix",
@@ -117,7 +194,7 @@ def task_intent(
         return normalize_intent(explicit)
     text = str(signals.get("text") or "").lower()
     domain_set = set(domains or [])
-    if docs_only_scope(domain_set, task_type):
+    if docs_only_scope(domain_set, task_type) and not implementation_task_context(text, "docs"):
         return "docs_only"
     if risk_level == "release_blocking" or task_type == "release":
         return "release_gate"
@@ -131,6 +208,8 @@ def task_intent(
         return "tech_task"
     if has_keyword(text, SYSTEM_WORDS):
         return "system_change"
+    if contextual_tech_task(text, domain_set, task_type):
+        return "tech_task"
     if has_keyword(text, FEATURE_WORDS):
         return "feature_story"
     return "tech_task" if domain_set and "workspace_meta" in domain_set else "small_change"
@@ -174,6 +253,141 @@ def docs_only_scope(domain_set: set[str], task_type: str) -> bool:
     if not non_docs_domains and domain_set:
         return True
     return not domain_set and task_type == "docs"
+
+
+def contextual_tech_task(text: str, domain_set: set[str], task_type: str) -> bool:
+    if not has_keyword(text, CONTEXTUAL_TECH_WORDS):
+        return False
+    if implementation_task_context(text, task_type):
+        return False
+    if docs_only_scope(domain_set, task_type):
+        return True
+    if task_type in {"docs", "documentation", "research", "planning", "audit"}:
+        return True
+    return has_keyword(text, NON_IMPLEMENTATION_CONTEXT_WORDS)
+
+
+def implementation_task_context(text: str, task_type: str) -> bool:
+    candidate_text = without_negated_implementation_targets(text)
+    lowered = candidate_text.lower()
+    doc_target = documentation_target_context(candidate_text)
+    if task_type in {"implementation", "feature", "feature_story", "system", "system_change"}:
+        return not doc_target
+    if has_keyword(candidate_text, ("implement",)):
+        return not doc_target
+    if has_keyword(candidate_text, ("add", "new", "新增", "增加")) and has_keyword(candidate_text, CONTEXTUAL_TECH_WORDS):
+        return not doc_target
+    return "实现" in lowered and not doc_target
+
+
+def without_negated_implementation_targets(text: str) -> str:
+    text = re.sub(
+        r"\b(?:do\s+not|don['’]?t|not)\s+implement\b(?:(?!\b(?:but|and)\b|[;,.，。]).)*",
+        " ",
+        text,
+        flags=re.IGNORECASE,
+    )
+    return re.sub(r"(?:不|不要|别|无需|不用|不需要)实现(?:(?!但|而|并\s*实现|且\s*实现|然后\s*实现|[;,.，。]).)*", " ", text)
+
+
+def documentation_target_context(text: str) -> bool:
+    lowered = text.lower()
+    if mixed_implementation_doc_target_context(text):
+        return False
+    if re.search(r"\b(?:adapter|runtime|tooling|governance|upstream)(?:[- ]+(?:adapter|runtime|tooling|governance|upstream))*[- ]+(?:doc|docs|documentation|readme|guide)[- ]+(?:parser|adapter|adapters|runtime|generator|loader|validator|gate|router)\b", lowered):
+        return False
+    if doc_reference_context(text):
+        return False
+    if explicit_contextual_doc_target(text):
+        return True
+    if any(phrase in lowered for phrase in DOC_TARGET_PHRASES):
+        return True
+    if any(phrase in lowered for phrase in DESIGN_SOURCE_PHRASES):
+        return False
+    design_source_context = has_keyword(text, DESIGN_SOURCE_WORDS) and has_keyword(text, CONTEXTUAL_TECH_WORDS)
+    if design_source_context and has_keyword(text, ("implement", "实现")):
+        return False
+    if spec_document_target_context(text):
+        return True
+    return standalone_doc_artifact_target_context(text)
+
+
+def spec_document_target_context(text: str) -> bool:
+    lowered = text.lower()
+    if not re.search(r"\bspecs?\b", lowered):
+        return False
+    if re.search(r"\bspecs?\s+(?:parser|adapter|runtime|loader|validator|gate|router)\b", lowered):
+        return False
+    return bool(
+        re.search(r"\b(?:change[- ]+)?governance[- ]+specs?\b", lowered)
+        or re.search(r"\bopenspec[- ]+specs?\b", lowered)
+        or re.search(r"\b(?:spec[- ]+delta|delta[- ]+spec)\b", lowered)
+        or re.search(r"治理\s*spec", text)
+    )
+
+
+def standalone_doc_artifact_target_context(text: str) -> bool:
+    lowered = text.lower()
+    if re.search(r"\b(?:doc|docs|documentation|gdd)\s+(?:parser|adapter|runtime|generator|loader|validator|gate|router)\b", lowered):
+        return False
+    english_doc_action = re.search(
+        r"\b(?:add|update|write|create|revise|edit)\b.*\b(?:doc|docs|documentation|gdd|proposal|decision|task[- ]list|readme|guide|runbook|handbook|release notes)\b",
+        lowered,
+    )
+    chinese_doc_action = re.search(r"(?:新增|增加|更新|编写|完善|修订|整理).*(?:文档|策划|说明|提案|决策|任务清单)", text)
+    return bool(english_doc_action or chinese_doc_action)
+
+
+def doc_reference_context(text: str) -> bool:
+    lowered = text.lower()
+    english_ref = re.search(
+        r"\b(?:according to|from|per|based on|using|with)\s+(?:the\s+)?(?:docs?|documentation|readme|guide|runbook|handbook|gdd|proposal|decision|(?:change[- ]+)?governance docs|task[- ]list)\b",
+        lowered,
+    )
+    chinese_ref = re.search(r"(?:根据|按|基于|参考|使用).{0,16}(?:文档|说明|提案|决策|任务清单|readme|guide|runbook)", text, re.IGNORECASE)
+    match = english_ref or chinese_ref
+    if not match:
+        return False
+    prefix = text[: match.start()]
+    lowered_prefix = prefix.lower()
+    if explicit_contextual_doc_target(prefix) or any(phrase in lowered_prefix for phrase in DOC_TARGET_PHRASES):
+        return False
+    return not standalone_doc_artifact_target_context(prefix)
+
+
+def mixed_implementation_doc_target_context(text: str) -> bool:
+    candidate_text = without_negated_implementation_targets(text)
+    if not has_keyword(candidate_text, ("implement", "实现")):
+        return False
+    if not has_keyword(candidate_text, CONTEXTUAL_TECH_WORDS):
+        return False
+    lowered = candidate_text.lower()
+    english_contexts = "adapter|runtime|tooling|governance|upstream"
+    english_docs = "doc|docs|documentation|readme|guide|runbook|handbook|release notes|spec|specs"
+    if re.search(
+        rf"\bimplement\b(?:(?!\b(?:and|plus|then)\b|[;,.]).)*(?:{english_contexts})\b"
+        rf"(?:(?!\b(?:and|plus|then)\b|[;,.]).)*(?:\b(?:and|plus|then)\b|[;,.]).*\b(?:{english_docs})\b",
+        lowered,
+    ):
+        return True
+    if re.search(
+        r"实现(?:(?!并|且|然后|[;,.，。]).)*(?:adapter|runtime|工具|治理|适配|复用|上游)"
+        r"(?:并|且|然后|[;,.，。]).*(?:文档|说明)",
+        candidate_text,
+    ):
+        return True
+    if re.search(r"\bimplement\s+(?:doc|docs|documentation|readme|guide|runbook|handbook|release notes)\b", lowered):
+        return False
+    return False
+
+
+def explicit_contextual_doc_target(text: str) -> bool:
+    lowered = text.lower()
+    english_contexts = "adapter|runtime|tooling|governance|upstream"
+    english_docs = "doc|docs|documentation|readme|guide"
+    if re.search(rf"\b(?:{english_contexts})(?:[- ]+(?:{english_contexts}))*[- ]+(?:{english_docs})\b", lowered):
+        return True
+    return bool(re.search(r"(?:runtime|adapter|工具|治理|适配|复用|上游)\s*(?:文档|说明)", text))
 
 
 def first_task_value(task: dict[str, Any], *keys: str) -> str:
