@@ -9,6 +9,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import workspace_binding_enforcement
+import workspace_task_state
 from workspace_session_cleanup import build_cleanup_report, build_prune_plan, execute_prune_confirm, execute_recover_binding
 from workspace_session_lock import acquire_registry_lock as acquire_lock
 from workspace_session_lock import release_registry_lock
@@ -339,7 +341,22 @@ def write_guard(
     session_id: str,
     task_id: str,
     intended_paths: list[str] | None = None,
+    route_plan: dict[str, Any] | None = None,
+    requirements_gate: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    current_route_plan = route_plan or workspace_task_state.stored_task_route_plan(
+        project_root,
+        task_id,
+        session_id=session_id,
+    )
+    enforcement = requirements_gate_write_enforcement(current_route_plan, requirements_gate)
+    if enforcement:
+        return {
+            "ok": False,
+            "action": "requirements_gate_blocked",
+            "reason": enforcement["reason"],
+            "requirements_gate_enforcement": enforcement,
+        }
     binding_result = bind_session(project_root, session_id=session_id, task_id=task_id, mode="write")
     if not binding_result.get("ok", True):
         return binding_result
@@ -376,6 +393,16 @@ def write_guard(
         "effective_cwd": str(effective_cwd),
         "binding": binding,
     }
+
+
+def requirements_gate_write_enforcement(
+    route_plan: dict[str, Any] | None = None,
+    requirements_gate: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    plan = dict(route_plan) if isinstance(route_plan, dict) else {}
+    if requirements_gate is not None:
+        plan["requirements_gate"] = requirements_gate
+    return workspace_binding_enforcement.requirements_write_enforcement(plan)
 
 
 def update_binding(binding_id: str, status: str) -> dict[str, Any]:

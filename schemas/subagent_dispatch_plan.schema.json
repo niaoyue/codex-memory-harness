@@ -190,7 +190,7 @@
                 "enum": [
                   "host_has_active_runner_session_handle",
                   "runner_session_not_completed_failed_or_closed",
-                  "workspace_diff_unchanged_since_runner_start"
+                  "reviewed_commit_unchanged_since_runner_start"
                 ]
               }
             },
@@ -206,7 +206,12 @@
             "restart_only_when": {
               "type": "array",
               "items": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "runner_session_closed_missing_or_unrecoverable",
+                  "host_cannot_send_input_to_runner_session",
+                  "reviewed_commit_changed_during_review"
+                ]
               }
             },
             "pass_condition": {

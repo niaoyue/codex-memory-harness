@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 from typing import Any
 
+import workspace_binding_enforcement
 import workspace_router
 from workspace_artifact_security import sensitive_artifact_gaps
 from workspace_artifact_filters import is_subagent_artifact
@@ -16,7 +17,7 @@ def create_bindings(route_plan: dict[str, Any]) -> list[dict[str, Any]]:
     bindings = [specialist_binding(route_plan, route) for route in routes(route_plan)]
     if route_plan.get("coordinator_required") or len(bindings) > 1:
         bindings.insert(0, coordinator_binding(route_plan, bindings))
-    return bindings
+    return workspace_binding_enforcement.apply_requirements_write_enforcement(route_plan, bindings)
 
 
 def specialist_binding(route_plan: dict[str, Any], route: dict[str, Any]) -> dict[str, Any]:
@@ -361,8 +362,6 @@ def read_json(path: str | None) -> dict[str, Any]:
     value = json.loads(Path(path).read_text(encoding="utf-8"))
     if isinstance(value, dict) and isinstance(value.get("bindings"), list):
         return value
-    if isinstance(value, dict) and isinstance(value.get("route_plan"), dict):
-        return value["route_plan"]
     if not isinstance(value, dict):
         raise ValueError("JSON root must be an object.")
     return value
@@ -484,7 +483,7 @@ def validate_single_binding(binding: dict[str, Any]) -> None:
 def load_or_build_route_plan(project_root: Path, args: argparse.Namespace) -> dict[str, Any]:
     route_plan = read_json(args.route_file)
     if route_plan:
-        return route_plan["route_plan"] if isinstance(route_plan.get("route_plan"), dict) else route_plan
+        return workspace_binding_enforcement.current_route_plan(route_plan)
     task = workspace_router.load_task(args.task_file)
     if args.task_id:
         task["task_id"] = args.task_id

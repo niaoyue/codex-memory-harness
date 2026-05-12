@@ -97,6 +97,44 @@ def recommended_next_step(status: str) -> str:
     }.get(status, "Ask the user to clarify requirements before implementation.")
 
 
+def gate_is_blocking(requirements_gate: dict[str, Any] | None) -> bool:
+    if not isinstance(requirements_gate, dict):
+        return False
+    status = normalize_status(str(requirements_gate.get("status") or ""))
+    return bool(requirements_gate.get("blocking")) or status in BLOCKING_GATE_STATUSES
+
+
+def write_enforcement(requirements_gate: dict[str, Any] | None) -> dict[str, Any]:
+    if not gate_is_blocking(requirements_gate):
+        return {}
+    gate = requirements_gate if isinstance(requirements_gate, dict) else {}
+    status = normalize_status(str(gate.get("status") or "")) or "needs_clarification"
+    if status not in BLOCKING_GATE_STATUSES:
+        status = "needs_clarification"
+    return {
+        "status": "blocked_by_requirements_gate",
+        "blocking": True,
+        "gate_status": status,
+        "reason": enforcement_reason(gate, status),
+        "recommended_next_step": str(gate.get("recommended_next_step") or recommended_next_step(status)),
+        "missing": _copy_dict_list(gate.get("missing") or gate.get("missing_requirements")),
+        "open_questions": _string_list(gate.get("open_questions")),
+        "logical_conflicts": _string_list(gate.get("logical_conflicts")),
+        "implementation_spec_mismatches": _string_list(gate.get("implementation_spec_mismatches")),
+    }
+
+
+def enforcement_reason(requirements_gate: dict[str, Any], status: str) -> str:
+    questions = _string_list(requirements_gate.get("open_questions"))
+    if questions:
+        return questions[0]
+    missing = _copy_dict_list(requirements_gate.get("missing") or requirements_gate.get("missing_requirements"))
+    fields = [str(item.get("field") or "").strip() for item in missing if item.get("field")]
+    if fields:
+        return f"requirements gate blocked write: {', '.join(fields)}"
+    return recommended_next_step(status)
+
+
 def _report_fields(task: dict[str, Any], missing: list[dict[str, str]]) -> dict[str, Any]:
     missing_reasons = _missing_reasons_by_field(missing)
     scope_gaps = _field_list(task, "scope_gaps")
@@ -172,6 +210,16 @@ def _string_list(value: Any) -> list[str]:
     if isinstance(value, (list, tuple, set)):
         return [str(item).strip() for item in value if str(item).strip()]
     return [str(value).strip()]
+
+
+def _copy_dict_list(value: Any) -> list[dict[str, str]]:
+    if not isinstance(value, list):
+        return []
+    result: list[dict[str, str]] = []
+    for item in value:
+        if isinstance(item, dict):
+            result.append({str(key): str(val) for key, val in item.items() if str(key).strip()})
+    return result
 
 
 def _unique(values: list[str]) -> list[str]:

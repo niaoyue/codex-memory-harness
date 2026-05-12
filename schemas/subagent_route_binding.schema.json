@@ -134,6 +134,12 @@
         "may_write": {
           "type": "boolean"
         },
+        "write_blocked": {
+          "type": "boolean"
+        },
+        "write_block_reason": {
+          "type": "string"
+        },
         "allowed_paths": {
           "type": "array",
           "items": {
@@ -147,6 +153,9 @@
           }
         }
       }
+    },
+    "requirements_gate_enforcement": {
+      "$ref": "#/$defs/requirements_gate_enforcement"
     },
     "coordinates_projects": {
       "type": "array",
@@ -218,6 +227,68 @@
         },
         "shared_memory_allowed": {
           "type": "boolean"
+        }
+      }
+    },
+    "requirements_gate_enforcement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "blocking",
+        "gate_status",
+        "reason",
+        "recommended_next_step"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "blocked_by_requirements_gate"
+        },
+        "blocking": {
+          "type": "boolean",
+          "const": true
+        },
+        "gate_status": {
+          "type": "string",
+          "enum": [
+            "needs_clarification",
+            "needs_bmad_upstream",
+            "blocked_by_conflict"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "recommended_next_step": {
+          "type": "string"
+        },
+        "missing": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "open_questions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "logical_conflicts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "implementation_spec_mismatches": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     }

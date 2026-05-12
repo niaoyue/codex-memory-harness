@@ -102,7 +102,7 @@
 | T84 | 24 | 引入 OpenSpec change contract 与需求完整性门禁 | `openspec/` profile、`change-governance` spec、OpenSpec/BMAD 集成 proposal/design/tasks/spec delta；本切片仅落地文档，不实现 runtime | T24,T76,T81 | done |
 | T85 | 24 | 定义 BMAD upstream planning policy | 明确何时进入 Product Brief/PRFAQ/PRD/Architecture/Epic/Story/Readiness，何时直接进入 OpenSpec change contract | T84 | done |
 | T86 | 24 | 调研并适配 OpenSpec/BMAD 上游核心代码复用 | 已核对 license、版本、entrypoint、依赖、telemetry、storage 和安全边界；决策为先做命令/插件 adapter，vendoring 仅在 adapter 不足时按 pinned source + LICENSE/NOTICE 执行，不重写上游 core | T84,T85 | done |
-| T87 | 24 | 实现严格 Requirements Integrity Gate runtime | 已完成最小 runtime 切片：docs/tooling governance adapter 任务不再误判为 product `feature_story`，verification artifact touched paths 不再触发 adaptive release route；strict output schema 已落地并覆盖 `passed` / `needs_clarification` / `needs_bmad_upstream` / `blocked_by_conflict` 测试；BMAD upstream 自动判定、spec/implementation 冲突检测和 before-write 阻断仍需后续切片 | T84,T86 | doing |
+| T87 | 24 | 实现严格 Requirements Integrity Gate runtime | 已完成最小 runtime 切片：docs/tooling governance adapter 任务不再误判为 product `feature_story`，verification artifact touched paths 不再触发 adaptive release route；strict output schema 已落地并覆盖 `passed` / `needs_clarification` / `needs_bmad_upstream` / `blocked_by_conflict` 测试；blocking gate 现在会在 route binding 与 workspace write-guard 层禁用写权限；BMAD upstream 自动判定和 spec/implementation 冲突检测仍需后续切片 | T84,T86 | doing |
 
 ## 3. 当前推荐执行步
 
@@ -526,6 +526,6 @@
 - Step 33 计划：发布级完整验证平台与 eval replay
 - Step 34 进行中：安装器 dry-run、旧全局 memory marker 迁移工具和 custom agents 模板已完成；memory archive/cleanup 与可选语义检索 provider 尚未实现。
 - Step 35 计划：自动历史记忆挖掘 runtime。该能力以自动化为默认目标：低风险高置信用户习惯自动 accepted，高风险、冲突或低证据候选才进入待确认队列，避免要求用户每次手动整理。
-- Step 36 已完成：review gate 优化 runtime 已提供 `codex review status/preflight/plan/record/findings/ledger`，保留 `codex xhigh review --uncommitted` 最终语义，通过 preflight、diff fingerprint、review ledger、runner 恢复记录和 slice planner 降低长耗时与重复失败。
+- Step 36 已完成：review gate 优化 runtime 已提供 `codex review status/preflight/plan/record/findings/ledger`，最终语义改为先创建 candidate commit，再用 `codex xhigh review --base HEAD~1` 审核最新提交；通过 preflight、commit diff fingerprint、review ledger、runner 恢复记录和 slice planner 降低长耗时与重复失败。
 - Step 37 进行中：最小 session-worktree write guard 已提供 `codex workspace session ...`、`codex workspace worktree list` 和 `codex workspace write-guard ...`；当前能在 dirty primary checkout 或已有其他 active write lease 时创建 managed worktree 并返回 `effective_cwd`。后续还需把 before_first_write 做成宿主/Hook 强制拦截，并补 stale cleanup 与多 session 合并。
 - Step 38 已完成：stale/cleanup 治理已完成只读、dry-run、confirm 清理和 recover 切片；`codex workspace worktree list` 会展示 active、stale、dirty orphan、prunable、pruned 和 needs_user_review，`codex workspace worktree prune --dry-run` 只输出 released 且 clean at base 的 managed worktree 候选，不执行删除，`codex workspace worktree prune --confirm` 会重新校验 Git 状态和 managed worktree 容器路径后执行 `git worktree remove` 并把 binding 标记为 `pruned`，`codex workspace worktree recover <binding-id>` 只恢复 clean at base 的 managed stale/prunable binding。多 session 合并继续由 T83 跟进。

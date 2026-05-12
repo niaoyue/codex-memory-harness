@@ -1,11 +1,11 @@
 ---
 name: harness-release-gate
-description: Run the Codex Memory Harness release and commit gate. Use when the user asks for final verification, release gate, submit gate, pre-commit validation, or to prepare a local commit for this package or a project using this harness.
+description: Run the Codex Memory Harness release and candidate-commit review gate. Use when the user asks for final verification, release gate, submit gate, candidate commit validation, or to prepare a local commit for this package or a project using this harness.
 ---
 
 # Harness Release Gate
 
-Use this workflow for changes that need to be verified before a local commit.
+Use this workflow for changes that need to be verified, committed locally, and reviewed as the latest candidate commit before push.
 
 ## Workflow
 
@@ -16,14 +16,15 @@ Use this workflow for changes that need to be verified before a local commit.
    python -X utf8 scripts\verify_project.py
    ```
 
-3. Run the final Codex review gate:
+3. Create a local candidate commit that contains only the current task files.
+4. Run the final Codex review gate against the latest commit:
 
    ```powershell
-   codex xhigh review --uncommitted
+   codex xhigh review --base HEAD~1
    ```
 
-4. Fix all blocking findings, then rerun the failed gate.
-5. Create a local git commit only after verification and xhigh review pass.
+5. Fix all blocking findings, then create a new local commit or redo the unpushed candidate commit.
+6. Rerun the same review gate against the latest commit until it reports no new blocking findings.
 
 ## Rules
 

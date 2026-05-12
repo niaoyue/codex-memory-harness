@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+import workspace_binding_enforcement
 import workspace_session
 
 
@@ -41,6 +42,8 @@ def build_parser() -> argparse.ArgumentParser:
     guard = subparsers.add_parser("write-guard", help="Check whether a write may run in this checkout.")
     add_common_args(guard)
     guard.add_argument("--path", action="append", default=[], help="Intended write path; may be repeated.")
+    guard.add_argument("--route-plan-file", help="Route plan JSON used for requirements gate enforcement.")
+    guard.add_argument("--requirements-gate-file", help="Requirements gate JSON used for write enforcement.")
     guard.set_defaults(func=cmd_write_guard)
 
     worktree = subparsers.add_parser("worktree", help="Inspect managed worktree bindings.")
@@ -79,6 +82,8 @@ def cmd_write_guard(args: argparse.Namespace) -> int:
             session_id=args.session_id,
             task_id=args.task_id,
             intended_paths=list(args.path),
+            route_plan=load_route_plan(args.route_plan_file),
+            requirements_gate=load_json(args.requirements_gate_file),
         )
     )
 
@@ -109,6 +114,20 @@ def cmd_worktree_prune(args: argparse.Namespace) -> int:
 
 def cmd_worktree_recover(args: argparse.Namespace) -> int:
     return print_json(workspace_session.worktree_recover(Path(args.project_root), args.binding_id))
+
+
+def load_json(path: str | None) -> dict[str, Any] | None:
+    if not path:
+        return None
+    value = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(value, dict):
+        raise ValueError(f"JSON file must contain an object: {path}")
+    return value
+
+
+def load_route_plan(path: str | None) -> dict[str, Any] | None:
+    value = load_json(path)
+    return workspace_binding_enforcement.current_route_plan(value)
 
 
 def main(argv: list[str] | None = None) -> int:

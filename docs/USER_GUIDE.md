@@ -143,10 +143,10 @@ sh "$HOOK_LAUNCHER" --event before_response --memory-scope project --memory-cwd 
 
 ## Review Gate 辅助命令
 
-最终代码审核仍是：
+最终代码审核先创建本地 candidate commit，再审核最新提交：
 
 ```powershell
-codex xhigh review --uncommitted
+codex xhigh review --base HEAD~1
 ```
 
 辅助命令用于减少进入最终 gate 前的确定性失败：
@@ -253,7 +253,7 @@ docs/AUTOMATED_MEMORY_MINING.md
 
 本节校正依据（2026-05-08 本地只读核对）：现有 review runner、SubAgent review 语义和最终 gate 边界见 `docs/SUBAGENT_WORKFLOW.md`、`plugins/codex-memory/scripts/review_gate_runner.py`、`plugins/codex-memory/scripts/xhigh_review_dispatch.py`。
 
-代码变更的最终审核仍然以 `codex xhigh review --uncommitted` 为准。第二个问题的优化方向不是跳过 review，而是把 review 前准备态、diff fingerprint、XHigh Review Runner 恢复、findings ledger 和 reviewable slice 固化下来，减少大 diff 一次性审查、基础设施失败重开、findings 修复后重复浪费的总耗时。
+代码变更的最终审核以最新 candidate commit 的 `codex xhigh review --base HEAD~1` 为准。第二个问题的优化方向不是跳过 review，而是把 review 前准备态、commit diff fingerprint、XHigh Review Runner 恢复、findings ledger 和 reviewable slice 固化下来，减少大 diff 一次性审查、基础设施失败重开、findings 修复后重复浪费的总耗时。
 
 当前这是计划中的 runtime 能力，方案见：
 
@@ -314,12 +314,12 @@ docs/SUBAGENT_WORKFLOW.md
 代码变更的审核优先使用 Codex CLI 的专用 review 入口，而不是让通用 SubAgent 自行承担最终审核：
 
 ```powershell
-codex xhigh review --uncommitted
+codex xhigh review --base HEAD~1
 ```
 
-SubAgent Reviewer 适合做窄范围专题审查，例如只看某个 route binding、某类安全风险或某组测试覆盖。最终提交或发布前，仍应以 `codex xhigh review --uncommitted` 作为代码审核 gate。
+SubAgent Reviewer 适合做窄范围专题审查，例如只看某个 route binding、某类安全风险或某组测试覆盖。最终 push 或发布前，仍应以 `codex xhigh review --base HEAD~1` 审核最新 candidate commit 作为代码审核 gate。
 
-如果当前宿主支持 SubAgent，大 diff 或长耗时审查应优先派发一个专门的 XHigh Review Runner。它只负责执行 `codex xhigh review --uncommitted`，必要时降级到 `codex-raw -- review -c model_reasoning_effort="xhigh" --uncommitted`，并回传退出状态和 findings；它不是让通用 SubAgent 自己重新审查。等待策略按 stdout/stderr 和状态进度观察：持续有输出就继续等待，宿主等待窗口到期只代表本轮观察结束，不得因此中断或判失败，也不得再套固定总时长。
+如果当前宿主支持 SubAgent，大 diff 或长耗时审查应优先派发一个专门的 XHigh Review Runner。它只负责执行 `codex xhigh review --base HEAD~1`，必要时降级到 `codex-raw -- review -c model_reasoning_effort="xhigh" --base HEAD~1`，并回传退出状态和 findings；它不是让通用 SubAgent 自己重新审查。等待策略按 stdout/stderr 和状态进度观察：持续有输出就继续等待，宿主等待窗口到期只代表本轮观察结束，不得因此中断或判失败，也不得再套固定总时长。
 
 review findings 全部修复、最终 review gate 无阻断问题且验证通过后，流程必须创建一个本地 git commit 记录当前版本。若工作树包含用户无关改动，应只提交本轮相关文件；无法安全隔离时必须说明未提交原因。
 
@@ -420,7 +420,7 @@ docs/WORKSPACE_ROUTING_MIGRATION.md
 - `route_plan.task_type`：例如 `implementation`、`ui`、`contract`、`release`。
 - `risk_level`、route 数量、scope 大小、是否复杂应用级任务、是否 review gate。
 
-当这些信号表明任务是功能 story、系统改动、高风险、发布 gate、跨 route 或复杂应用级任务时，会触发 `autonomous_task_analysis` 或对应的 `complex_task` / `route_policy` / `xhigh_review_gate`。普通低风险小修仍保持 `main_agent_serial`。需要审查的实现任务会在 worker specialist 外额外生成 `Route Review Specialist`，最终代码审核仍优先使用 `codex xhigh review --uncommitted`。
+当这些信号表明任务是功能 story、系统改动、高风险、发布 gate、跨 route 或复杂应用级任务时，会触发 `autonomous_task_analysis` 或对应的 `complex_task` / `route_policy` / `xhigh_review_gate`。普通低风险小修仍保持 `main_agent_serial`。需要审查的实现任务会在 worker specialist 外额外生成 `Route Review Specialist`，最终代码审核仍优先使用 `codex xhigh review --base HEAD~1` 审核最新 candidate commit。
 
 这仍不是真实 SubAgent 自动执行器。当前系统只准备 binding、scope guard、dispatch plan、runtime decision 和 review，是否实际启动多个 SubAgent 仍由 Codex 宿主能力、主 agent 的显式 spawn 策略或人工编排决定。
 

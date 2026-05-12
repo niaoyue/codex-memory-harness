@@ -53,6 +53,13 @@ class WorkspaceRoutingSchemaTests(unittest.TestCase):
         self.assertNotIn("subagent_runtime_policy", route_plan["required"])
         self.assertIn("assigned_scope", binding["required"])
         self.assertIn("artifact_policy", binding["required"])
+        self.assertIn("requirements_gate_enforcement", binding["properties"])
+        self.assertIn("write_blocked", binding["properties"]["permissions"]["properties"])
+        self.assertIn("write_block_reason", binding["properties"]["permissions"]["properties"])
+        self.assertEqual(
+            binding["$defs"]["requirements_gate_enforcement"]["properties"]["status"]["const"],
+            "blocked_by_requirements_gate",
+        )
         self.assertIn("host_spawn_requests", dispatch["required"])
         spawn = dispatch["$defs"]["host_spawn_request"]
         self.assertIn("total_timeout_policy", spawn["required"])
@@ -62,10 +69,12 @@ class WorkspaceRoutingSchemaTests(unittest.TestCase):
         recovery = spawn["properties"]["recoverable_failure_policy"]
         self.assertEqual(recovery["properties"]["primary_action"]["enum"], ["send_input_to_active_review_runner"])
         self.assertIn("primary_preconditions", recovery["required"])
-        self.assertIn(
-            "workspace_diff_unchanged_since_runner_start",
-            recovery["properties"]["primary_preconditions"]["items"]["enum"],
-        )
+        preconditions = recovery["properties"]["primary_preconditions"]["items"]["enum"]
+        self.assertIn("reviewed_commit_unchanged_since_runner_start", preconditions)
+        self.assertNotIn("workspace_diff_unchanged_since_runner_start", preconditions)
+        restart_conditions = recovery["properties"]["restart_only_when"]["items"]["enum"]
+        self.assertIn("reviewed_commit_changed_during_review", restart_conditions)
+        self.assertNotIn("workspace_diff_changed_during_review", restart_conditions)
         self.assertIn("failure_rules", recovery["required"])
         failure_rule = recovery["properties"]["failure_rules"]["items"]
         self.assertIn("max_resume_attempts", failure_rule["required"])

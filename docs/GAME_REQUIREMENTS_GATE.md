@@ -39,7 +39,9 @@
 | `system_change` | 缺需求来源、验收条件、架构边界、接口或迁移说明 |
 | `release_gate` | 缺需求来源或回滚说明 |
 
-阻断时输出 `requirements_gate`，并把 `fallback_action` 设为 `ask_user`。
+阻断时输出 `requirements_gate`，并把 `fallback_action` 设为 `ask_user`。运行时还会把 route binding 的
+`permissions.may_write` 降为 `false`，并让 workspace `write-guard` 在绑定写入会话前返回
+`requirements_gate_blocked`。
 
 ## 5. 需求与技术的处理边界
 

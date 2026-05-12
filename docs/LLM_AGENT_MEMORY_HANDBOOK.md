@@ -458,7 +458,7 @@ sequenceDiagram
   ],
   "project_rules": [
     "输出使用中文",
-    "代码审核优先使用 codex xhigh review --uncommitted"
+    "代码审核优先使用 codex xhigh review --base HEAD~1 审核最新 candidate commit"
   ],
   "user_task": "写一个页面版 LLM、Agent 和记忆系统使用手册",
   "retrieved_memory": [
@@ -592,7 +592,7 @@ flowchart TD
 项目规则：
 - 输出使用中文
 - 回复开头必须有“前置说明”
-- 代码审核优先使用 codex xhigh review --uncommitted
+- 代码审核优先使用 codex xhigh review --base HEAD~1 审核最新 candidate commit
 
 用户任务：
 - 写一个页面版使用手册，细化 Token、Agent、记忆和 Codex 工作原理
@@ -1103,7 +1103,7 @@ codex harness verify run --profile primary
 代码审核 gate：
 
 ```powershell
-codex xhigh review --uncommitted
+codex xhigh review --base HEAD~1
 ```
 
 本节校正依据（2026-05-06 只读核对）：

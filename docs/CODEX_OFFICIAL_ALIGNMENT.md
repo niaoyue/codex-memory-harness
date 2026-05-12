@@ -163,7 +163,7 @@ templates/project/.codex/agents/xhigh-review-runner.toml
 - `install_codex_memory.py --check`：只读检查当前环境状态，不会复制 home plugin、不写全局 AGENTS、不安装 bundled skills，也不碰 PowerShell/POSIX shell profile。
 - `install.sh` 语法和 `--check`：覆盖 shell 包装入口和依赖检查，但仍不是普通安装。
 - Python 单元测试：主要 mock 安装函数和局部 helper，能证明函数契约，但不能证明 `install.bat`、release package、环境变量、真实文件写入组合起来一定可用。
-- `codex xhigh review --uncommitted`：能审查代码风险，但不能替代缺失的动态 smoke gate。
+- `codex xhigh review --base HEAD~1`：能审查最新 candidate commit 的代码风险，但不能替代缺失的动态 smoke gate。
 
 因此，若普通首次安装路径里出现 batch 参数传递、home 目录解析、copy/junction、skills 复制、全局 AGENTS 写入或 marketplace 写入问题，旧 gate 不一定会发现。这属于验证设计缺陷，不应该只靠人工记得执行一次安装。
 

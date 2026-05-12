@@ -6,6 +6,7 @@ from typing import Any
 
 import subagent_runtime_planner
 import subagent_task_classifier
+import workspace_binding_enforcement
 import workspace_router
 import workspace_subagents
 from workspace_path_utils import normalize_many
@@ -37,6 +38,9 @@ def safe_workspace_routing(task_id: str, task_payload: dict[str, Any]) -> dict[s
             "bindings": bindings,
             "subagent_runtime": runtime,
         }
+        write_enforcement = requirements_write_enforcement(route_plan)
+        if write_enforcement:
+            routing["write_enforcement"] = write_enforcement
         attach_dispatch_plan_if_needed(routing, route_plan, bindings, task_payload)
         return routing
     except Exception as exc:
@@ -60,6 +64,14 @@ def subagent_runtime_decision(
 
 def requirements_gate_blocking(route_plan: dict[str, Any]) -> bool:
     return subagent_runtime_planner.requirements_gate_blocking(route_plan)
+
+
+def requirements_write_enforcement(route_plan: dict[str, Any]) -> dict[str, Any]:
+    return workspace_binding_enforcement.requirements_write_enforcement(route_plan)
+
+
+def binding_with_write_block(binding: dict[str, Any], enforcement: dict[str, Any]) -> dict[str, Any]:
+    return workspace_binding_enforcement.binding_with_write_block(binding, enforcement)
 
 
 def main_agent_action(dispatch_allowed: bool, recommended: bool, requirements_blocked: bool = False) -> str:
@@ -151,10 +163,24 @@ def merge_adaptive_routing(
         if isinstance(adaptive_routing.get("subagent_runtime"), dict)
         else {}
     )
-    if isinstance(adaptive_routing.get("route_plan"), dict):
+    adaptive_has_route_plan = isinstance(adaptive_routing.get("route_plan"), dict)
+    if adaptive_has_route_plan:
         workspace_routing["adaptive_route_plan"] = adaptive_routing["route_plan"]
     if isinstance(adaptive_routing.get("bindings"), list):
         workspace_routing["adaptive_bindings"] = adaptive_routing["bindings"]
+    if isinstance(adaptive_routing.get("write_enforcement"), dict):
+        enforcement = adaptive_routing["write_enforcement"]
+        workspace_routing["write_enforcement"] = enforcement
+        if isinstance(adaptive_routing.get("bindings"), list):
+            workspace_routing["bindings"] = adaptive_routing["bindings"]
+        elif isinstance(workspace_routing.get("bindings"), list):
+            workspace_routing["bindings"] = [
+                binding_with_write_block(binding, enforcement) for binding in workspace_routing["bindings"]
+            ]
+    elif adaptive_has_route_plan:
+        workspace_routing.pop("write_enforcement", None)
+        if isinstance(adaptive_routing.get("bindings"), list):
+            workspace_routing["bindings"] = adaptive_routing["bindings"]
     if isinstance(adaptive_routing.get("subagent_dispatch_plan"), dict):
         workspace_routing["adaptive_subagent_dispatch_plan"] = adaptive_routing["subagent_dispatch_plan"]
         if adaptive_runtime.get("dispatch_plan_required") or "subagent_dispatch_plan" not in workspace_routing:
@@ -174,11 +200,27 @@ def apply_signal_route_plan(
     payload: dict[str, Any],
 ) -> list[dict[str, Any]]:
     bindings = create_bindings(route_plan)
+    clear_adaptive_route_plan(workspace_routing)
     workspace_routing["route_plan"] = route_plan
     workspace_routing["bindings"] = bindings
+    write_enforcement = requirements_write_enforcement(route_plan)
+    if write_enforcement:
+        workspace_routing["write_enforcement"] = write_enforcement
+    else:
+        workspace_routing.pop("write_enforcement", None)
     merge_subagent_runtime(workspace_routing, subagent_runtime_decision(route_plan, bindings, payload))
     attach_dispatch_plan_if_needed(workspace_routing, route_plan, bindings, payload)
     return bindings
+
+
+def clear_adaptive_route_plan(workspace_routing: dict[str, Any]) -> None:
+    for key in (
+        "adaptive_route_plan",
+        "adaptive_bindings",
+        "adaptive_subagent_dispatch_plan",
+        "adaptive_degraded",
+    ):
+        workspace_routing.pop(key, None)
 
 
 def merge_subagent_runtime(workspace_routing: dict[str, Any], incoming_runtime: dict[str, Any]) -> None:

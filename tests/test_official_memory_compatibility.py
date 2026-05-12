@@ -172,7 +172,8 @@ class OfficialMemoryCompatibilityTests(unittest.TestCase):
         self.assertIn("正式 implementation 任务", block)
         self.assertIn("timeout 只能作为本次观察窗口", block)
         self.assertIn("不得仅因观察窗口到期而中断", block)
-        self.assertIn("本地创建一个 git commit", block)
+        self.assertIn("candidate commit", block)
+        self.assertIn("codex xhigh review --base HEAD~1", block)
         self.assertEqual(agents_path, codex_home / "AGENTS.md")
 
     def test_bootstrap_doctor_reads_agents_from_codex_home(self) -> None:

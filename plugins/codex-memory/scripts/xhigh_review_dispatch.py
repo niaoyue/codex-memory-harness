@@ -17,6 +17,11 @@ PYTHON_RUNTIME_CANDIDATES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("python3", ()),
 )
 XHIGH_REVIEW_IDLE_SECONDS = 1800
+XHIGH_REVIEW_BASE_REF = "HEAD~1"
+XHIGH_REVIEW_ALIAS_COMMAND = f"codex xhigh review --base {XHIGH_REVIEW_BASE_REF}"
+XHIGH_REVIEW_FALLBACK_COMMAND = (
+    f'codex-raw -- review -c model_reasoning_effort="xhigh" --base {XHIGH_REVIEW_BASE_REF}'
+)
 REVIEW_RUNNER_RATE_LIMIT_BACKOFF_SECONDS = 20
 REVIEW_RUNNER_TRANSIENT_BACKOFF_SECONDS = 2
 REVIEW_RUNNER_UNLIMITED_RESUME_ATTEMPTS: int | None = None
@@ -48,7 +53,7 @@ def build_dispatch_plan(route_plan: dict[str, Any]) -> dict[str, Any]:
         "If this XHigh Review Runner SubAgent is still active after a model capacity, 5xx, or timeout failure, the host must send this same runner a continue instruction before starting a new review gate.\n"
         f"Use per-failure backoff from recoverable_failure_policy: model capacity or 429 waits {REVIEW_RUNNER_RATE_LIMIT_BACKOFF_SECONDS} seconds and may continue while the session stays active; 5xx or timeout waits {REVIEW_RUNNER_TRANSIENT_BACKOFF_SECONDS} seconds and is resumed at most once.\n"
         f"Use this continue instruction after the selected backoff: {REVIEW_RUNNER_RESUME_MESSAGE}\n"
-        "Use the codex-raw fallback command (codex-raw -- review -c model_reasoning_effort=\"xhigh\" --uncommitted) only when the runner session is closed, missing, unrecoverable, or the diff changed during review.\n"
+        f"Use the codex-raw fallback command ({XHIGH_REVIEW_FALLBACK_COMMAND}) only when the runner session is closed, missing, unrecoverable, or the reviewed commit changed during review.\n"
         f"Monitor stdout/stderr with a {XHIGH_REVIEW_IDLE_SECONDS}-second idle/no-output observation window; this is not a fixed total timeout.\n"
         "Ongoing output means the review is still active.\n"
         "Do not wrap the SubAgent or review runner in any fixed timeout. Host wait windows are observation polls only; continue observing instead of interrupting solely because a wait window expires.\n"
@@ -74,8 +79,8 @@ def build_dispatch_plan(route_plan: dict[str, Any]) -> dict[str, Any]:
                 "checkpoint_required": True,
                 "scope_guard_required": False,
                 "command": command,
-                "alias_command": "codex xhigh review --uncommitted",
-                "fallback_command": 'codex-raw -- review -c model_reasoning_effort="xhigh" --uncommitted',
+                "alias_command": XHIGH_REVIEW_ALIAS_COMMAND,
+                "fallback_command": XHIGH_REVIEW_FALLBACK_COMMAND,
                 "recoverable_failure_policy": recoverable_failure_policy(),
                 "timeout_policy": "progress_output_observation",
                 "idle_policy": "stdout_stderr_no_progress_only",
@@ -147,14 +152,14 @@ def recoverable_failure_policy() -> dict[str, Any]:
         "primary_preconditions": [
             "host_has_active_runner_session_handle",
             "runner_session_not_completed_failed_or_closed",
-            "workspace_diff_unchanged_since_runner_start",
+            "reviewed_commit_unchanged_since_runner_start",
         ],
         "resume_message": REVIEW_RUNNER_RESUME_MESSAGE,
         "restart_action": "restart_same_review_gate_command",
         "restart_only_when": [
             "runner_session_closed_missing_or_unrecoverable",
             "host_cannot_send_input_to_runner_session",
-            "workspace_diff_changed_during_review",
+            "reviewed_commit_changed_during_review",
         ],
         "pass_condition": "review_gate_must_complete_cleanly",
     }
@@ -179,7 +184,8 @@ def runner_command_parts(script_path: Path | None = None) -> list[str]:
         "--cwd",
         ".",
         "--",
-        "--uncommitted",
+        "--base",
+        XHIGH_REVIEW_BASE_REF,
     ]
     return parts
 

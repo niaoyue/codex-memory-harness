@@ -35,7 +35,7 @@
 - [x] Define strict Requirements Integrity Gate output schema.
 - [x] Define adapter interfaces for requirement gate, change contract, upstream
   planning, and harness metadata mapping.
-- [ ] Define before-write enforcement path so blocking gate results stop file
+- [x] Define before-write enforcement path so blocking gate results stop file
   edits.
 - [x] Define archive/sync behavior for updating baseline specs after completion.
 

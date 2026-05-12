@@ -28,6 +28,17 @@ requirements.
 - THEN the gate MUST return `needs_clarification`
 - AND implementation MUST stop before writing files
 
+#### Scenario: Blocking gate stops write permissions
+
+- GIVEN the requirements gate returns `needs_clarification`,
+  `needs_bmad_upstream`, or `blocked_by_conflict`
+- WHEN the harness creates route bindings or evaluates the workspace write
+  guard
+- THEN write permissions MUST be disabled before implementation edits are
+  allowed
+- AND the enforcement result MUST include the gate status, blocking reason, and
+  recommended next step
+
 #### Scenario: Gate returns a strict actionable report
 
 - GIVEN the requirements gate evaluates a request

@@ -37,8 +37,9 @@ class XHighReviewDispatchTests(unittest.TestCase):
         self.assertIn(f"--idle-seconds {xhigh_review_dispatch.XHIGH_REVIEW_IDLE_SECONDS}", command)
         self.assertIn("--max-seconds 0", command)
         self.assertGreater(xhigh_review_dispatch.XHIGH_REVIEW_IDLE_SECONDS, 0)
-        self.assertIn("--uncommitted", command)
-        self.assertNotEqual(command, "codex xhigh review --uncommitted")
+        self.assertIn("--base HEAD~1", command)
+        self.assertNotIn("--uncommitted", command)
+        self.assertNotEqual(command, "codex xhigh review --base HEAD~1")
 
     def test_runner_command_quotes_explicit_script_path(self) -> None:
         script = mock.Mock()
@@ -90,7 +91,7 @@ class XHighReviewDispatchTests(unittest.TestCase):
                     "before_task",
                     {
                         "task_id": "review-task",
-                        "objective": "Run codex xhigh review --uncommitted as the final review gate",
+                        "objective": "Run codex xhigh review --base HEAD~1 as the final review gate",
                         "working_set": ["client/Assets/Login.cs"],
                     },
                 )
@@ -118,19 +119,19 @@ class XHighReviewDispatchTests(unittest.TestCase):
         self.assertIn(f"--idle-seconds {xhigh_review_dispatch.XHIGH_REVIEW_IDLE_SECONDS}", request["command"])
         self.assertIn("--max-seconds 0", request["command"])
         self.assertNotEqual(request["command"], request["alias_command"])
-        self.assertEqual(request["alias_command"], "codex xhigh review --uncommitted")
+        self.assertEqual(request["alias_command"], "codex xhigh review --base HEAD~1")
         self.assertEqual(request["total_timeout_policy"], "none")
         self.assertEqual(request["observation_window_policy"], "poll_only_never_interrupt")
         self.assertTrue(request["no_fixed_total_timeout"])
         self.assertEqual(
             request["fallback_command"],
-            'codex-raw -- review -c model_reasoning_effort="xhigh" --uncommitted',
+            'codex-raw -- review -c model_reasoning_effort="xhigh" --base HEAD~1',
         )
         self.assertIn("explicit runner command", request["message"])
         self.assertIn("idle/no-output observation window", request["message"])
         self.assertIn("not a fixed total timeout", request["message"])
         self.assertNotIn("codex xhigh review --uncommitted", request["message"])
-        self.assertEqual(request["alias_command"], "codex xhigh review --uncommitted")
+        self.assertEqual(request["alias_command"], "codex xhigh review --base HEAD~1")
         self.assertIn("Host wait windows are observation polls only", request["message"])
         self.assertIn("codex-raw -- review -c", request["message"])
         self.assertIn("same runner a continue instruction", request["message"])
@@ -178,8 +179,11 @@ class XHighReviewDispatchTests(unittest.TestCase):
         self.assertIn("http_5xx", policy["recoverable_failure_types"])
         self.assertIn("timeout", policy["recoverable_failure_types"])
         self.assertIn("Do not restart", policy["resume_message"])
-        self.assertIn("workspace_diff_unchanged_since_runner_start", policy["primary_preconditions"])
+        self.assertIn("reviewed_commit_unchanged_since_runner_start", policy["primary_preconditions"])
+        self.assertNotIn("workspace_diff_unchanged_since_runner_start", policy["primary_preconditions"])
         self.assertIn("runner_session_closed_missing_or_unrecoverable", policy["restart_only_when"])
+        self.assertIn("reviewed_commit_changed_during_review", policy["restart_only_when"])
+        self.assertNotIn("workspace_diff_changed_during_review", policy["restart_only_when"])
         self.assertNotIn("review_output_is_too_incomplete_to_establish_coverage", policy["restart_only_when"])
         self.assertEqual(policy["pass_condition"], "review_gate_must_complete_cleanly")
 
@@ -196,7 +200,7 @@ class XHighReviewDispatchTests(unittest.TestCase):
                         "before_task",
                         {
                             "task_id": "nested-review-task",
-                            "objective": "Run codex xhigh review --uncommitted as the final review gate",
+                            "objective": "Run codex xhigh review --base HEAD~1 as the final review gate",
                             "working_set": ["client/Assets/Login.cs"],
                         },
                     )
@@ -219,7 +223,7 @@ class XHighReviewDispatchTests(unittest.TestCase):
                         "task_id": "nested-review-task",
                         "objective": (
                             "Role: XHigh Review Runner. Do not wrap the SubAgent or review runner "
-                            "in any fixed timeout. Run codex xhigh review --uncommitted."
+                            "in any fixed timeout. Run codex xhigh review --base HEAD~1."
                         ),
                         "working_set": ["client/Assets/Login.cs"],
                         "review_gate_running": True,
@@ -247,7 +251,7 @@ class XHighReviewDispatchTests(unittest.TestCase):
                         "task_id": "review-task",
                         "objective": (
                             "Role: XHigh Review Runner. Do not wrap the SubAgent or review runner "
-                            "in any fixed timeout. Run codex xhigh review --uncommitted."
+                            "in any fixed timeout. Run codex xhigh review --base HEAD~1."
                         ),
                         "working_set": ["client/Assets/Login.cs"],
                         "review_gate_running": True,
@@ -259,7 +263,7 @@ class XHighReviewDispatchTests(unittest.TestCase):
                     "before_task",
                     {
                         "task_id": "review-task",
-                        "objective": "Run codex xhigh review --uncommitted as the final review gate",
+                        "objective": "Run codex xhigh review --base HEAD~1 as the final review gate",
                         "working_set": ["client/Assets/Login.cs"],
                     },
                 )
@@ -279,7 +283,7 @@ class XHighReviewDispatchTests(unittest.TestCase):
                     "before_task",
                     {
                         "task_id": "review-task",
-                        "objective": "Run codex xhigh review --uncommitted as the final review gate",
+                        "objective": "Run codex xhigh review --base HEAD~1 as the final review gate",
                         "working_set": ["client/Assets/Login.cs"],
                         "metadata": {
                             "review_gate_running": True,
@@ -301,7 +305,7 @@ class XHighReviewDispatchTests(unittest.TestCase):
                     "before_task",
                     {
                         "task_id": "review-task",
-                        "objective": "Run codex xhigh review --uncommitted as the final review gate",
+                        "objective": "Run codex xhigh review --base HEAD~1 as the final review gate",
                         "working_set": ["client/Assets/Login.cs"],
                     },
                 )

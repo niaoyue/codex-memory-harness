@@ -58,6 +58,15 @@ The harness MUST evaluate detailed requirements before implementation begins.
 - THEN the gate MUST return `blocked_by_conflict`
 - AND the conflict MUST be recorded in the change design or task list
 
+#### Scenario: Blocking gate stops write permissions
+
+- GIVEN the requirements gate returns a blocking status
+- WHEN the harness creates route bindings or evaluates a workspace write guard
+- THEN write permissions MUST be disabled before implementation edits are
+  allowed
+- AND the enforcement result MUST include the gate status, blocking reason, and
+  recommended next step
+
 ### Requirement: BMAD Upstream Planning Trigger
 
 The harness MUST route unclear, product-level, architecture-level, or high-risk
