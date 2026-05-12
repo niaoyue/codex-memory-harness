@@ -17,11 +17,11 @@ PYTHON_RUNTIME_CANDIDATES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("python3", ()),
 )
 XHIGH_REVIEW_IDLE_SECONDS = 1800
-XHIGH_REVIEW_BASE_REF = "HEAD~1"
-XHIGH_REVIEW_BASE_ENV = "CODEX_XHIGH_REVIEW_BASE"
-XHIGH_REVIEW_ALIAS_COMMAND = f"codex xhigh review --base {XHIGH_REVIEW_BASE_REF}"
+XHIGH_REVIEW_COMMIT_REF = "HEAD"
+XHIGH_REVIEW_COMMIT_ENV = "CODEX_XHIGH_REVIEW_COMMIT"
+XHIGH_REVIEW_ALIAS_COMMAND = f"codex xhigh review --commit {XHIGH_REVIEW_COMMIT_REF}"
 XHIGH_REVIEW_FALLBACK_COMMAND = (
-    f'codex-raw -- review -c model_reasoning_effort="xhigh" --base {XHIGH_REVIEW_BASE_REF}'
+    f'codex-raw -- review -c model_reasoning_effort="xhigh" --commit {XHIGH_REVIEW_COMMIT_REF}'
 )
 REVIEW_RUNNER_RATE_LIMIT_BACKOFF_SECONDS = 20
 REVIEW_RUNNER_TRANSIENT_BACKOFF_SECONDS = 2
@@ -45,21 +45,21 @@ def build_dispatch_plan(route_plan: dict[str, Any]) -> dict[str, Any]:
     task_id = string(route_plan.get("task_id")) or "workspace-route"
     route_plan_id = string(route_plan.get("route_plan_id"))
     dispatch_id = "dispatch-xhigh-review-runner"
-    base_ref = review_base_ref(route_plan)
-    command = runner_command(base_ref=base_ref)
-    alias = alias_command(base_ref)
-    fallback = fallback_command(base_ref)
+    commit_ref = review_commit_ref(route_plan)
+    command = runner_command(commit_ref=commit_ref)
+    alias = alias_command(commit_ref)
+    fallback = fallback_command(commit_ref)
     message = (
         "Role: XHigh Review Runner\n"
         "Do not modify files, commit, push, format, or revert anything.\n"
         f"Run this explicit runner command in the repository root: {command}\n"
-        f"Review base ref: {base_ref}. Keep this base fixed for all reruns until the candidate change is clean.\n"
-        f"To review follow-up fix commits as part of the same candidate, set {XHIGH_REVIEW_BASE_ENV} to the first candidate commit's parent SHA or store review_base_ref in the route plan.\n"
+        f"Review commit ref: {commit_ref}. Review only the changes introduced by this commit.\n"
+        f"After creating a follow-up fix commit, set {XHIGH_REVIEW_COMMIT_ENV} to that new commit SHA or store review_commit_ref in the route plan before rerunning the gate.\n"
         "Do not replace the explicit runner command with the review alias unless explicitly asked; non-interactive SubAgent shells may bypass the PowerShell profile wrapper.\n"
         "If this XHigh Review Runner SubAgent is still active after a model capacity, 5xx, or timeout failure, the host must send this same runner a continue instruction before starting a new review gate.\n"
         f"Use per-failure backoff from recoverable_failure_policy: model capacity or 429 waits {REVIEW_RUNNER_RATE_LIMIT_BACKOFF_SECONDS} seconds and may continue while the session stays active; 5xx or timeout waits {REVIEW_RUNNER_TRANSIENT_BACKOFF_SECONDS} seconds and is resumed at most once.\n"
         f"Use this continue instruction after the selected backoff: {REVIEW_RUNNER_RESUME_MESSAGE}\n"
-        f"Use the codex-raw fallback command ({fallback}) only when the runner session is closed, missing, unrecoverable, the reviewed HEAD changed during review, or the fixed review base changed.\n"
+        f"Use the codex-raw fallback command ({fallback}) only when the runner session is closed, missing, unrecoverable, or the reviewed commit ref changed.\n"
         f"Monitor stdout/stderr with a {XHIGH_REVIEW_IDLE_SECONDS}-second idle/no-output observation window; this is not a fixed total timeout.\n"
         "Ongoing output means the review is still active.\n"
         "Do not wrap the SubAgent or review runner in any fixed timeout. Host wait windows are observation polls only; continue observing instead of interrupting solely because a wait window expires.\n"
@@ -87,7 +87,7 @@ def build_dispatch_plan(route_plan: dict[str, Any]) -> dict[str, Any]:
                 "command": command,
                 "alias_command": alias,
                 "fallback_command": fallback,
-                "review_base_ref": base_ref,
+                "review_commit_ref": commit_ref,
                 "recoverable_failure_policy": recoverable_failure_policy(),
                 "timeout_policy": "progress_output_observation",
                 "idle_policy": "stdout_stderr_no_progress_only",
@@ -116,27 +116,27 @@ def build_dispatch_plan(route_plan: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def runner_command(*, base_ref: str | None = None) -> str:
-    return command_line(runner_command_parts(base_ref=base_ref))
+def runner_command(*, commit_ref: str | None = None) -> str:
+    return command_line(runner_command_parts(commit_ref=commit_ref))
 
 
-def alias_command(base_ref: str) -> str:
-    return f"codex xhigh review --base {base_ref}"
+def alias_command(commit_ref: str) -> str:
+    return f"codex xhigh review --commit {commit_ref}"
 
 
-def fallback_command(base_ref: str) -> str:
-    return f'codex-raw -- review -c model_reasoning_effort="xhigh" --base {base_ref}'
+def fallback_command(commit_ref: str) -> str:
+    return f'codex-raw -- review -c model_reasoning_effort="xhigh" --commit {commit_ref}'
 
 
-def review_base_ref(route_plan: dict[str, Any] | None = None, environ: dict[str, str] | None = None) -> str:
+def review_commit_ref(route_plan: dict[str, Any] | None = None, environ: dict[str, str] | None = None) -> str:
     metadata = route_plan.get("metadata") if isinstance(route_plan, dict) and isinstance(route_plan.get("metadata"), dict) else {}
     configured = (
-        string(route_plan.get("review_base_ref")) if isinstance(route_plan, dict) else ""
-    ) or string(metadata.get("review_base_ref"))
+        string(route_plan.get("review_commit_ref")) if isinstance(route_plan, dict) else ""
+    ) or string(metadata.get("review_commit_ref"))
     if configured:
         return configured
     env = os.environ if environ is None else environ
-    return string(env.get(XHIGH_REVIEW_BASE_ENV)) or XHIGH_REVIEW_BASE_REF
+    return string(env.get(XHIGH_REVIEW_COMMIT_ENV)) or XHIGH_REVIEW_COMMIT_REF
 
 
 def recoverable_failure_policy() -> dict[str, Any]:
@@ -178,22 +178,22 @@ def recoverable_failure_policy() -> dict[str, Any]:
         "primary_preconditions": [
             "host_has_active_runner_session_handle",
             "runner_session_not_completed_failed_or_closed",
-            "review_base_ref_unchanged_since_runner_start",
-            "reviewed_head_unchanged_since_runner_start",
+            "review_commit_ref_unchanged_since_runner_start",
+            "reviewed_commit_unchanged_since_runner_start",
         ],
         "resume_message": REVIEW_RUNNER_RESUME_MESSAGE,
         "restart_action": "restart_same_review_gate_command",
         "restart_only_when": [
             "runner_session_closed_missing_or_unrecoverable",
             "host_cannot_send_input_to_runner_session",
-            "review_base_ref_changed_during_review",
-            "reviewed_head_changed_during_review",
+            "review_commit_ref_changed_during_review",
+            "reviewed_commit_changed_during_review",
         ],
         "pass_condition": "review_gate_must_complete_cleanly",
     }
 
 
-def runner_command_parts(script_path: Path | None = None, *, base_ref: str | None = None) -> list[str]:
+def runner_command_parts(script_path: Path | None = None, *, commit_ref: str | None = None) -> list[str]:
     script = script_path or Path(__file__).resolve().with_name("review_gate_runner.py")
     script = script.resolve()
     runtime = resolve_python_runtime()
@@ -212,8 +212,8 @@ def runner_command_parts(script_path: Path | None = None, *, base_ref: str | Non
         "--cwd",
         ".",
         "--",
-        "--base",
-        base_ref or review_base_ref(),
+        "--commit",
+        commit_ref or review_commit_ref(),
     ]
     return parts
 

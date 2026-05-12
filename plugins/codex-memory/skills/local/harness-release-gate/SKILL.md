@@ -5,7 +5,7 @@ description: Run the Codex Memory Harness release and candidate-commit review ga
 
 # Harness Release Gate
 
-Use this workflow for changes that need to be verified, committed locally, and reviewed from a fixed candidate base before push.
+Use this workflow for changes that need to be verified, committed locally, and reviewed as a commit before push.
 
 ## Workflow
 
@@ -17,20 +17,20 @@ Use this workflow for changes that need to be verified, committed locally, and r
    ```
 
 3. Create a local candidate commit that contains only the current task files.
-4. Capture the fixed candidate base before the first review:
+4. Capture the commit SHA before review:
 
    ```powershell
-   git rev-parse HEAD~1
+   git rev-parse HEAD
    ```
 
-5. Run the final Codex review gate against the full candidate range. `HEAD~1` is only valid for the first single candidate commit; after follow-up fix commits, keep using the captured base SHA:
+5. Run the final Codex review gate against the commit. After follow-up fix commits, capture the new commit SHA and review that new commit:
 
    ```powershell
-   codex xhigh review --base HEAD~1
+   codex xhigh review --commit HEAD
    ```
 
 6. Fix all blocking findings, then create a new local commit or redo the unpushed candidate commit.
-7. Rerun `codex xhigh review --base <candidate-base>` until the full candidate range has no new blocking findings.
+7. Rerun `codex xhigh review --commit <commit-sha>` for the new commit until there are no new blocking findings.
 
 ## Rules
 

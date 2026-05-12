@@ -64,19 +64,19 @@ class WorkspaceRoutingSchemaTests(unittest.TestCase):
         spawn = dispatch["$defs"]["host_spawn_request"]
         self.assertIn("total_timeout_policy", spawn["required"])
         self.assertEqual(spawn["properties"]["total_timeout_policy"]["enum"], ["none"])
-        self.assertIn("review_base_ref", spawn["properties"])
+        self.assertIn("review_commit_ref", spawn["properties"])
         self.assertIn("poll_only_never_interrupt", spawn["properties"]["observation_window_policy"]["enum"])
         self.assertEqual(spawn["properties"]["no_fixed_total_timeout"]["const"], True)
         recovery = spawn["properties"]["recoverable_failure_policy"]
         self.assertEqual(recovery["properties"]["primary_action"]["enum"], ["send_input_to_active_review_runner"])
         self.assertIn("primary_preconditions", recovery["required"])
         preconditions = recovery["properties"]["primary_preconditions"]["items"]["enum"]
-        self.assertIn("review_base_ref_unchanged_since_runner_start", preconditions)
-        self.assertIn("reviewed_head_unchanged_since_runner_start", preconditions)
+        self.assertIn("review_commit_ref_unchanged_since_runner_start", preconditions)
+        self.assertIn("reviewed_commit_unchanged_since_runner_start", preconditions)
         self.assertNotIn("workspace_diff_unchanged_since_runner_start", preconditions)
         restart_conditions = recovery["properties"]["restart_only_when"]["items"]["enum"]
-        self.assertIn("review_base_ref_changed_during_review", restart_conditions)
-        self.assertIn("reviewed_head_changed_during_review", restart_conditions)
+        self.assertIn("review_commit_ref_changed_during_review", restart_conditions)
+        self.assertIn("reviewed_commit_changed_during_review", restart_conditions)
         self.assertNotIn("workspace_diff_changed_during_review", restart_conditions)
         self.assertIn("failure_rules", recovery["required"])
         failure_rule = recovery["properties"]["failure_rules"]["items"]

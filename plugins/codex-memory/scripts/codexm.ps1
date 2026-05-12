@@ -132,7 +132,7 @@ Codex Memory 命令：
   codex memory promote --task-id <task-id> [--kind fact]
   codex memory shared validate|index rebuild
   codex memory migrate-legacy-global [--dry-run|--confirm]
-兼容别名：codex harness/package/workspace ...；codex xhigh review --base <candidate-base>；codex-memory-doctor；codexm memory ...
+兼容别名：codex harness/package/workspace ...；codex xhigh review --commit <commit-sha>；codex-memory-doctor；codexm memory ...
 常用：codex workspace schedule；codex workspace game-client
 "@
 }

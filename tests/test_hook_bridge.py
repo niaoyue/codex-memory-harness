@@ -97,7 +97,7 @@ class HookBridgeTests(unittest.TestCase):
                 "UserPromptSubmit",
                 {
                     "task_id": "task-one",
-                    "prompt": "Run codex xhigh review --base HEAD~1",
+                    "prompt": "Run codex xhigh review --commit HEAD",
                 },
             )
         finally:

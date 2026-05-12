@@ -41,7 +41,7 @@ Do not edit files, format, commit, push, or revert.
 Focus on correctness regressions, scope guard violations, missing tests, requirements gaps, and integration risks.
 Report only findings the author would realistically fix.
 Include file paths and blocking severity when possible.
-This role is a narrow auxiliary review and never replaces fixed-base codex xhigh review as the final gate.
+This role is a narrow auxiliary review and never replaces commit-based codex xhigh review as the final gate.
 """,
     },
     "xhigh-review-runner.toml": {

@@ -58,7 +58,7 @@ Workspace Scanner
 - verification aggregation 需要支持每个子项目自己的执行目录；当前 `verification_runner.py` 已支持 command `cwd`，`workspace_verifier.py` 会按 route plan 聚合执行。
 - memory 需要区分 workspace 级事实和子项目级事实，避免把服务器、后台、客户端结论混成一个不可检索的大摘要。
 - SubAgent 的 artifact 必须带 route binding，否则后续无法判断它是否越权改了其他项目。
-- 代码审核的最终 gate 优先使用固定 base 的 `codex xhigh review --base <candidate-base>` 审核完整 candidate 范围；首次单提交候选可用 `HEAD~1`，修复循环必须保持同一个 base。大 diff 或长耗时审查优先让 XHigh Review Runner SubAgent 作为并行命令执行器运行该 gate，等待策略按 stdout/stderr 和状态进度观察，不再套固定总时长。通用 SubAgent reviewer 只做 route-bound 或专题辅助审查。
+- 代码审核的最终 gate 优先使用 `codex xhigh review --commit <commit-sha>` 审核被审提交；修复循环必须先创建新的修复提交，再 review 新提交本身，避免反复审整个候选范围。大 diff 或长耗时审查优先让 XHigh Review Runner SubAgent 作为并行命令执行器运行该 gate，等待策略按 stdout/stderr 和状态进度观察，不再套固定总时长。通用 SubAgent reviewer 只做 route-bound 或专题辅助审查。
 
 ## 2.2 Schema 契约与字段命名
 
