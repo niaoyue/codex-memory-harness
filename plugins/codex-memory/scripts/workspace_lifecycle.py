@@ -197,6 +197,8 @@ def requirement_task_fields() -> tuple[str, ...]:
         "summary",
         "task_intent",
         "intent",
+        "requirements_gate_status",
+        "requirements_status",
         "requirement_sources",
         "design_docs",
         "source_docs",
@@ -207,6 +209,13 @@ def requirement_task_fields() -> tuple[str, ...]:
         "architecture_notes",
         "rollback_plan",
         "rollback",
+        "assumptions",
+        "logical_conflicts",
+        "acceptance_gaps",
+        "scope_gaps",
+        "non_goals",
+        "implementation_spec_mismatches",
+        "safety_security_migration_rollback_gaps",
     )
 
 

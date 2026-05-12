@@ -299,7 +299,53 @@
         "missing",
         "open_questions",
         "assumptions_policy",
-        "technical_decision_policy"
+        "technical_decision_policy",
+        "assumptions",
+        "missing_requirements",
+        "logical_conflicts",
+        "acceptance_gaps",
+        "scope_gaps",
+        "non_goals",
+        "implementation_spec_mismatches",
+        "safety_security_migration_rollback_gaps",
+        "recommended_next_step"
+      ],
+      "oneOf": [
+        {
+          "properties": {
+            "status": {
+              "enum": [
+                "passed",
+                "warning"
+              ]
+            },
+            "blocking": {
+              "const": false
+            }
+          },
+          "required": [
+            "status",
+            "blocking"
+          ]
+        },
+        {
+          "properties": {
+            "status": {
+              "enum": [
+                "needs_clarification",
+                "needs_bmad_upstream",
+                "blocked_by_conflict"
+              ]
+            },
+            "blocking": {
+              "const": true
+            }
+          },
+          "required": [
+            "status",
+            "blocking"
+          ]
+        }
       ],
       "properties": {
         "version": {
@@ -323,7 +369,9 @@
           "enum": [
             "passed",
             "warning",
-            "needs_clarification"
+            "needs_clarification",
+            "needs_bmad_upstream",
+            "blocked_by_conflict"
           ]
         },
         "blocking": {
@@ -351,6 +399,57 @@
           "type": "string"
         },
         "technical_decision_policy": {
+          "type": "string"
+        },
+        "assumptions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "missing_requirements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/requirement_gap"
+          }
+        },
+        "logical_conflicts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "acceptance_gaps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "scope_gaps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "non_goals": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "implementation_spec_mismatches": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "safety_security_migration_rollback_gaps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "recommended_next_step": {
           "type": "string"
         }
       }

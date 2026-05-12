@@ -32,7 +32,7 @@
 ## 4. Runtime Design Follow-Up
 
 - [x] Define `openspec_change_id` metadata mapping for harness task specs.
-- [ ] Define strict Requirements Integrity Gate output schema.
+- [x] Define strict Requirements Integrity Gate output schema.
 - [x] Define adapter interfaces for requirement gate, change contract, upstream
   planning, and harness metadata mapping.
 - [ ] Define before-write enforcement path so blocking gate results stop file
@@ -51,7 +51,7 @@
   misclassified as product `feature_story` tasks.
 - [x] Prevent verification artifact `touched_paths` from triggering adaptive
   release routing.
-- [ ] Add tests for `passed`, `needs_clarification`, `needs_bmad_upstream`, and
+- [x] Add tests for `passed`, `needs_clarification`, `needs_bmad_upstream`, and
   `blocked_by_conflict` outputs.
 - [ ] Connect final verification and review evidence to spec sync/archive.
 

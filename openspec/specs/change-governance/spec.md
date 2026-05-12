@@ -34,6 +34,22 @@ The harness MUST evaluate detailed requirements before implementation begins.
 - AND implementation MUST stop until the missing requirements are resolved or
   the task is downgraded to a documentation-only planning slice
 
+#### Scenario: Gate returns a strict actionable report
+
+- GIVEN the requirements gate evaluates a request
+- WHEN it returns a result
+- THEN the result MUST include `version`, `task_intent`, `status`, `blocking`,
+  `requirement_sources`, `missing`, `open_questions`, `assumptions`,
+  `missing_requirements`, `logical_conflicts`, `acceptance_gaps`, `scope_gaps`,
+  `non_goals`, `implementation_spec_mismatches`,
+  `safety_security_migration_rollback_gaps`, `recommended_next_step`,
+  `assumptions_policy`, and `technical_decision_policy`
+- AND the status MUST be one of `passed`, `warning`, `needs_clarification`,
+  `needs_bmad_upstream`, or `blocked_by_conflict`
+- AND `needs_clarification`, `needs_bmad_upstream`, and
+  `blocked_by_conflict` MUST be blocking statuses
+- AND `passed` and `warning` MUST be non-blocking statuses
+
 #### Scenario: Requirement conflicts with current behavior
 
 - GIVEN a request conflicts with existing specs, docs, task lists, or verified

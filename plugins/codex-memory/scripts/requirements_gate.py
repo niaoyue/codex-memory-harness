@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+import requirements_gate_schema
+
 
 BUGFIX_WORDS = (
     "bug",
@@ -160,24 +162,21 @@ def evaluate(
         rollback=rollback,
     )
     questions = open_questions(intent, missing)
-    blocking = bool(missing) and intent in {"feature_story", "system_change", "release_gate"}
-    status = "needs_clarification" if blocking else ("warning" if missing else "passed")
-    return {
-        "version": 1,
-        "task_intent": intent,
-        "status": status,
-        "blocking": blocking,
-        "requirement_sources": sources,
-        "missing": missing,
-        "open_questions": questions,
-        "assumptions_policy": (
-            "Do not infer missing product or design behavior. Ask for clarification before implementation."
-        ),
-        "technical_decision_policy": (
-            "Follow existing project conventions first. If none exist, choose a production-grade modular "
-            "and interface-driven design, then record the decision."
-        ),
-    }
+    status, blocking = requirements_gate_schema.resolve_status(
+        intent=intent,
+        missing=missing,
+        requested=requirements_gate_schema.requested_status(task),
+        task=task,
+    )
+    return requirements_gate_schema.build_result(
+        task=task,
+        task_intent=intent,
+        status=status,
+        blocking=blocking,
+        requirement_sources=sources,
+        missing=missing,
+        open_questions=questions,
+    )
 
 
 def task_intent(
