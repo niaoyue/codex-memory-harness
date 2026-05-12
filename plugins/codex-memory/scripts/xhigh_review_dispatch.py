@@ -43,12 +43,19 @@ class PythonRuntime:
     prefix_args: tuple[str, ...] = ()
 
 
+@dataclass(frozen=True)
+class ReviewCommitTarget:
+    ref: str
+    cwd: Path | None = None
+
+
 def build_dispatch_plan(route_plan: dict[str, Any]) -> dict[str, Any]:
     task_id = string(route_plan.get("task_id")) or "workspace-route"
     route_plan_id = string(route_plan.get("route_plan_id"))
     dispatch_id = "dispatch-xhigh-review-runner"
-    commit_ref = review_commit_ref(route_plan)
-    command = runner_command(commit_ref=commit_ref)
+    commit_target = review_commit_target(route_plan)
+    commit_ref = commit_target.ref
+    command = runner_command(commit_ref=commit_ref, cwd=commit_target.cwd)
     alias = alias_command(commit_ref)
     fallback = fallback_command(commit_ref)
     message = (
@@ -118,8 +125,8 @@ def build_dispatch_plan(route_plan: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def runner_command(*, commit_ref: str | None = None) -> str:
-    return command_line(runner_command_parts(commit_ref=commit_ref))
+def runner_command(*, commit_ref: str | None = None, cwd: Path | None = None) -> str:
+    return command_line(runner_command_parts(commit_ref=commit_ref, cwd=cwd))
 
 
 def alias_command(commit_ref: str) -> str:
@@ -131,6 +138,13 @@ def fallback_command(commit_ref: str) -> str:
 
 
 def review_commit_ref(route_plan: dict[str, Any] | None = None, environ: dict[str, str] | None = None) -> str:
+    return review_commit_target(route_plan, environ).ref
+
+
+def review_commit_target(
+    route_plan: dict[str, Any] | None = None,
+    environ: dict[str, str] | None = None,
+) -> ReviewCommitTarget:
     metadata = route_plan.get("metadata") if isinstance(route_plan, dict) and isinstance(route_plan.get("metadata"), dict) else {}
     configured = (
         string(route_plan.get("review_commit_ref")) if isinstance(route_plan, dict) else ""
@@ -138,8 +152,8 @@ def review_commit_ref(route_plan: dict[str, Any] | None = None, environ: dict[st
     env = os.environ if environ is None else environ
     cwds = review_commit_cwds(route_plan, env)
     if configured:
-        return resolve_git_commit_ref(configured, cwd_candidates=cwds)
-    return resolve_git_commit_ref(
+        return resolve_git_commit_target(configured, cwd_candidates=cwds)
+    return resolve_git_commit_target(
         string(env.get(XHIGH_REVIEW_COMMIT_ENV)) or XHIGH_REVIEW_COMMIT_REF,
         cwd_candidates=cwds,
     )
@@ -174,15 +188,25 @@ def resolve_git_commit_ref(
     cwd: Path | None = None,
     cwd_candidates: list[Path | None] | None = None,
 ) -> str:
+    return resolve_git_commit_target(ref, cwd=cwd, cwd_candidates=cwd_candidates).ref
+
+
+def resolve_git_commit_target(
+    ref: str,
+    *,
+    cwd: Path | None = None,
+    cwd_candidates: list[Path | None] | None = None,
+) -> ReviewCommitTarget:
     value = string(ref)
     if not value:
-        return ""
+        return ReviewCommitTarget(ref="")
     candidates = cwd_candidates if cwd_candidates is not None else [cwd]
     for candidate in candidates:
         resolved = try_resolve_git_commit_ref(value, cwd=candidate)
         if resolved:
-            return resolved
-    return value
+            return ReviewCommitTarget(ref=resolved, cwd=candidate)
+    fallback_cwd = candidates[0] if candidates else cwd
+    return ReviewCommitTarget(ref=value, cwd=fallback_cwd)
 
 
 def try_resolve_git_commit_ref(ref: str, *, cwd: Path | None) -> str:
@@ -255,10 +279,20 @@ def recoverable_failure_policy() -> dict[str, Any]:
     }
 
 
-def runner_command_parts(script_path: Path | None = None, *, commit_ref: str | None = None) -> list[str]:
+def runner_command_parts(
+    script_path: Path | None = None,
+    *,
+    commit_ref: str | None = None,
+    cwd: Path | None = None,
+) -> list[str]:
     script = script_path or Path(__file__).resolve().with_name("review_gate_runner.py")
     script = script.resolve()
     runtime = resolve_python_runtime()
+    if commit_ref is None:
+        target = review_commit_target()
+        commit_ref = target.ref
+        cwd = cwd or target.cwd
+    review_cwd = str((cwd or Path.cwd()).resolve(strict=False))
     parts = [
         runtime.command,
         *runtime.prefix_args,
@@ -272,10 +306,10 @@ def runner_command_parts(script_path: Path | None = None, *, commit_ref: str | N
         "--max-seconds",
         "0",
         "--cwd",
-        ".",
+        review_cwd,
         "--",
         "--commit",
-        commit_ref or review_commit_ref(),
+        commit_ref,
     ]
     return parts
 

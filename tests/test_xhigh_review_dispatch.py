@@ -106,6 +106,19 @@ class XHighReviewDispatchTests(unittest.TestCase):
 
         self.assertEqual(commit_ref, expected)
 
+    def test_dispatch_runner_command_uses_resolved_review_cwd(self) -> None:
+        plan = route_plan()
+
+        dispatch_plan = xhigh_review_dispatch.build_dispatch_plan(plan)
+        request = dispatch_plan["host_spawn_requests"][0]
+        parts = (
+            shlex.split(request["command"], posix=False)
+            if xhigh_review_dispatch.os.name == "nt"
+            else shlex.split(request["command"])
+        )
+
+        self.assertEqual(parts[parts.index("--cwd") + 1].strip('"'), str(PROJECT_ROOT.resolve(strict=False)))
+
     def test_runner_command_quotes_explicit_script_path(self) -> None:
         script = mock.Mock()
         script.resolve.return_value = r"C:\Installed Codex\plugins\codex-memory\scripts\review_gate_runner.py"
