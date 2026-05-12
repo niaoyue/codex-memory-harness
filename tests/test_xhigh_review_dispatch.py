@@ -29,6 +29,7 @@ class XHighReviewDispatchTests(unittest.TestCase):
         command = xhigh_review_dispatch.runner_command()
         parts = shlex.split(command, posix=False) if xhigh_review_dispatch.os.name == "nt" else shlex.split(command)
         script = Path(next(part for part in parts if part.strip('"').endswith("review_gate_runner.py")).strip('"'))
+        commit_ref = xhigh_review_dispatch.review_commit_ref()
 
         self.assertIn("review_gate_runner.py", command)
         self.assertEqual(script, (PLUGIN_SCRIPTS_DIR / "review_gate_runner.py").resolve())
@@ -37,7 +38,8 @@ class XHighReviewDispatchTests(unittest.TestCase):
         self.assertIn(f"--idle-seconds {xhigh_review_dispatch.XHIGH_REVIEW_IDLE_SECONDS}", command)
         self.assertIn("--max-seconds 0", command)
         self.assertGreater(xhigh_review_dispatch.XHIGH_REVIEW_IDLE_SECONDS, 0)
-        self.assertIn("--commit HEAD", command)
+        self.assertIn(f"--commit {commit_ref}", command)
+        self.assertNotEqual(commit_ref, "HEAD")
         self.assertNotIn("--uncommitted", command)
         self.assertNotEqual(command, "codex xhigh review --commit HEAD")
 
@@ -67,6 +69,12 @@ class XHighReviewDispatchTests(unittest.TestCase):
             _restore_env(xhigh_review_dispatch.XHIGH_REVIEW_COMMIT_ENV, old_commit)
 
         self.assertEqual(parts[-2:], ["--commit", "feedbeef"])
+
+    def test_review_commit_default_resolves_symbolic_head_to_sha(self) -> None:
+        commit_ref = xhigh_review_dispatch.review_commit_ref(environ={})
+
+        self.assertNotEqual(commit_ref, "HEAD")
+        self.assertGreaterEqual(len(commit_ref), 7)
 
     def test_runner_command_quotes_explicit_script_path(self) -> None:
         script = mock.Mock()
@@ -126,6 +134,7 @@ class XHighReviewDispatchTests(unittest.TestCase):
         runtime = result["result"]["task_state"]["metadata"]["workspace_routing"]["subagent_runtime"]
         routing = result["result"]["task_state"]["metadata"]["workspace_routing"]
         dispatch_plan = routing["subagent_dispatch_plan"]
+        commit_ref = xhigh_review_dispatch.review_commit_ref()
         self.assertEqual(runtime["status"], "recommended_not_started")
         self.assertEqual(runtime["trigger"], "xhigh_review_gate")
         self.assertEqual(runtime["execution_model"], "host_subagent_or_manual")
@@ -146,20 +155,20 @@ class XHighReviewDispatchTests(unittest.TestCase):
         self.assertIn(f"--idle-seconds {xhigh_review_dispatch.XHIGH_REVIEW_IDLE_SECONDS}", request["command"])
         self.assertIn("--max-seconds 0", request["command"])
         self.assertNotEqual(request["command"], request["alias_command"])
-        self.assertEqual(request["alias_command"], "codex xhigh review --commit HEAD")
+        self.assertEqual(request["alias_command"], f"codex xhigh review --commit {commit_ref}")
         self.assertEqual(request["total_timeout_policy"], "none")
         self.assertEqual(request["observation_window_policy"], "poll_only_never_interrupt")
         self.assertTrue(request["no_fixed_total_timeout"])
         self.assertEqual(
             request["fallback_command"],
-            'codex-raw -- review -c model_reasoning_effort="xhigh" --commit HEAD',
+            f'codex-raw -- review -c model_reasoning_effort="xhigh" --commit {commit_ref}',
         )
-        self.assertEqual(request["review_commit_ref"], "HEAD")
+        self.assertEqual(request["review_commit_ref"], commit_ref)
         self.assertIn("explicit runner command", request["message"])
         self.assertIn("idle/no-output observation window", request["message"])
         self.assertIn("not a fixed total timeout", request["message"])
         self.assertNotIn("codex xhigh review --uncommitted", request["message"])
-        self.assertEqual(request["alias_command"], "codex xhigh review --commit HEAD")
+        self.assertEqual(request["alias_command"], f"codex xhigh review --commit {commit_ref}")
         self.assertIn("Host wait windows are observation polls only", request["message"])
         self.assertIn("codex-raw -- review -c", request["message"])
         self.assertIn("same runner a continue instruction", request["message"])

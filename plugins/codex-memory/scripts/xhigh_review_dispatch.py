@@ -134,9 +134,27 @@ def review_commit_ref(route_plan: dict[str, Any] | None = None, environ: dict[st
         string(route_plan.get("review_commit_ref")) if isinstance(route_plan, dict) else ""
     ) or string(metadata.get("review_commit_ref"))
     if configured:
-        return configured
+        return resolve_git_commit_ref(configured)
     env = os.environ if environ is None else environ
-    return string(env.get(XHIGH_REVIEW_COMMIT_ENV)) or XHIGH_REVIEW_COMMIT_REF
+    return resolve_git_commit_ref(string(env.get(XHIGH_REVIEW_COMMIT_ENV)) or XHIGH_REVIEW_COMMIT_REF)
+
+
+def resolve_git_commit_ref(ref: str) -> str:
+    value = string(ref)
+    if not value:
+        return ""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--verify", f"{value}^{{commit}}"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            check=False,
+        )
+    except OSError:
+        return value
+    resolved = result.stdout.splitlines()[0].strip() if result.returncode == 0 and result.stdout.splitlines() else ""
+    return resolved or value
 
 
 def recoverable_failure_policy() -> dict[str, Any]:
