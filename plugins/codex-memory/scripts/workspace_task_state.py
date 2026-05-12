@@ -61,7 +61,7 @@ def _candidate_storage_roots(project_root: Path, task_id: str, session_id: str) 
 
 def _read_task_route_plan(project_root: Path, task_id: str) -> dict[str, Any]:
     try:
-        paths = init_storage.resolve_storage_paths(cwd=project_root)
+        paths = init_storage.resolve_storage_paths(scope="project", cwd=project_root)
         if not paths.db_path.exists():
             return {}
         with closing(sqlite3.connect(paths.db_path)) as conn:

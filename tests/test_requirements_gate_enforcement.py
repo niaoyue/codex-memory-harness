@@ -255,6 +255,37 @@ class RequirementsGateEnforcementTests(unittest.TestCase):
         self.assertEqual(result["action"], "requirements_gate_blocked")
         self.assertFalse(registry.exists())
 
+    def test_write_guard_loads_project_task_state_when_ambient_scope_is_global(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir) / "repo"
+            root.joinpath(".codex").mkdir(parents=True)
+            registry = Path(temp_dir) / "registry.jsonl"
+            codex_home = Path(temp_dir) / "codex-home"
+            old_registry = _set_registry(registry)
+            old_home = _set_env("CODEX_HOME", str(codex_home))
+            old_scope = _set_env("CODEX_MEMORY_SCOPE", "project")
+            old_cwd = _set_env("CODEX_MEMORY_CWD", str(root))
+            try:
+                memory_store.MemoryStore().upsert_task_state(
+                    "task-global-ambient",
+                    {"metadata": {"workspace_routing": {"route_plan": _blocked_plan()}}},
+                )
+                os.environ["CODEX_MEMORY_SCOPE"] = "global"
+                result = workspace_session.write_guard(
+                    root,
+                    session_id="session-global-ambient",
+                    task_id="task-global-ambient",
+                )
+            finally:
+                _restore_env("CODEX_MEMORY_CWD", old_cwd)
+                _restore_env("CODEX_MEMORY_SCOPE", old_scope)
+                _restore_env("CODEX_HOME", old_home)
+                _restore_registry(old_registry)
+
+        self.assertFalse(result["ok"], result)
+        self.assertEqual(result["action"], "requirements_gate_blocked")
+        self.assertFalse(registry.exists())
+
     def test_write_guard_reads_canonical_memory_from_managed_worktree(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir) / "repo"

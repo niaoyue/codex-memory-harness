@@ -91,7 +91,7 @@ class LauncherEntrypointTests(unittest.TestCase):
         self.assertIn('"0"', launcher)
         self.assertIn('@("Application", "ExternalScript")', launcher)
         self.assertIn('model_reasoning_effort=`"$effort`"', launcher)
-        self.assertIn("codex xhigh review --base HEAD~1", launcher)
+        self.assertIn("codex xhigh review --base <candidate-base>", launcher)
         self.assertIn("codex memory migrate-legacy-global", launcher)
         self.assertIn("codex workspace schedule", launcher)
         self.assertIn("codex workspace game-client", launcher)

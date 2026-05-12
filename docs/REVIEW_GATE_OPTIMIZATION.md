@@ -11,7 +11,7 @@
 Review gate 优化的目标不是跳过审核，也不是用通用 SubAgent reviewer 替代最终代码审核。目标是缩短“验证 + review + 修复 + 再 review”的总墙钟时间，同时保留最终语义：
 
 ```text
-代码变更的最终 review gate 改为先创建 candidate commit，再运行 codex xhigh review --base HEAD~1。
+代码变更的最终 review gate 改为先创建 candidate commit，记录固定 `<candidate-base>`，再运行 `codex xhigh review --base <candidate-base>`。首次单提交候选可以用 `HEAD~1` 作为快捷写法；进入 findings 修复循环后不得让 `HEAD~1` 随修复提交前移。
 ```
 
 优化方向分三类：
@@ -114,7 +114,7 @@ and verification.status == passed
 - 有对应验证证据。
 - review findings 修完后再进入下一片。
 
-最终仍需要对最新 candidate commit 的完整 diff 运行一次 `codex xhigh review --base HEAD~1`。分片 review 的作用是降低最终 gate 的失败率，不是替代最终 gate。
+最终仍需要对 `<candidate-base>..HEAD` 的完整候选 diff 运行一次 `codex xhigh review --base <candidate-base>`。分片 review 的作用是降低最终 gate 的失败率，不是替代最终 gate。
 
 ### Runner 恢复策略
 
@@ -177,7 +177,7 @@ stateDiagram-v2
 1. 记录 touched paths。
 2. 跑定向验证。
 3. 更新 ledger resolution。
-4. 创建新的 candidate commit 或重做未 push 的候选提交，并重新跑最终 xhigh review。
+4. 创建新的 candidate commit 或重做未 push 的候选提交，并使用同一个 `<candidate-base>` 重新跑最终 xhigh review。
 
 ### 命令路线
 
@@ -227,9 +227,9 @@ codex review ledger show
 
 能力完成时至少满足：
 
-1. xhigh review 仍是最终代码审核 gate，但审核对象是最新 candidate commit。
-2. review 结果必须和 `HEAD~1..HEAD` 的 commit diff fingerprint 绑定。
-3. candidate commit 改变后旧 review 自动失效。
+1. xhigh review 仍是最终代码审核 gate，但审核对象是固定 `<candidate-base>..HEAD` 候选范围。
+2. review 结果必须和 `<candidate-base>..HEAD` 的 commit diff fingerprint 绑定。
+3. candidate HEAD 或 fixed base 改变后旧 review 自动失效。
 4. preflight 失败时不会浪费 xhigh review。
 5. runner 可按 429/5xx/timeout 策略恢复或重开。
 6. findings 修复后必须重新进入 final gate。
