@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import os
 import shlex
+import subprocess
 import sys
 import unittest
 from pathlib import Path
@@ -75,6 +77,34 @@ class XHighReviewDispatchTests(unittest.TestCase):
 
         self.assertNotEqual(commit_ref, "HEAD")
         self.assertGreaterEqual(len(commit_ref), 7)
+
+    def test_review_commit_resolves_head_in_memory_cwd(self) -> None:
+        with mock.patch.object(xhigh_review_dispatch.subprocess, "run") as run_mock:
+            run_mock.return_value = mock.Mock(returncode=0, stdout="abc123\n")
+
+            commit_ref = xhigh_review_dispatch.review_commit_ref(environ={"CODEX_MEMORY_CWD": str(PROJECT_ROOT)})
+
+        self.assertEqual(commit_ref, "abc123")
+        self.assertEqual(run_mock.call_args.kwargs["cwd"], str(PROJECT_ROOT.resolve(strict=False)))
+
+    def test_review_commit_uses_memory_cwd_when_process_cwd_differs(self) -> None:
+        expected = subprocess.run(
+            ["git", "rev-parse", "--verify", "HEAD^{commit}"],
+            cwd=str(PROJECT_ROOT),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        old_cwd = Path.cwd()
+        try:
+            os.chdir(PROJECT_ROOT.parent)
+
+            commit_ref = xhigh_review_dispatch.review_commit_ref(environ={"CODEX_MEMORY_CWD": str(PROJECT_ROOT)})
+        finally:
+            os.chdir(old_cwd)
+
+        self.assertEqual(commit_ref, expected)
 
     def test_runner_command_quotes_explicit_script_path(self) -> None:
         script = mock.Mock()

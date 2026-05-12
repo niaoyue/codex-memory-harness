@@ -13,6 +13,7 @@ def route_plan() -> dict[str, object]:
         "version": 1,
         "task_id": "route-task",
         "route_plan_id": "route-route-task",
+        "workspace_root": str(Path(__file__).resolve().parents[1]),
         "mode": "single_project",
         "affected_projects": ["client-unity"],
         "routes": [

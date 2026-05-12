@@ -25,6 +25,10 @@
     "route_plan_id": {
       "type": "string"
     },
+    "workspace_root": {
+      "type": "string",
+      "description": "Absolute workspace root used by tooling that must execute git or verification commands in the target repository."
+    },
     "mode": {
       "type": "string",
       "enum": [

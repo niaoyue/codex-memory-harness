@@ -19,6 +19,8 @@ PYTHON_RUNTIME_CANDIDATES: tuple[tuple[str, tuple[str, ...]], ...] = (
 XHIGH_REVIEW_IDLE_SECONDS = 1800
 XHIGH_REVIEW_COMMIT_REF = "HEAD"
 XHIGH_REVIEW_COMMIT_ENV = "CODEX_XHIGH_REVIEW_COMMIT"
+CODEX_MEMORY_CWD_ENV = "CODEX_MEMORY_CWD"
+REVIEW_COMMIT_CWD_KEYS = ("project_root", "workspace_root", "memory_cwd")
 XHIGH_REVIEW_ALIAS_COMMAND = f"codex xhigh review --commit {XHIGH_REVIEW_COMMIT_REF}"
 XHIGH_REVIEW_FALLBACK_COMMAND = (
     f'codex-raw -- review -c model_reasoning_effort="xhigh" --commit {XHIGH_REVIEW_COMMIT_REF}'
@@ -133,28 +135,70 @@ def review_commit_ref(route_plan: dict[str, Any] | None = None, environ: dict[st
     configured = (
         string(route_plan.get("review_commit_ref")) if isinstance(route_plan, dict) else ""
     ) or string(metadata.get("review_commit_ref"))
-    if configured:
-        return resolve_git_commit_ref(configured)
     env = os.environ if environ is None else environ
-    return resolve_git_commit_ref(string(env.get(XHIGH_REVIEW_COMMIT_ENV)) or XHIGH_REVIEW_COMMIT_REF)
+    cwds = review_commit_cwds(route_plan, env)
+    if configured:
+        return resolve_git_commit_ref(configured, cwd_candidates=cwds)
+    return resolve_git_commit_ref(
+        string(env.get(XHIGH_REVIEW_COMMIT_ENV)) or XHIGH_REVIEW_COMMIT_REF,
+        cwd_candidates=cwds,
+    )
 
 
-def resolve_git_commit_ref(ref: str) -> str:
+def review_commit_cwd(route_plan: dict[str, Any] | None, environ: dict[str, str]) -> Path | None:
+    return review_commit_cwds(route_plan, environ)[0]
+
+
+def review_commit_cwds(route_plan: dict[str, Any] | None, environ: dict[str, str]) -> list[Path | None]:
+    metadata = route_plan.get("metadata") if isinstance(route_plan, dict) and isinstance(route_plan.get("metadata"), dict) else {}
+    candidates: list[str] = []
+    if isinstance(route_plan, dict):
+        candidates.extend(string(route_plan.get(key)) for key in REVIEW_COMMIT_CWD_KEYS)
+    candidates.extend(string(metadata.get(key)) for key in REVIEW_COMMIT_CWD_KEYS)
+    candidates.append(string(environ.get(CODEX_MEMORY_CWD_ENV)))
+    resolved: list[Path | None] = []
+    for candidate in candidates:
+        if candidate:
+            path = Path(candidate).resolve(strict=False)
+            if path not in resolved:
+                resolved.append(path)
+    current = Path.cwd()
+    if current not in resolved:
+        resolved.append(current)
+    return resolved or [None]
+
+
+def resolve_git_commit_ref(
+    ref: str,
+    *,
+    cwd: Path | None = None,
+    cwd_candidates: list[Path | None] | None = None,
+) -> str:
     value = string(ref)
     if not value:
         return ""
+    candidates = cwd_candidates if cwd_candidates is not None else [cwd]
+    for candidate in candidates:
+        resolved = try_resolve_git_commit_ref(value, cwd=candidate)
+        if resolved:
+            return resolved
+    return value
+
+
+def try_resolve_git_commit_ref(ref: str, *, cwd: Path | None) -> str:
     try:
         result = subprocess.run(
-            ["git", "rev-parse", "--verify", f"{value}^{{commit}}"],
+            ["git", "rev-parse", "--verify", f"{ref}^{{commit}}"],
+            cwd=str(cwd) if cwd else None,
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
             text=True,
             check=False,
         )
     except OSError:
-        return value
+        return ""
     resolved = result.stdout.splitlines()[0].strip() if result.returncode == 0 and result.stdout.splitlines() else ""
-    return resolved or value
+    return resolved
 
 
 def recoverable_failure_policy() -> dict[str, Any]:

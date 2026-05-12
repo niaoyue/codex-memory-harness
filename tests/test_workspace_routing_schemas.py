@@ -47,6 +47,7 @@ class WorkspaceRoutingSchemaTests(unittest.TestCase):
         self.assertIn("projects", inventory["required"])
         self.assertIn("routes", route_plan["required"])
         self.assertIn("confidence", route_plan["required"])
+        self.assertIn("workspace_root", route_plan["properties"])
         self.assertIn("requirements_gate", route_plan["properties"])
         self.assertNotIn("requirements_gate", route_plan["required"])
         self.assertIn("subagent_runtime_policy", route_plan["properties"])

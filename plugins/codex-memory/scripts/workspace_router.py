@@ -95,6 +95,7 @@ def build_route_plan(
         "version": 1,
         "task_id": str(task.get("task_id") or "workspace-route"),
         "route_plan_id": str(task.get("route_plan_id") or f"route-{task.get('task_id') or 'workspace-route'}"),
+        "workspace_root": str(workspace_root.resolve()),
         "mode": mode,
         "primary_project": affected[0]["id"] if mode != "workspace_meta" else None,
         "affected_projects": [project["id"] for project in affected],
@@ -114,11 +115,9 @@ def build_route_plan(
     }
     return workspace_runtime_policy.apply_runtime_policy(workspace_root, plan, task, config=config)
 
-
 def inventory_projects(inventory: dict[str, Any]) -> list[dict[str, Any]]:
     projects = inventory.get("projects") if isinstance(inventory.get("projects"), list) else []
     return [project for project in projects if isinstance(project, dict)]
-
 
 def collect_signals(workspace_root: Path, task: dict[str, Any], *, changed: bool) -> dict[str, Any]:
     root = workspace_root.resolve()
@@ -194,15 +193,16 @@ def score_projects(
             scored.append((project, score))
     return sorted(scored, key=lambda item: item[1], reverse=True)
 
-
 def unknown_plan(task: dict[str, Any], inventory: dict[str, Any], signals: dict[str, Any]) -> dict[str, Any]:
     profiles = fallback_profiles(inventory)
     task_type = infer_task_type(signals)
     risk = risk_level("unknown_low_confidence", signals)
     requirement_review = requirements_gate.evaluate(task, signals, mode="unknown_low_confidence", task_type=task_type, risk_level=risk, domains=[])
+    workspace = inventory.get("workspace") if isinstance(inventory.get("workspace"), dict) else {}
     return {
         "version": 1,
         "task_id": str(task.get("task_id") or "workspace-route"),
+        "workspace_root": str(workspace.get("root") or ""),
         "mode": "unknown_low_confidence",
         "primary_project": None,
         "affected_projects": [],
@@ -493,7 +493,6 @@ def checkpoint_route_plan(project_root: Path, task_id: str, route_plan: dict[str
         payload_json=json.dumps(payload, ensure_ascii=False),
     )
     return checkpoint_task(args)
-
 
 if __name__ == "__main__":
     raise SystemExit(main())
