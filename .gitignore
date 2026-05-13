@@ -3,10 +3,14 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.cache/
+*.cache
 dist/
 build/
 *.egg-info/
 /.codex/*
+!/.codex/specs/
+!/.codex/specs/**
 !/.codex/shared/
 !/.codex/shared/**
 !/.codex/harness/
@@ -17,5 +21,11 @@ build/
 /.codex/shared/**/*.db
 /.codex/shared/**/*.sqlite
 /.codex/shared/**/*.jsonl
+/.codex/shared/**/.cache/
+/.codex/shared/**/cache/
+/.codex/shared/**/*.cache
 plugins/codex-memory/storage/*.db
 plugins/codex-memory/storage/*.jsonl
+plugins/codex-memory/storage/**/*.cache
+plugins/codex-memory/storage/**/.cache/
+plugins/codex-memory/storage/**/cache/

@@ -72,6 +72,10 @@
 
 能通过现有代码、文档、配置和权威资料回答的问题，由 Agent 自行补齐并标注依据。不能可靠回答的问题，用 `grill-me` 风格形成问题列表，按阻断程度分为 `blocking`、`should_confirm`、`can_assume`。
 
+Codex 自己生成的需求、设计、任务、PRD、RFC、change spec 和执行计划等持久规划文档，默认写入 `.codex/specs/<feature-slug>/requirements.md`、`design.md`、`tasks.md`。`docs/` 只放用户可读或长期公开项目文档；`.codex/memories`、`.codex/harness/tasks`、事件日志、数据库和缓存仍是运行态，不能当作 specs 提交。
+
+输出未完成 Task 汇总时，必须为每个未完成 Task 附带进度：状态、最近 checkpoint 或更新时间、已完成/剩余验收、阻塞点、下一步和证据来源。缺少证据时标记 `unknown`，不得凭空生成百分比。运行时可通过 `before_response` payload 的 `include_unfinished_tasks` 或 `include_unfinished_task_progress` 显式返回结构化汇总。
+
 ## 5. 技术选择规则
 
 技术选择默认遵循“正确性与性能优先，兼容性不作为保留旧设计的理由”。

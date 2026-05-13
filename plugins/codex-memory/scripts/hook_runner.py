@@ -3,13 +3,12 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import sqlite3
-from contextlib import closing
 from pathlib import Path
 from typing import Any
 
 from context_builder import ContextBuilder
 from distillation_store import DistillationStore
+from hook_runner_cleanup import cleanup_demo_task
 from hook_runner_utils import (
     HOOK_EVENTS,
     _build_fallback_context,
@@ -28,6 +27,7 @@ import init_storage
 from memory_store import MemoryStore
 from retrieval_store import RetrievalEngine
 import skill_routing_audit
+import unfinished_task_summary
 from workspace_artifact_filters import (
     is_subagent_artifact,
     routing_excluded_paths as filtered_routing_excluded_paths,
@@ -282,6 +282,10 @@ class HookRunner:
             audit=metadata.get("skill_routing_audit") if isinstance(metadata.get("skill_routing_audit"), dict) else {},
             target="brief",
         )["brief"]
+        if payload.get("include_unfinished_tasks") or payload.get("include_unfinished_task_progress"):
+            unfinished, markdown = unfinished_task_summary.build_from_hook_payload(payload, self.memory_store)
+            result["unfinished_task_summary"] = unfinished
+            result["unfinished_task_summary_markdown"] = markdown
         if payload.get("writeback"):
             result["writeback"] = self._write_response_memory(resolved_task_id, payload, task_state)
         return result
@@ -446,30 +450,6 @@ def _has_explicit_scope(payload: dict[str, Any]) -> bool:
     return any(_string(payload.get(key)) for key in ("binding_id", "subagent_id", "project_id"))
 
 
-def _cleanup_demo_task(task_id: str) -> None:
-    init_storage.ensure_storage_layout()
-    paths = init_storage.resolve_storage_paths()
-    with closing(sqlite3.connect(paths.db_path)) as conn:
-        conn.execute("DELETE FROM task_state WHERE task_id = ?", (task_id,))
-        conn.execute("DELETE FROM repo_decision WHERE task_id = ?", (task_id,))
-        conn.execute("DELETE FROM task_summary WHERE task_id = ?", (task_id,))
-        conn.execute("DELETE FROM distilled_asset WHERE task_id = ?", (task_id,))
-        conn.execute(
-            "DELETE FROM plugin_meta WHERE key = ? AND value_json = ?",
-            ("current_task_id", json.dumps(task_id, ensure_ascii=False)),
-        )
-        conn.commit()
-    summary_file = paths.summary_dir / f"{task_id}.md"
-    if summary_file.exists():
-        summary_file.unlink()
-    for file_path in paths.distilled_dir.glob(f"{task_id}*.md"):
-        file_path.unlink()
-    if paths.event_log_path.exists():
-        lines = paths.event_log_path.read_text(encoding="utf-8").splitlines()
-        kept = [line for line in lines if task_id not in line]
-        paths.event_log_path.write_text("\n".join(kept) + ("\n" if kept else ""), encoding="utf-8")
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run Codex Memory plugin hooks.")
     parser.add_argument("--event", required=True, choices=HOOK_EVENTS, help="Hook event name")
@@ -493,7 +473,7 @@ def main() -> int:
     init_storage.ensure_storage_layout()
 
     if args.cleanup_task_id:
-        _cleanup_demo_task(args.cleanup_task_id)
+        cleanup_demo_task(args.cleanup_task_id)
         print(json.dumps({"ok": True, "cleaned_task_id": args.cleanup_task_id}, ensure_ascii=False, indent=2))
         return 0
 

@@ -11,6 +11,8 @@
 
 当前实现策略：一次只推进一个主里程碑，避免并行改动过多导致上下文污染。workspace routing 已能生成 SubAgent dispatch plan，允许 coordinator 按计划分配多个 specialist；但当前项目尚未实现宿主级真实 SubAgent 自动执行器。
 
+新增需求：当输出“未完成 Task 汇总”时，不能只列出未完成 Task ID 和状态；必须为每个未完成 Task 附带可追溯的进度摘要，包括当前状态、最近 checkpoint 或更新时间、已完成/未完成验收项、阻塞点、下一步和可用证据来源。缺少证据时明确标为未知，不得凭空估算进度。
+
 ## 2. 主任务清单
 
 | ID | 阶段 | 任务 | 产出物 | 依赖 | 状态 |
@@ -114,6 +116,8 @@
 | T96 | 25 | 实现 BMAD upstream planning adapter 原型 | `governance_adapter.py` 已支持 BMAD planning artifact 作为 upstream evidence，不声称本项目已有 BMAD 多 agent runtime | T85,T86,T95 | done |
 | T97 | 25 | 连接最终验证/review 证据到 spec sync/archive | `governance_adapter.py` 已把 verification、release gate、commit-based xhigh review ledger 与 sync/archive readiness 串成可审计 evidence bundle | T72,T76,T84,T95,T96 | done |
 | T98 | 25 | Bundled skill 安装按名称去重 | `skill_bundle.py` 已按 manifest skill name 去重；目标同名技能存在时保留用户版本并跳过 bundled copy，`install --dry-run` 报告 `already_exists_deduped`，不要求覆盖或更新 | T89,T72 | done |
+| T99 | 26 | 未完成 Task 汇总携带进度 | `unfinished_task_summary.py` 已提供可调用的未完成任务进度汇总器，`before_response` 显式请求时返回结构化 summary 和 Markdown；每个未完成 Task 输出状态、最近 checkpoint 或更新时间、验收进度、阻塞点、下一步和证据来源，缺证据标记 `unknown` 且不猜测百分比 | T05,T22,T24,T65 | done |
+| T100 | 26 | 规范化 Codex 自生成文档到 `.codex/specs` | 建立 Kiro-like specs 三件套规范，要求 Codex 自己生成的需求、设计、任务、PRD、RFC 和计划类持久文档默认写入 `.codex/specs/<feature-slug>/`，并同步 `.gitignore`、仓库规则与安装模板 | T84,T88,T99 | done |
 
 ## 3. 当前推荐执行步
 
@@ -543,3 +547,5 @@
 - Step 39 已完成：skill-first governance runtime 已完成 T89-T97；bundled skills 改为 manifest-driven 全量可用技能，hook lifecycle 输出 skill routing audit，Requirements Gate 扩展治理字段，SubAgent dispatch 前输出 blocker/scope matrix，release profile 原型覆盖小游戏/WebGL/AB/包体/性能证据，OpenSpec/BMAD governance adapter 连接 verification 与 commit-based review evidence。
 - Step 40 已完成：bundled skill 安装状态按技能名去重；随包 `harness-release-gate` 已是 candidate commit + `codex xhigh review --commit <commit-sha>` 流程。若用户本机已安装同名技能，安装器保留用户版本并跳过 bundled copy，`install --dry-run` 报告 `already_exists_deduped`，不要求覆盖或更新。
 - Step 41 已完成：T33/T64/T65/T67-T71 已完成实现和定向测试；T55/T59/T83/T87 的可离线切片已落地为 release manifest gate、host receipt/readiness report 和 requirements conflict scanner；剩余项明确为宿主、CI、业务构建材料、强制写入 hook 或外部 BMAD 执行依赖，不在仓库内伪造完成状态。
+- Step 42 已完成：T99 已实现。新增 `unfinished_task_summary.py` 只读聚合器，优先从 task list、`task_state`、task summary、harness task spec、run state 和 artifacts 中提取证据；`before_response` 支持通过 `include_unfinished_tasks` 或 `include_unfinished_task_progress` 显式返回结构化 `unfinished_task_summary` 和 Markdown。输出每个未完成 Task 的状态、最近进展、剩余验收、阻塞点、下一步和证据来源；缺少证据时标记 `unknown`，不生成无依据百分比。
+- Step 43 已完成：T100 已实现。参考 `H:\dev\company\GPTProxy\.kiro\specs` 的 `requirements.md`、`design.md`、`tasks.md` 三件套，已在 `.codex/specs/codex-generated-documents/` 落地本项目自己的 specs 规范；已同步 `.gitignore` 放行 `.codex/specs/**`，并更新仓库规则、安装模板、README 和 skill-first 治理文档，保证后续 Codex 自生成需求、设计和任务文档默认进入 `.codex/specs/<feature-slug>/`。
