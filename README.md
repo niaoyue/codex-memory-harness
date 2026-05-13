@@ -131,7 +131,7 @@ sh ./install.sh
 - 如果希望脚本代为尝试安装 Python，可显式运行 `install.bat --install-python` 或 `sh ./install.sh --install-python`。Windows 会使用 `winget`；POSIX shell 会按可用包管理器尝试 Homebrew、apt、dnf、yum 或 pacman。默认不会静默安装系统环境。
 - `install.sh` 会在 Linux/macOS 默认写入 POSIX hook/MCP launcher，并向 `~/.profile`、`~/.bashrc`、`~/.zshrc` 写入带标记块的 `codex`/`codexm` shell wrapper；在 Windows POSIX shell 中如检测到 `powershell`，默认仍写入 PowerShell launcher。可用 `CODEX_MEMORY_LAUNCHER_FAMILY=posix|powershell` 显式指定。
 - 修复必要的官方 Codex 配置：确保 `$CODEX_HOME/config.toml` 中启用 `[features] hooks = true`。
-- 安装 bundled Codex skills 到 `~/.agents/skills/<skill-name>`：安装器读取 `plugins/codex-memory/skills/bundled-skills.json`，当前包含 security、GitHub、CLI、迁移、release gate、需求澄清、接口设计、TDD、提交、review、PRD、重构、文档、图像、OpenAI docs 等可用技能。技能已随包 vendor，安装时不联网下载；如果目标技能目录已存在，会保留用户已有版本并跳过。
+- 安装 bundled Codex skills 到 `~/.agents/skills/<skill-name>`：安装器读取 `plugins/codex-memory/skills/bundled-skills.json`，当前包含 security、GitHub、CLI、迁移、release gate、需求澄清、接口设计、TDD、提交、review、PRD、重构、文档、图像、OpenAI docs 等可用技能。技能已随包 vendor，安装时不联网下载；安装计划按技能名去重，如果目标技能目录已存在，会保留用户已有版本并跳过，不要求覆盖或更新。
 - 把 `~/plugins/codex-memory` 指向本仓库的 `plugins/codex-memory`。
 - 更新 `~/.agents/plugins/marketplace.json`。
 - 更新当前仓库 `.agents/plugins/marketplace.json`。

@@ -66,7 +66,7 @@ codex memory check-install
 
 安装器默认会把 `skills/bundled-skills.json` 中登记的所有随包技能复制到 `~/.agents/skills`。这些技能覆盖 security、GitHub、CLI、迁移、release gate、需求澄清、接口设计、TDD、提交、review、PRD、重构、文档、图像、OpenAI docs、plugin/skill 创建等场景。
 
-这些技能位于 `skills/openai-curated/` 和 `skills/local/`，安装时不联网下载；如果 `~/.agents/skills/<skill-name>` 已存在，会跳过并保留用户已有版本。需要跳过技能安装时使用：
+这些技能位于 `skills/openai-curated/` 和 `skills/local/`，安装时不联网下载；安装计划按技能名去重，如果 `~/.agents/skills/<skill-name>` 已存在，会跳过并保留用户已有版本，不要求覆盖或更新。需要跳过技能安装时使用：
 
 ```bat
 install.bat --skip-skills

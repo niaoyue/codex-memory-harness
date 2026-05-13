@@ -418,7 +418,7 @@ class InstallDryRunTests(unittest.TestCase):
             install_dry_run_targets.planned_writes({"bundled_skills": result}),
         )
 
-    def test_install_dry_run_reports_stale_existing_skill_as_blocked(self) -> None:
+    def test_install_dry_run_dedupes_existing_skill_without_blocking(self) -> None:
         status = {
             "skills": [
                 {
@@ -427,6 +427,8 @@ class InstallDryRunTests(unittest.TestCase):
                     "target_exists": True,
                     "target_has_skill_md": True,
                     "stale_existing": True,
+                    "deduped_existing": True,
+                    "content_differs_from_source": True,
                     "path": "C:/Users/test/.agents/skills/harness-release-gate",
                 }
             ],
@@ -436,11 +438,12 @@ class InstallDryRunTests(unittest.TestCase):
         with mock.patch.object(install_dry_run_targets, "bundled_skills_status", return_value=status):
             result = install_dry_run_targets.bundled_skills_plan(Path("plugin"))
 
-        self.assertTrue(result["blocked"])
-        self.assertEqual(result["stale_existing_count"], 1)
-        self.assertEqual(result["skills"][0]["action"], "stale_existing_needs_update")
+        self.assertFalse(result["blocked"])
+        self.assertEqual(result["stale_existing_count"], 0)
+        self.assertEqual(result["deduped_existing_count"], 1)
+        self.assertEqual(result["skills"][0]["action"], "already_exists_deduped")
         self.assertFalse(result["skills"][0]["would_write"])
-        self.assertIn("differs from packaged source", result["skills"][0]["reason"])
+        self.assertIn("keep the existing user skill", result["skills"][0]["reason"])
 
 
 def _restore_env(name: str, value: str | None) -> None:

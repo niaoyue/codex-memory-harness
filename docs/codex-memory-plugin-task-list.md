@@ -113,7 +113,7 @@
 | T95 | 25 | 实现 OpenSpec command/artifact adapter 原型 | `governance_adapter.py` 已连接 OpenSpec change contract、harness task、verification artifact、effective cwd 与证据 bundle，不复制第三方 core | T86,T87,T81 | done |
 | T96 | 25 | 实现 BMAD upstream planning adapter 原型 | `governance_adapter.py` 已支持 BMAD planning artifact 作为 upstream evidence，不声称本项目已有 BMAD 多 agent runtime | T85,T86,T95 | done |
 | T97 | 25 | 连接最终验证/review 证据到 spec sync/archive | `governance_adapter.py` 已把 verification、release gate、commit-based xhigh review ledger 与 sync/archive readiness 串成可审计 evidence bundle | T72,T76,T84,T95,T96 | done |
-| T98 | 25 | 校验已安装 bundled skill 是否滞后于随包源 | `skill_bundle.py` 已记录 source/target `SKILL.md` digest，`install --dry-run` 会把 stale existing skill 标为 blocked，避免本机旧 `harness-release-gate` 继续提示 `--uncommitted` review 旧流程 | T89,T72 | done |
+| T98 | 25 | Bundled skill 安装按名称去重 | `skill_bundle.py` 已按 manifest skill name 去重；目标同名技能存在时保留用户版本并跳过 bundled copy，`install --dry-run` 报告 `already_exists_deduped`，不要求覆盖或更新 | T89,T72 | done |
 
 ## 3. 当前推荐执行步
 
@@ -541,5 +541,5 @@
 - Step 37 进行中：最小 session-worktree write guard 已提供 `codex workspace session ...`、`codex workspace worktree list` 和 `codex workspace write-guard ...`；当前能在 dirty primary checkout 或已有其他 active write lease 时创建 managed worktree 并返回 `effective_cwd`。后续还需把 before_first_write 做成宿主/Hook 强制拦截，并补 stale cleanup 与多 session 合并。
 - Step 38 已完成：stale/cleanup 治理已完成只读、dry-run、confirm 清理和 recover 切片；`codex workspace worktree list` 会展示 active、stale、dirty orphan、prunable、pruned 和 needs_user_review，`codex workspace worktree prune --dry-run` 只输出 released 且 clean at base 的 managed worktree 候选，不执行删除，`codex workspace worktree prune --confirm` 会重新校验 Git 状态和 managed worktree 容器路径后执行 `git worktree remove` 并把 binding 标记为 `pruned`，`codex workspace worktree recover <binding-id>` 只恢复 clean at base 的 managed stale/prunable binding。多 session 合并继续由 T83 跟进。
 - Step 39 已完成：skill-first governance runtime 已完成 T89-T97；bundled skills 改为 manifest-driven 全量可用技能，hook lifecycle 输出 skill routing audit，Requirements Gate 扩展治理字段，SubAgent dispatch 前输出 blocker/scope matrix，release profile 原型覆盖小游戏/WebGL/AB/包体/性能证据，OpenSpec/BMAD governance adapter 连接 verification 与 commit-based review evidence。
-- Step 40 已完成：bundled skill 安装状态新增 stale 检测；随包 `harness-release-gate` 已是 candidate commit + `codex xhigh review --commit <commit-sha>` 流程，若用户本机已安装技能仍是旧版，`install --dry-run` 会报告 `stale_existing_needs_update`，不再静默当作 `no_change`。
+- Step 40 已完成：bundled skill 安装状态按技能名去重；随包 `harness-release-gate` 已是 candidate commit + `codex xhigh review --commit <commit-sha>` 流程。若用户本机已安装同名技能，安装器保留用户版本并跳过 bundled copy，`install --dry-run` 报告 `already_exists_deduped`，不要求覆盖或更新。
 - Step 41 已完成：T33/T64/T65/T67-T71 已完成实现和定向测试；T55/T59/T83/T87 的可离线切片已落地为 release manifest gate、host receipt/readiness report 和 requirements conflict scanner；剩余项明确为宿主、CI、业务构建材料、强制写入 hook 或外部 BMAD 执行依赖，不在仓库内伪造完成状态。

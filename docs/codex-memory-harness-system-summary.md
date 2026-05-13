@@ -109,7 +109,7 @@ Bundled Codex skills：
 ~/.agents/skills/<bundled skill name from plugins/codex-memory/skills/bundled-skills.json>
 ```
 
-当前 manifest 覆盖 security、GitHub、CLI、迁移、release gate、需求澄清、接口设计、TDD、提交、review、PRD、重构、文档、图像、OpenAI docs、plugin/skill 创建等可用技能；安装时不联网下载，且不覆盖用户已有技能目录。
+当前 manifest 覆盖 security、GitHub、CLI、迁移、release gate、需求澄清、接口设计、TDD、提交、review、PRD、重构、文档、图像、OpenAI docs、plugin/skill 创建等可用技能；安装时不联网下载，按技能名去重，且不覆盖或更新用户已有技能目录。
 
 全局 marketplace：
 
@@ -408,7 +408,7 @@ sh ./install.sh --uninstall
 - 如果当前版本已经安装，返回 `already_installed`，不重复安装插件。
 - 如果目标已存在且指向其他目录，默认不覆盖；必须显式传入 `--update-existing` 或 `-UpdateExisting`。
 - `--replace-existing` 与 `-ReplaceExisting` 作为兼容别名保留。
-- 默认从发布包内的 `plugins/codex-memory/skills/openai-curated` 和 `plugins/codex-memory/skills/local` 离线复制 bundled skills 到 `~/.agents/skills`；目标技能已存在时跳过，不覆盖用户版本。
+- 默认从发布包内的 `plugins/codex-memory/skills/openai-curated` 和 `plugins/codex-memory/skills/local` 离线复制 bundled skills 到 `~/.agents/skills`；安装计划按技能名去重，目标技能已存在时跳过，不覆盖或更新用户版本。
 - 可用 `--skip-skills` 或 `-SkipSkills` 跳过 bundled skills 安装。
 - 替换旧普通目录时会备份，不直接删除。
 - profile 和 AGENTS 采用标记块写入，降低误改用户内容的风险。

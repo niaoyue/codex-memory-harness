@@ -56,6 +56,26 @@ def _skill_names(manifest: dict[str, Any]) -> list[str]:
     return names
 
 
+def _manifest_skill_items(manifest: dict[str, Any]) -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for item in manifest.get("skills", []):
+        if not isinstance(item, dict) or not isinstance(item.get("name"), str):
+            continue
+        name = item["name"].strip()
+        if not name or name in seen:
+            continue
+        seen.add(name)
+        normalized = dict(item)
+        normalized["name"] = name
+        items.append(normalized)
+    return items
+
+
+def _manifest_duplicate_count(manifest: dict[str, Any]) -> int:
+    return len(_skill_names(manifest)) - len(_manifest_skill_items(manifest))
+
+
 def _skill_source(plugin_root: Path, item: dict[str, Any]) -> Path:
     source_path = item.get("path")
     if isinstance(source_path, str) and source_path.strip():
@@ -120,9 +140,7 @@ def ensure_bundled_skills(plugin_root: Path) -> dict[str, Any]:
     installed = 0
     skipped = 0
 
-    for item in manifest.get("skills", []):
-        if not isinstance(item, dict) or not isinstance(item.get("name"), str):
-            continue
+    for item in _manifest_skill_items(manifest):
         name = item["name"]
         src = _skill_source(plugin_root, item)
         dst = target_root / name
@@ -132,7 +150,7 @@ def ensure_bundled_skills(plugin_root: Path) -> dict[str, Any]:
                 {
                     "name": name,
                     "path": str(dst),
-                    "status": "already_exists",
+                    "status": "deduped_existing",
                     "installed": False,
                 }
             )
@@ -154,6 +172,8 @@ def ensure_bundled_skills(plugin_root: Path) -> dict[str, Any]:
         "source_ref": manifest.get("source_ref", ""),
         "installed": installed,
         "skipped_existing": skipped,
+        "deduped_existing": skipped,
+        "manifest_duplicate_count": _manifest_duplicate_count(manifest),
         "skills": results,
     }
 
@@ -164,9 +184,7 @@ def bundled_skills_status(plugin_root: Path) -> dict[str, Any]:
     legacy_target_root = legacy_codex_skills_root()
     skills: list[dict[str, Any]] = []
 
-    for item in manifest.get("skills", []):
-        if not isinstance(item, dict) or not isinstance(item.get("name"), str):
-            continue
+    for item in _manifest_skill_items(manifest):
         name = item["name"]
         src = _skill_source(plugin_root, item)
         dst = target_root / name
@@ -182,6 +200,11 @@ def bundled_skills_status(plugin_root: Path) -> dict[str, Any]:
             and target_digest
             and source_digest == target_digest
         )
+        content_differs_from_source = bool(
+            source_exists
+            and target_has_skill_md
+            and not target_matches_source
+        )
         skills.append(
             {
                 "name": name,
@@ -191,11 +214,9 @@ def bundled_skills_status(plugin_root: Path) -> dict[str, Any]:
                 "source_digest": source_digest,
                 "target_digest": target_digest,
                 "target_matches_source": target_matches_source,
-                "stale_existing": bool(
-                    source_exists
-                    and target_has_skill_md
-                    and not target_matches_source
-                ),
+                "content_differs_from_source": content_differs_from_source,
+                "deduped_existing": target_has_skill_md,
+                "stale_existing": False,
                 "legacy_target_exists": legacy_dst.exists(),
                 "path": str(dst),
             }
@@ -210,9 +231,14 @@ def bundled_skills_status(plugin_root: Path) -> dict[str, Any]:
         "installed_by_default": bool(manifest.get("installed_by_default", False)),
         "overwrite_existing": bool(manifest.get("overwrite_existing", False)),
         "missing_manifest": bool(manifest.get("missing_manifest", False)),
+        "manifest_skill_count": len(_skill_names(manifest)),
+        "manifest_unique_skill_count": len(skills),
+        "manifest_duplicate_count": _manifest_duplicate_count(manifest),
         "skills": skills,
         "installed_count": sum(1 for item in skills if item["target_has_skill_md"]),
         "missing_count": sum(1 for item in skills if not item["target_has_skill_md"]),
         "source_missing_count": sum(1 for item in skills if not item["source_exists"]),
-        "stale_count": sum(1 for item in skills if item["stale_existing"]),
+        "deduped_existing_count": sum(1 for item in skills if item["deduped_existing"]),
+        "content_differs_count": sum(1 for item in skills if item["content_differs_from_source"]),
+        "stale_count": 0,
     }

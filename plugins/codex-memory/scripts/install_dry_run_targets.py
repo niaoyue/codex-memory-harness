@@ -105,10 +105,8 @@ def bundled_skills_plan(plugin_root: Path) -> dict[str, Any]:
     for item in status["skills"]:
         if not item["source_exists"]:
             action = "blocked_missing_source"
-        elif item.get("stale_existing"):
-            action = "stale_existing_needs_update"
         elif item["target_has_skill_md"]:
-            action = "no_change"
+            action = "already_exists_deduped"
         elif item["target_exists"]:
             action = "skip_existing_incomplete"
         else:
@@ -118,7 +116,7 @@ def bundled_skills_plan(plugin_root: Path) -> dict[str, Any]:
                 **item,
                 "action": action,
                 "would_write": action == "install",
-                "blocked": action in {"blocked_missing_source", "stale_existing_needs_update"},
+                "blocked": action == "blocked_missing_source",
                 "reason": skill_action_reason(action),
             }
         )
@@ -130,17 +128,18 @@ def bundled_skills_plan(plugin_root: Path) -> dict[str, Any]:
         "blocked": any(item["blocked"] for item in skills),
         "skills": skills,
         "planned_install_count": sum(1 for item in skills if item["action"] == "install"),
-        "stale_existing_count": sum(
-            1 for item in skills if item["action"] == "stale_existing_needs_update"
+        "deduped_existing_count": sum(
+            1 for item in skills if item["action"] == "already_exists_deduped"
         ),
+        "stale_existing_count": 0,
     }
 
 
 def skill_action_reason(action: str) -> str:
     if action == "blocked_missing_source":
         return "missing bundled skill source"
-    if action == "stale_existing_needs_update":
-        return "installed bundled skill differs from packaged source; update or reinstall the skill before relying on it"
+    if action == "already_exists_deduped":
+        return "skill name already exists; keep the existing user skill and skip bundled copy"
     return ""
 
 
