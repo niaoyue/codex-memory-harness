@@ -144,7 +144,7 @@
 - remaining_acceptance: 宿主真实启动 SubAgent、观察 stdout/stderr/checkpoint/status、将结果回写 lifecycle
 - blockers: 当前宿主未提供可由仓库代码直接调用的真实 SubAgent API
 - next_step: 等宿主 SubAgent API 可用后接入 host spawn/observe；接入前只输出 dispatch plan 和 readiness report
-- evidence_sources: `H:\dev\test\HarnessTest\.codex\harness\tasks\dogfood-open-tasks-20260513\artifacts.jsonl`; T59 row
+- evidence_sources: HarnessTest dogfood checkpoint `dogfood-open-tasks-20260513` captured in this progress snapshot; external runtime artifact path intentionally not source-controlled; T59 row
 
 ### T81 - 集成 session binding lifecycle
 
@@ -154,7 +154,7 @@
 - remaining_acceptance: 宿主级写入前强制拦截、完整 lifecycle enforcement、多 session 自动接入
 - blockers: 当前宿主 hook 能力尚不能保证每次真实文件写入前都强制调用仓库 write guard
 - next_step: 在宿主提供 write-before hook 后把软事件升级为强制入口
-- evidence_sources: `H:\dev\test\HarnessTest\.codex\harness\tasks\dogfood-open-tasks-20260513\artifacts.jsonl`; T81 row; Step 37
+- evidence_sources: HarnessTest dogfood checkpoint `dogfood-open-tasks-20260513` captured in this progress snapshot; external runtime artifact path intentionally not source-controlled; T81 row; Step 37
 
 ### T83 - 支持多 session 同 task 协作
 
@@ -164,7 +164,7 @@
 - remaining_acceptance: 自动合并 specialist branches、integration worktree final gate、跨 session 合并后的 commit/review 闭环
 - blockers: 依赖 T59 的真实 SubAgent 执行结果和 T81 的宿主级强制写入/生命周期接入
 - next_step: T59/T81 解阻后实现自动合并和 final gate；解阻前继续输出手动 merge preflight/worktree 要求
-- evidence_sources: `H:\dev\test\HarnessTest\.codex\harness\tasks\dogfood-open-tasks-20260513\artifacts.jsonl`; T83 row
+- evidence_sources: HarnessTest dogfood checkpoint `dogfood-open-tasks-20260513` captured in this progress snapshot; external runtime artifact path intentionally not source-controlled; T83 row
 
 ### T87 - 实现严格 Requirements Integrity Gate runtime
 
@@ -174,7 +174,7 @@
 - remaining_acceptance: 真实 BMAD upstream 执行或用户提供完整 planning material 后的 upstream-core-first 接入
 - blockers: 缺少外部 BMAD 工具执行环境或用户规划材料，不能伪造 upstream 多 agent runtime
 - next_step: 在 BMAD upstream 或用户规划材料可用时补齐真实执行证据；当前继续使用 adapter 接收 planning artifact
-- evidence_sources: `H:\dev\test\HarnessTest\.codex\harness\tasks\dogfood-open-tasks-20260513\governance-evidence.json`; T87 row; Step 41
+- evidence_sources: HarnessTest dogfood checkpoint `dogfood-open-tasks-20260513` captured in this progress snapshot; external governance evidence path intentionally not source-controlled; T87 row; Step 41
 
 ## 3. 当前推荐执行步
 

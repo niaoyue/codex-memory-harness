@@ -40,7 +40,10 @@ class BuildReleaseTests(unittest.TestCase):
 
         self.assertNotIn(".codex/harness/commands.json", names)
         self.assertNotIn(".codex/harness/project_profile.json", names)
-        self.assertFalse(any(name.startswith(".codex/") for name in names))
+        self.assertIn(".codex/specs/backlog-governance/tasks.md", names)
+        self.assertFalse(any(name.startswith(".codex/harness/") for name in names))
+        self.assertFalse(any(name.startswith(".codex/memories/") for name in names))
+        self.assertFalse(any(name.startswith(".codex/shared/") for name in names))
         self.assertIn(".github/workflows/verify.yml", names)
         self.assertFalse(any(name.startswith("dist/") for name in names))
         self.assertFalse(any("__pycache__/" in name for name in names))

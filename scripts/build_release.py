@@ -30,8 +30,10 @@ EXCLUDED_NAMES = {
 
 
 EXCLUDED_PATH_PREFIXES = (
-    (".codex",),
     ("dist",),
+)
+INCLUDED_CODEX_PATH_PREFIXES = (
+    (".codex", "specs"),
 )
 
 
@@ -44,9 +46,24 @@ def _has_prefix(parts: tuple[str, ...], prefix: tuple[str, ...]) -> bool:
     return len(parts) >= len(prefix) and parts[: len(prefix)] == prefix
 
 
+def _is_parent_of_prefix(parts: tuple[str, ...], prefix: tuple[str, ...]) -> bool:
+    return len(parts) < len(prefix) and prefix[: len(parts)] == parts
+
+
+def _is_excluded_codex_path(parts: tuple[str, ...]) -> bool:
+    if not parts or parts[0] != ".codex":
+        return False
+    return not any(
+        _has_prefix(parts, prefix) or _is_parent_of_prefix(parts, prefix)
+        for prefix in INCLUDED_CODEX_PATH_PREFIXES
+    )
+
+
 def should_skip(path: Path) -> bool:
     relative = path.relative_to(PROJECT_ROOT)
     parts = relative.parts
+    if _is_excluded_codex_path(parts):
+        return True
     if any(_has_prefix(parts, prefix) for prefix in EXCLUDED_PATH_PREFIXES):
         return True
     if any(part in EXCLUDED_DIRS for part in relative.parts):
@@ -59,6 +76,8 @@ def should_skip(path: Path) -> bool:
 def should_skip_dir(path: Path) -> bool:
     relative = path.relative_to(PROJECT_ROOT)
     parts = relative.parts
+    if _is_excluded_codex_path(parts):
+        return True
     if any(_has_prefix(parts, prefix) for prefix in EXCLUDED_PATH_PREFIXES):
         return True
     return any(part in EXCLUDED_DIRS for part in parts)

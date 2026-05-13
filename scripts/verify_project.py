@@ -210,7 +210,7 @@ def check_release_package() -> list[dict[str, object]]:
         with zipfile.ZipFile(package_path) as archive:
             names = archive.namelist()
 
-    blocked_prefixes = (".codex/", "dist/")
+    blocked_prefixes = (".codex/harness/", ".codex/memories/", ".codex/shared/", ".codex/evals/", "dist/")
     for name in names:
         if name.startswith(blocked_prefixes):
             failures.append({"path": name, "error": "runtime path included in release package"})
