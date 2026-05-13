@@ -6,7 +6,7 @@
 
 本文把 `docs/WORKSPACE_ADAPTIVE_ROUTING.md` 的设计拆成可执行任务，并同步当前项目进度。
 
-当前状态：已完成文档设计、设计审查、隐私边界、检索作用域同步、workspace routing schema 与项目配置模板、只读 workspace scanner、最小只读 route planner、最小 workspace verification aggregation、SubAgent route binding、scope guard、coordinator summary、dispatch plan、host receipt readiness report、memory lifecycle 软集成、workspace memory 自动分层写入、游戏客户端自动扫描默认规则、游戏客户端 profile 模板生成器、服务器/后台/文档/美术业务模板、本仓库 dogfood workspace routing 配置、workspace routing 发布迁移说明、基础 AI 诊断日志 release gate 和 release manifest evidence gate；尚未实现真实 SubAgent 自动执行器和完整发布级平台构建流水线。
+当前状态：已完成文档设计、设计审查、隐私边界、检索作用域同步、workspace routing schema 与项目配置模板、只读 workspace scanner、最小只读 route planner、最小 workspace verification aggregation、SubAgent route binding、scope guard、coordinator summary、dispatch plan、host receipt readiness report、Codex SubAgent 执行通道 dogfood、memory lifecycle 软集成、workspace memory 自动分层写入、游戏客户端自动扫描默认规则、游戏客户端 profile 模板生成器、服务器/后台/文档/美术业务模板、本仓库 dogfood workspace routing 配置、workspace routing 发布迁移说明、基础 AI 诊断日志 release gate 和 release manifest evidence gate；尚未实现完整发布级平台构建流水线。
 
 ## 2. 进度状态
 
@@ -100,13 +100,13 @@
 当前仓库尚未具备：
 
 - 发布级完整验证闭环和 release gate 平台。
-- 自动启动/调度真实 SubAgent；当前只有 dispatch plan，不负责启动宿主 agent 或子进程。
+- 插件内建独立 agent 子进程调度；当前正式执行通道是主 Agent 按 dispatch plan 调用 Codex SubAgent，并用 receipt/readiness report 回写结果。
 
 ## 6. 推荐下一步
 
 下一步优先级：
 
-1. 后续主线：实现真实 SubAgent 自动执行器。
-2. 后续主线：实现更完整的发布验证平台。
+1. 后续主线：实现更完整的发布验证平台。
+2. 后续主线：补强多 session integration worktree final gate。
 
-这个顺序可以降低风险：已完成只读发现、计划、验证、SubAgent binding、dispatch plan、游戏客户端模板、业务模板、dogfood 配置、发布迁移说明、基础 release gate、lifecycle 软集成和 workspace memory 自动分层写入；接下来再进入真实自动执行与发布级平台。
+这个顺序可以降低风险：已完成只读发现、计划、验证、SubAgent binding、dispatch plan、Codex SubAgent 派发通道、游戏客户端模板、业务模板、dogfood 配置、发布迁移说明、基础 release gate、lifecycle 软集成和 workspace memory 自动分层写入；接下来再进入发布级平台和多 session integration gate。

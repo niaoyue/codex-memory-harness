@@ -316,7 +316,7 @@ codex game-client release-check
 | `verify` | 映射到 `.codex/harness/commands.json` 里的项目命令 |
 | `release-check` | 聚合构建、包体、热更、版本号、渠道配置、诊断日志关闭和回滚策略检查 |
 
-但在多项目 workspace 下，更推荐使用 `codex workspace doctor/scan/route/verify/bind/scope-check/summarize/schedule/game-client` 做识别、路由、验证聚合、SubAgent binding、dispatch plan 和客户端模板。当前已完成 lifecycle 软集成：hook 会自动准备 route plan/bindings、按 touched paths 执行 scope guard，并在回复前输出 routing review；真实 SubAgent 自动执行器和发布级完整验证平台仍在路线中。
+但在多项目 workspace 下，更推荐使用 `codex workspace doctor/scan/route/verify/bind/scope-check/summarize/schedule/game-client` 做识别、路由、验证聚合、SubAgent binding、dispatch plan 和客户端模板。当前已完成 lifecycle 软集成：hook 会自动准备 route plan/bindings、按 touched paths 执行 scope guard，并在回复前输出 routing review；主 Agent 可按 dispatch plan 使用 Codex SubAgent，发布级完整验证平台仍在路线中。
 
 ## 13. 推荐任务流程
 

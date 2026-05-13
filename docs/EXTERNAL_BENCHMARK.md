@@ -31,7 +31,7 @@
 
 ## 3. 当前实现对标结论
 
-总体结论：当前项目已经覆盖最小可用的本地 memory/harness/verification/workspace routing 闭环，并补齐了 SubAgent dispatch plan、游戏客户端 profile 模板和基础 AI 诊断日志 release gate；但还没有实现真实 SubAgent 自动执行器、真实语义向量召回、平台化 eval 回放和远程执行环境。缺口已经在文档中明确化，并纳入后续路线。
+总体结论：当前项目已经覆盖最小可用的本地 memory/harness/verification/workspace routing 闭环，并补齐了 SubAgent dispatch plan、Codex SubAgent receipt dogfood、游戏客户端 profile 模板和基础 AI 诊断日志 release gate；但还没有实现真实语义向量召回、完整平台化 eval 回放、发布级完整验证平台和远程执行环境。缺口已经在文档中明确化，并纳入后续路线。
 
 | 外部能力点 | 当前实现 | 状态 | 差距与处理 |
 |---|---|---|---|
@@ -41,20 +41,20 @@
 | 验证闭环 | `verification_runner.py` 读取 `.codex/harness` 配置并 checkpoint | 已实现 MVP | 还不是完整 eval 平台，没有历史失败用例回放 |
 | 记忆沉淀 | SQLite、JSONL、summary、distilled asset | 已实现 MVP | 缺少长期清理、归档和迁移工具 |
 | 上下文预算 | `DEFAULT_CONTEXT_BUDGET` 分配 task、summary、decision、evidence 字符预算 | 已实现 MVP | 后续应支持 profile 配置 |
-| 角色分工 | `docs/SUBAGENT_WORKFLOW.md`、`workspace_subagents.py`、`subagent_scheduler.py` | 协议、最小 binding/scope/summary runtime 和 dispatch plan 已实现 | 当前不自动创建或执行真实 SubAgent |
+| 角色分工 | `docs/SUBAGENT_WORKFLOW.md`、`workspace_subagents.py`、`subagent_scheduler.py`、`subagent_receipts.py` | 协议、最小 binding/scope/summary runtime、dispatch plan 和 Codex SubAgent receipt dogfood 已实现 | 插件不内建独立 agent 子进程 |
 | 语义召回 | `retrieval_store.py` 保留 `semantic` placeholder | 预留接口 | 暂不依赖向量库，路线见 `docs/MEMORY_RETRIEVAL_STRATEGY.md` |
 | 可审计性 | task spec、run state、artifacts、verification payload、本地 memory | 已实现 MVP | 后续可增加 artifact schema 版本和导出命令 |
 | 安全边界 | 打包排除、敏感字段脱敏、危险命令拦截、隐私文档、写入前敏感扫描器、基础 AI 诊断日志 release gate | 已实现 MVP | release gate 仍是静态基础扫描，不覆盖完整平台构建配置 |
-| Workspace 路由 | `workspace_scanner.py`、`workspace_router.py`、`workspace_verifier.py`、`workspace_subagents.py`、`subagent_scheduler.py`、`game_client_profiles.py`、`hook_runner.py` | 最小 runtime 已实现 | 当前是 lifecycle 软集成和 dispatch plan，不自动启动真实 SubAgent，也不是发布级完整验证平台 |
+| Workspace 路由 | `workspace_scanner.py`、`workspace_router.py`、`workspace_verifier.py`、`workspace_subagents.py`、`subagent_scheduler.py`、`subagent_receipts.py`、`game_client_profiles.py`、`hook_runner.py` | 最小 runtime 已实现 | 当前是 lifecycle 软集成、dispatch plan 和 Codex SubAgent receipt；还不是发布级完整验证平台 |
 
 ## 4. 是否已经“都做到了”
 
 没有全部做到。更准确的结论如下：
 
-- 已做到：本地项目记忆、任务状态、决策记录、上下文包、harness 生命周期、验证回写、安装/更新入口、打包边界、基础隐私边界、写入前敏感扫描、workspace scanner/router/verifier/subagent binding、dispatch plan、游戏客户端 profile 模板、基础诊断 release gate 和 lifecycle 软集成。
-- 部分做到：Harness Engineering 的工程闭环已经有 MVP，但还不是成熟平台；上下文预算有固定实现，但没有 profile 化；语义检索有接口但没有向量索引；SubAgent 已有 binding/scope/summary/dispatch artifact，但没有真实自动执行器。
+- 已做到：本地项目记忆、任务状态、决策记录、上下文包、harness 生命周期、验证回写、安装/更新入口、打包边界、基础隐私边界、写入前敏感扫描、workspace scanner/router/verifier/subagent binding、dispatch plan、Codex SubAgent receipt、游戏客户端 profile 模板、基础诊断 release gate 和 lifecycle 软集成。
+- 部分做到：Harness Engineering 的工程闭环已经有 MVP，但还不是成熟平台；上下文预算有固定实现，但没有 profile 化；语义检索有接口但没有向量索引；SubAgent 已有 binding/scope/summary/dispatch/receipt artifact，但没有内建独立 agent 子进程。
 - 之前没说清：为什么不引入向量数据库、SubAgent 怎么分工、哪些能力只是协议/软集成而非自动调度能力。
-- 未做到：真实 SubAgent 自动执行器、发布级 workspace 验证平台、向量数据库、embedding 索引、eval replay 平台、远程沙箱执行。
+- 未做到：发布级 workspace 验证平台、向量数据库、embedding 索引、完整 eval replay 平台、远程沙箱执行。
 
 ## 5. 已补齐的文档
 
@@ -75,7 +75,7 @@
 1. 先补服务器、后台、文档和美术工程业务模板，让 workspace routing 覆盖更多常见游戏研发子项目。
 2. 再做发布级完整验证平台，补齐渠道包、热更、构建产物和平台配置检查。
 3. 再做 eval replay，把失败任务沉淀为可回放验证集。
-4. 后续在宿主支持时实现真实 SubAgent 自动执行器。
+4. 后续补强 Codex SubAgent 观察、取消状态和多 specialist 合并。
 5. 最后接入可选向量索引，保持默认离线、默认不上传、默认可降级。
 
 这个顺序的原因是：向量库和 SubAgent 都会放大已有信息质量问题。如果 memory 中先混入敏感数据或低质量记录，后续检索和多角色协作都会把问题扩散到更多上下文里。

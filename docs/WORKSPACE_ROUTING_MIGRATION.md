@@ -79,7 +79,7 @@ codex workspace verify --objective "release server and admin" --working-set serv
 它不会：
 
 - 替业务项目生成 Unity Editor 脚本、Go/Java/C#/Node 服务代码、前端页面、发布流水线或美术导入脚本。
-- 自动启动真实 SubAgent。
+- 内建独立 agent 子进程调度；SubAgent 执行由主 Agent 按 dispatch plan 调用 Codex SubAgent。
 - 自动把 workspace summary 或子项目事实写入长期 shared memory。
 - 绕过 release gate、scope guard 或敏感信息扫描。
 

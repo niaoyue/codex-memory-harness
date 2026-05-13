@@ -336,7 +336,7 @@ codex harness verify run --task-id <TASK_ID> --profile primary
 
 ## 11. SubAgent 角色协作
 
-当前项目没有实现宿主级并发 SubAgent 执行器。它支持的是通过 harness artifact 记录不同角色产物，让主 agent 或宿主环境提供的 SubAgent 能力按统一协议协作；同时可以通过 `codex workspace schedule` 从 route plan 生成 coordinator/specialist dispatch plan。
+当前项目不内建独立 SubAgent 子进程执行器。它支持的是通过 harness artifact 记录不同角色产物，让主 agent 使用 Codex SubAgent 能力按统一协议协作；同时可以通过 `codex workspace schedule` 从 route plan 生成 coordinator/specialist dispatch plan。
 
 推荐角色：
 
@@ -589,7 +589,7 @@ codex workspace verify --changed
 
 workspace routing 会先形成 project inventory，再为当前任务生成 route plan。specialist SubAgent 绑定单个子项目 route，coordinator SubAgent 负责跨项目契约、验证聚合、冲突处理和最终 summary。
 
-当前已经落地 `codex workspace doctor/scan/route/verify/bind/scope-check/summarize/schedule/game-client/project-template` 的最小本地运行时；仍未实现自动启动真实 SubAgent 和发布级完整验证平台。
+当前已经落地 `codex workspace doctor/scan/route/verify/bind/scope-check/summarize/schedule/game-client/project-template` 的最小本地运行时，并完成 Codex SubAgent receipt dogfood；仍未实现发布级完整验证平台。
 
 详细任务拆分和进度见：
 
@@ -629,7 +629,7 @@ docs/AI_DIAGNOSTIC_LOGGING.md
 - 不能保证非 PowerShell 启动方式自动经过 wrapper。
 - 旧 Codex 宿主是否自动读取插件 marketplace，仍取决于宿主能力。
 - 当前检索是本地 MVP，尚未接入远程 embedding 或向量数据库；已提供默认禁用的本地 deterministic semantic provider。
-- 当前没有内建真实 SubAgent 自动执行器；已提供角色协作协议、artifact 记录、route binding、scope guard、coordinator summary、dispatch plan 和宿主执行回执 readiness report。
+- 当前没有内建独立 SubAgent 子进程执行器；已提供角色协作协议、artifact 记录、route binding、scope guard、coordinator summary、dispatch plan、Codex SubAgent 派发通道和执行回执 readiness report。
 - 当前已内建 `codex workspace game-client init/template` 和 `codex workspace project-template init/template`，但没有顶层 `codex game-client ...` 独立入口，也不内置具体业务项目的引擎脚本、服务器代码、后台代码或资产导入脚本。
 - 当前没有内建发布级 workspace 平台；已提供只读 workspace scanner、只读 route planner、最小 workspace verification aggregation、SubAgent route binding、scope guard、coordinator summary、dispatch plan、release manifest/evidence gate、memory lifecycle 软集成、project inventory、routing config、route plan 和验证聚合 schema，以及 `templates/project/.codex/harness/workspace-routing.json` 用户项目模板。本仓库当前 checkout 已补齐根 `.codex/harness/workspace-routing.json` dogfood 配置。
 - 当前已内建基础敏感信息扫描器和基础 AI 诊断日志 release gate；release gate 不覆盖所有平台构建配置和完整发布流水线。
@@ -648,7 +648,7 @@ docs/AI_DIAGNOSTIC_LOGGING.md
 2. release manifest 与业务 CI 连接：把渠道包、热更、构建产物和平台配置接到 release gate。
 3. memory archive/cleanup 策略扩展：补更多保留策略和索引规模告警。
 4. 项目共享 memory：严格 schema 校验、冲突策略和 review 辅助。
-5. 真实 SubAgent 自动执行器：在宿主支持时按 dispatch plan 启动 specialist/coordinator，并回写超时、取消和失败状态。
+5. SubAgent integration gate：补强 Codex SubAgent 派发观察、取消状态、receipt 归档和多 specialist 结果合并。
 6. 发布级完整验证平台：覆盖渠道包、热更、构建产物、回滚材料和平台配置。
 7. 自动历史记忆挖掘：事件账本、候选挖掘、自动提升、context 注入和治理命令。
 8. Session-worktree 绑定：最小 registry、allocator、heartbeat 和 write-guard 已有；后续补宿主级强制拦截、stale cleanup、recover/prune 和多 session 合并。

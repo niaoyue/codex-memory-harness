@@ -1034,7 +1034,7 @@ flowchart LR
 - review gate 工作流。
 - 项目共享记忆提升流程。
 
-当前它不提供真实 SubAgent 自动执行器、向量数据库、发布级完整验证平台或 eval replay 平台，也不会按 workspace route 自动把子项目事实分层写入长期 memory。
+当前它不提供内建独立 SubAgent 子进程执行器、向量数据库、发布级完整验证平台或完整 eval replay 平台；SubAgent 执行通道由主 agent 使用 Codex SubAgent 能力完成，并通过 receipt/readiness report 回写结果。
 
 workspace routing 已能记录 route plan、bindings 和 runtime decision；长期共享仍要通过 summary 与 `codex memory promote` 做审查式提升。
 

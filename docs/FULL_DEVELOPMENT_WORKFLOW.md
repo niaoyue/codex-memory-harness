@@ -4,7 +4,7 @@
 
 本文描述 Codex Memory Harness 全部规划能力实现后的目标开发流程。
 
-它不是当前运行时能力声明。当前仓库已经具备 memory、harness、verification、敏感信息扫描、项目共享 memory promote、workspace routing schema、只读 scanner、只读 route planner、最小 verification aggregation、SubAgent binding/scope guard/coordinator summary/dispatch plan、游戏客户端 profile 模板、基础 AI 诊断日志 release gate 和 lifecycle 软集成的本地 MVP，但真实 SubAgent 自动执行器和发布级完整验证平台仍在路线中。
+它不是当前运行时能力声明。当前仓库已经具备 memory、harness、verification、敏感信息扫描、项目共享 memory promote、workspace routing schema、只读 scanner、只读 route planner、最小 verification aggregation、SubAgent binding/scope guard/coordinator summary/dispatch plan、Codex SubAgent receipt dogfood、游戏客户端 profile 模板、基础 AI 诊断日志 release gate 和 lifecycle 软集成的本地 MVP，但发布级完整验证平台仍在路线中。
 
 ## 2. 完整能力假设
 
@@ -34,7 +34,7 @@
 | Harness 任务生命周期 | `codex harness start` 触发 `before_task` | 已实现运行时能力 | wrapper 只负责窗口启动，不能单独理解每条用户任务；任务开始仍需要 agent、hook 或自动化调用 harness/controller |
 | Workspace 路由 | `before_task` 生成 route plan 和 SubAgent bindings | 已做 lifecycle 软集成 | route plan/bindings 写入 task metadata；低置信度会降级为只读分析或提示确认 |
 | Session worktree | 写任务绑定 primary checkout 或 managed worktree | 已实现最小 runtime | 已有 `codex workspace session ...`、`worktree list` 和 `write-guard`；后续仍需宿主级 `before_first_write` 强制拦截、stale cleanup 和多 session 合并 |
-| SubAgent 执行 | 按 binding 绑定 project/domain/cwd/scope/rules/profile | 已实现 binding 和 dispatch plan，不自动执行 | 当前不会自动创建真实 SubAgent；`codex workspace schedule` 只生成可执行计划，宿主或主 agent 使用 SubAgent 时必须带上对应 binding |
+| SubAgent 执行 | 按 binding 绑定 project/domain/cwd/scope/rules/profile | 已实现 binding、dispatch plan 和 Codex SubAgent receipt | 插件不会自动创建独立 agent 子进程；`codex workspace schedule` 生成可执行计划，主 agent 使用 Codex SubAgent 时必须带上对应 binding |
 | 发布/提交后 review gate | 聚合验证、scope guard、敏感扫描、诊断日志 release gate、candidate commit、`codex xhigh review --commit <commit-sha>` | 部分实现 | 验证聚合、scope guard、敏感扫描、基础诊断 release gate、review preflight、commit fingerprint、ledger、runner 恢复和 slice planner 已有；仍不是覆盖渠道包、热更、平台配置和回滚材料的完整发布平台 |
 
 因此，当前“第一步”已经覆盖启动自检和任务路由软集成，但还没有做到只靠 wrapper 自动捕获并编排所有用户任务。
@@ -283,7 +283,6 @@ AI 诊断日志只存在于实现和验证循环中。
 
 仍需实现：
 
-- 真实 SubAgent 自动执行器。
 - 发布级完整验证平台。
 - 自动历史记忆挖掘 runtime。
 - session-worktree 宿主级强制 lifecycle、stale cleanup 和多 session 合并。

@@ -292,7 +292,7 @@ docs/SESSION_WORKTREE_BINDING.md
 
 ## Harness Engineering 对标
 
-本项目已经具备本地 memory、harness 生命周期、验证回写、workspace routing、SubAgent binding/dispatch plan 和基础 release gate 的 MVP，但还没有内建真实 SubAgent 自动执行器、向量数据库或 eval replay 平台。
+本项目已经具备本地 memory、harness 生命周期、验证回写、workspace routing、SubAgent binding/dispatch plan、Codex SubAgent receipt dogfood 和基础 release gate 的 MVP，但没有内建独立 SubAgent 子进程执行器、向量数据库或完整 eval 平台。
 
 如果需要确认当前能力边界：
 
@@ -306,7 +306,7 @@ docs/EXTERNAL_BENCHMARK.md
 docs/CODEX_OFFICIAL_ALIGNMENT.md
 ```
 
-如果需要按多角色方式执行复杂任务，当前应按文档里的角色协议记录 artifact，并可用 `codex workspace schedule` 生成 dispatch plan；不要假设项目会自动启动多个真实 SubAgent：
+如果需要按多角色方式执行复杂任务，当前应按文档里的角色协议记录 artifact，并可用 `codex workspace schedule` 生成 dispatch plan；主 Agent 负责把 `host_spawn_requests` 派发给 Codex SubAgent：
 
 ```text
 docs/SUBAGENT_WORKFLOW.md
@@ -423,7 +423,7 @@ docs/WORKSPACE_ROUTING_MIGRATION.md
 
 当这些信号表明任务是功能 story、系统改动、高风险、发布 gate、跨 route 或复杂应用级任务时，会触发 `autonomous_task_analysis` 或对应的 `complex_task` / `route_policy` / `xhigh_review_gate`。普通低风险小修仍保持 `main_agent_serial`。需要审查的实现任务会在 worker specialist 外额外生成 `Route Review Specialist`，最终代码审核仍优先使用 `codex xhigh review --commit <commit-sha>` 审核被审提交。
 
-这仍不是真实 SubAgent 自动执行器。当前系统只准备 binding、scope guard、dispatch plan、runtime decision 和 review，是否实际启动多个 SubAgent 仍由 Codex 宿主能力、主 agent 的显式 spawn 策略或人工编排决定。
+这不是插件内建的独立 SubAgent 子进程执行器。当前系统准备 binding、scope guard、dispatch plan、runtime decision 和 review；实际派发由主 agent 使用 Codex SubAgent 能力完成，并通过 receipt/readiness report 回写结果。
 
 Workspace routing 的实现拆分和当前进度见：
 

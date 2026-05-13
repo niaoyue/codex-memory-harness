@@ -11,7 +11,7 @@
 - `done`：已完成
 - `blocked`：受阻
 
-当前实现策略：一次只推进一个主里程碑，避免并行改动过多导致上下文污染。workspace routing 已能生成 SubAgent dispatch plan，允许 coordinator 按计划分配多个 specialist；但当前项目尚未实现宿主级真实 SubAgent 自动执行器。
+当前实现策略：一次只推进一个主里程碑，避免并行改动过多导致上下文污染。workspace routing 已能生成 SubAgent dispatch plan，允许 coordinator 按计划分配多个 specialist；Codex SubAgent 是正式执行通道，仓库插件不再等待单独的宿主 API，只负责计划、scope guard、receipt/readiness 和回写协议。
 
 新增需求：当输出“未完成 Task 汇总”时，不能只列出未完成 Task ID 和状态；必须为每个未完成 Task 附带可追溯的进度摘要，包括当前状态、最近 checkpoint 或更新时间、已完成/未完成验收项、阻塞点、下一步和可用证据来源。缺少证据时明确标为未知，不得凭空估算进度。
 
@@ -78,7 +78,7 @@
 | T56 | 19 | 补服务器/后台/文档/美术业务模板 | `workspace_business_templates.py` 与 `codex workspace project-template init/template` | T54,WR-26,WR-27,WR-28 | done |
 | T57 | 19 | 补 workspace routing 发布与迁移说明 | `docs/WORKSPACE_ROUTING_MIGRATION.md` 说明普通 harness 到 workspace routing 的升级说明和兼容边界 | T52,WR-30 | done |
 | T58 | 20 | 实现 workspace memory 自动分层写入 | 根据 `memory_plan` 写入 workspace summary 与子项目 fact | T43,WR-34 | done |
-| T59 | 20 | 实现真实 SubAgent 自动执行器 | 当前已生成 `host_spawn_requests` 与调度计划，`subagent_receipts.py` 已支持宿主执行回执/status 汇总；2026-05-13 HarnessTest 已验证生成 1 个 binding 和 1 个 host spawn request；真实启动/观察 SubAgent 仍依赖宿主 API，未声称完成 host-native execution | T53 | blocked |
+| T59 | 20 | 接入 Codex SubAgent 执行通道 | 当前已生成 `host_spawn_requests` 与调度计划，`subagent_receipts.py` 已支持执行回执/status 汇总；2026-05-13 HarnessTest 已验证生成 1 个 binding 和 1 个 host spawn request；2026-05-13 本任务已用 Codex SubAgent 做只读引用核对，并用 receipt 汇总得到 `ready_for_integration`，确认正式执行通道是主 Agent 按计划调用 Codex SubAgent 并回写 receipt | T53 | done |
 | T60 | 20 | 补本仓库 dogfood workspace routing 配置 | 当前仓库根 `.codex/harness/workspace-routing.json` 与源码布局对齐 | WR-33 | done |
 | T61 | 20 | 实现安装器 dry-run | 安装前输出将写入的 profile、AGENTS、marketplace、skills 和 Codex config 变更 | T20 | done |
 | T62 | 20 | 实现旧全局 memory marker 迁移工具 | `migrate-legacy-global --dry-run/--confirm`，含 manifest、checksum 和回滚说明 | T21 | done |
@@ -102,7 +102,7 @@
 | T80 | 23 | 实现 worktree allocator | 单 session 绑定 primary checkout，并发写同项目时创建 managed worktree 和 session branch | T79 | done |
 | T81 | 23 | 集成 session binding lifecycle | 最小 `write-guard` 已落地；`hook_runner` 已支持 `before_first_write` 软事件并复用 `workspace_session.write_guard()`；2026-05-13 HarnessTest 已验证 dirty primary checkout 下 soft event 返回 `switch_to_effective_cwd`；真正宿主级写入前强制拦截与完整 lifecycle enforcement 仍需宿主 hook 支持 | T80,T52 | doing |
 | T82 | 23 | 实现 stale 与 cleanup 治理 | `worktree list` 已展示 stale/dirty orphan/prunable/pruned，`worktree prune --dry-run` 已输出候选，`worktree prune --confirm` 已重新校验并清理 clean managed worktree，`worktree recover <binding-id>` 已能恢复 clean at base 的 managed stale/prunable binding 并阻断 dirty/pruned/非 managed 场景 | T81,T65 | done |
-| T83 | 23 | 支持多 session 同 task 协作 | 已具备 binding、scope guard、coordinator summary 和 `subagent_receipts.py` integration readiness report；2026-05-13 HarnessTest 已验证 receipt summary 返回 `ready_for_integration`、`auto_merge=false` 且 candidate branch metadata 完整；自动合并 specialist branches 与 integration worktree final gate 仍依赖 T59/T81 强制接入 | T81,T53,T74 | blocked |
+| T83 | 23 | 支持多 session 同 task 协作 | 已具备 binding、scope guard、coordinator summary 和 `subagent_receipts.py` integration readiness report；2026-05-13 HarnessTest 已验证 receipt summary 返回 `ready_for_integration`、`auto_merge=false` 且 candidate branch metadata 完整；自动合并 specialist branches 与 integration worktree final gate 仍依赖 T81 的写入前强制 lifecycle 和后续 integration gate | T81,T53,T74 | blocked |
 | T84 | 24 | 引入 OpenSpec change contract 与需求完整性门禁 | `openspec/` profile、`change-governance` spec、OpenSpec/BMAD 集成 proposal/design/tasks/spec delta；本切片仅落地文档，不实现 runtime | T24,T76,T81 | done |
 | T85 | 24 | 定义 BMAD upstream planning policy | 明确何时进入 Product Brief/PRFAQ/PRD/Architecture/Epic/Story/Readiness，何时直接进入 OpenSpec change contract | T84 | done |
 | T86 | 24 | 调研并适配 OpenSpec/BMAD 上游核心代码复用 | 已核对 license、版本、entrypoint、依赖、telemetry、storage 和安全边界；决策为先做命令/插件 adapter，vendoring 仅在 adapter 不足时按 pinned source + LICENSE/NOTICE 执行，不重写上游 core | T84,T85 | done |
@@ -136,16 +136,6 @@
 - next_step: 在真实业务项目或 CI 材料可用后补齐平台构建、渠道包、热更和回滚 gate
 - evidence_sources: `.codex/specs/backlog-governance/tasks.md` T55 row; Step 33; Step 41
 
-### T59 - 实现真实 SubAgent 自动执行器
-
-- status: blocked
-- recent_checkpoint_or_update: 2026-05-13T09:57:14+00:00 HarnessTest dogfood checkpoint
-- completed_acceptance: 已生成 SubAgent route binding 和 1 个 `host_spawn_request`；`subagent_receipts.py` 支持宿主执行回执/status 汇总
-- remaining_acceptance: 宿主真实启动 SubAgent、观察 stdout/stderr/checkpoint/status、将结果回写 lifecycle
-- blockers: 当前宿主未提供可由仓库代码直接调用的真实 SubAgent API
-- next_step: 等宿主 SubAgent API 可用后接入 host spawn/observe；接入前只输出 dispatch plan 和 readiness report
-- evidence_sources: HarnessTest dogfood checkpoint `dogfood-open-tasks-20260513` captured in this progress snapshot; external runtime artifact path intentionally not source-controlled; T59 row
-
 ### T81 - 集成 session binding lifecycle
 
 - status: doing
@@ -162,8 +152,8 @@
 - recent_checkpoint_or_update: 2026-05-13T09:57:14+00:00 HarnessTest dogfood checkpoint
 - completed_acceptance: binding、scope guard、coordinator summary、receipt readiness report 已具备；HarnessTest receipt summary 为 `ready_for_integration` 且 `auto_merge=false`
 - remaining_acceptance: 自动合并 specialist branches、integration worktree final gate、跨 session 合并后的 commit/review 闭环
-- blockers: 依赖 T59 的真实 SubAgent 执行结果和 T81 的宿主级强制写入/生命周期接入
-- next_step: T59/T81 解阻后实现自动合并和 final gate；解阻前继续输出手动 merge preflight/worktree 要求
+- blockers: 依赖 T81 的宿主级强制写入/生命周期接入，以及后续 integration worktree final gate 规则落地
+- next_step: T81 解阻后实现自动合并和 final gate；解阻前继续输出手动 merge preflight/worktree 要求
 - evidence_sources: HarnessTest dogfood checkpoint `dogfood-open-tasks-20260513` captured in this progress snapshot; external runtime artifact path intentionally not source-controlled; T83 row
 
 ### T87 - 实现严格 Requirements Integrity Gate runtime
@@ -326,11 +316,11 @@
 
 - 目标：对照 Harness Engineering 外部资料，补齐当前能力、缺口和路线说明。
 - 范围：T28、T29、T30。
-- 不做：实现真实 SubAgent 自动执行器、向量数据库、embedding 索引、eval replay 平台。
+- 不做：内建独立 SubAgent 子进程执行器、向量数据库、embedding 索引、eval replay 平台。
 - 验收：
   - `docs/EXTERNAL_BENCHMARK.md` 说明外部资料读取状态、当前实现对标和缺口。
   - `docs/MEMORY_RETRIEVAL_STRATEGY.md` 说明为什么当前不依赖向量数据库，以及后续可选接入路线。
-  - `docs/SUBAGENT_WORKFLOW.md` 说明当前是角色协作协议，不是内建真实 SubAgent 自动执行器。
+  - `docs/SUBAGENT_WORKFLOW.md` 说明当前是角色协作协议和 Codex SubAgent 派发通道，不内建独立 agent 子进程。
   - README、用户指南和系统总结有对应入口。
 
 ### Step 15（已完成）
@@ -347,7 +337,7 @@
 
 - 目标：补齐多项目 workspace 下的自动路由设计。
 - 范围：T36。
-- 不做：实现 workspace scanner、route plan 运行时、真实 SubAgent 自动执行器。
+- 不做：实现 workspace scanner、route plan 运行时、独立 SubAgent 子进程执行器。
 - 验收：
   - `docs/WORKSPACE_ADAPTIVE_ROUTING.md` 说明 workspace 子项目发现、任务路由、SubAgent route binding、综合事务 coordinator、验证聚合和冲突处理。
   - `docs/GAME_CLIENT_WORKFLOW.md` 明确游戏客户端只是 workspace routing 的 `game_client` domain。
@@ -480,7 +470,7 @@
 
 - 目标：实现 SubAgent route binding、scope guard、coordinator summary 和冲突检测的最小运行时。
 - 范围：T32、T42、WR-17、WR-18、WR-19、WR-20。
-- 不做：自动启动真实 SubAgent、后续 lifecycle 软集成、跨进程调度。
+- 不做：自动创建独立 agent 子进程、后续 lifecycle 软集成、跨进程调度。
 - 验收：
   - 新增 `workspace_subagents.py`，支持 bind、scope-check 和 summarize。
   - `codex workspace bind --route-file route.json` 可把 route plan 转换为 coordinator/specialist bindings。
@@ -492,7 +482,7 @@
 
 - 目标：把 workspace routing 结果接入 memory hook 生命周期，并修正当前仓库根工具工程路由。
 - 范围：WR-21、WR-22、WR-23、WR-24、T52。
-- 不做：自动启动真实 SubAgent、发布级完整验证平台、业务项目文件写入。
+- 不做：自动创建独立 agent 子进程、发布级完整验证平台、业务项目文件写入。
 - 验收：
   - 新增 `workspace_lifecycle.py`，避免 `hook_runner.py` 聚合过多 routing 逻辑并保持单文件行数上限。
   - `before_task` 自动生成 route plan 和 SubAgent bindings，并写入 task metadata。
@@ -553,9 +543,9 @@
 - 高级 rerank
 - 云端同步
 - 严格 JSON Schema 校验 shared memory front matter
-- 自动启动/调度真实 SubAgent
+- 独立 agent 子进程自动启动/调度
 - 发布级完整 workspace 验证平台
-- 真实 SubAgent 自动执行器
+- Codex SubAgent receipt 端到端 dogfood
 - 平台化 eval replay
 - memory archive/cleanup 与 retention policy
 - 自动历史记忆挖掘 runtime、候选自动提升、治理命令和 context 注入
@@ -594,7 +584,7 @@
 - Step 29 已完成：服务器/后台/文档/美术业务模板与 `codex workspace project-template`
 - Step 30 已完成：本仓库 dogfood workspace routing 配置与发布迁移说明
 - Step 31 已完成：workspace memory 自动分层写入会在任务完成时根据 route plan `memory_plan` 写入 `.codex/shared` proposed 草稿，并可用 `workspace_memory_writer.py` 进行 dry-run/confirm。
-- Step 32 受阻：真实 SubAgent 自动执行器仍依赖宿主 SubAgent API；当前仓库已能生成 `host_spawn_requests` 和调度计划，并通过 `subagent_receipts.py` 导入宿主执行回执与 readiness report。
+- Step 32 已完成：真实执行通道采用 Codex SubAgent，不再等待额外宿主 API；当前仓库已能生成 `host_spawn_requests` 和调度计划，并通过 `subagent_receipts.py` 导入执行回执与 readiness report。2026-05-13 已完成 planner -> Codex SubAgent -> receipt -> `ready_for_integration` dogfood。
 - Step 33 进行中：release profile/evidence gate、release manifest gate 与 eval replay 已完成；release manifest gate 已本地校验 artifact kind/platform/sha256/size、evidence report_path 和未知 gate status；完整发布级验证平台仍依赖业务项目渠道包、热更、平台构建、CI 和回滚材料。
 - Step 34 已完成：安装器 dry-run、旧全局 memory marker 迁移工具、custom agents 模板、memory archive/cleanup 与可选本地语义检索 provider 均已落地。
 - Step 35 已完成：自动历史记忆挖掘 runtime 已落地事件账本、候选挖掘、accepted context 注入和治理命令；低风险偏好可进入 accepted context，高风险或冲突候选保留为可审查状态。

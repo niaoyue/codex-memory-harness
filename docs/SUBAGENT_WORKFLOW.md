@@ -2,7 +2,7 @@
 
 ## 1. 当前状态
 
-当前 Codex Memory Harness 没有实现宿主级并发 SubAgent 执行器，也不会自动创建多个 agent 进程或远程 agent。
+当前 Codex Memory Harness 不内建独立的 SubAgent 子进程执行器。正式执行通道是主 agent 读取 dispatch plan 后使用 Codex 宿主提供的 SubAgent 能力。
 
 本项目当前能做的是：
 
@@ -10,14 +10,14 @@
 - 为不同角色的工作结果记录 checkpoint artifact。
 - 把验证结果写回同一个任务闭环。
 - 从 workspace route plan 生成 SubAgent route binding。
-- 从 route plan 和 bindings 生成 SubAgent dispatch plan。
+- 从 route plan 和 bindings 生成 SubAgent dispatch plan 与 `host_spawn_requests`。
 - 对 SubAgent touched paths 执行 scope guard。
 - 汇总多 SubAgent artifact 的冲突、verification gap、发布顺序和回滚要求。
 - 在 memory 中沉淀角色产出的决策、发现和总结。
 
-因此本文件定义的是“角色协作协议”、最小 binding runtime 和调度计划协议，不声明当前已经具备自动启动真实 SubAgent 的能力。
+因此本文件定义的是“角色协作协议”、最小 binding runtime 和调度计划协议。它声明的边界是：插件不自行启动子进程，但主 agent 可以按计划派发 Codex SubAgent。
 
-当用户明确选择 SubAgent、分角色或并行代理，任务属于复杂/应用级/多阶段实现，或项目持久化 `subagent_runtime_policy` 授权当前 route，并且宿主环境提供 SubAgent 工具时，主 agent 可以消费 lifecycle 写入的 `metadata.workspace_routing.subagent_dispatch_plan.host_spawn_requests` 来派发宿主 SubAgent。这个动作发生在主 agent 和宿主运行时之间，不是 Python 插件自行启动子进程或远程 agent。
+当用户明确选择 SubAgent、分角色或并行代理，任务属于复杂/应用级/多阶段实现，或项目持久化 `subagent_runtime_policy` 授权当前 route 时，主 agent 可以消费 lifecycle 写入的 `metadata.workspace_routing.subagent_dispatch_plan.host_spawn_requests` 来派发 Codex SubAgent。这个动作发生在主 agent 和 Codex 宿主运行时之间，不是 Python 插件自行启动子进程或远程 agent。
 
 所有 SubAgent 都不得设置固定总时长。宿主 `wait_agent`、命令执行器 timeout 或类似 API 的时间参数只能作为单次观察窗口；窗口到期后继续观察或读取最新输出，不得仅因观察窗口到期就中断、关闭或判失败。只要 SubAgent 有 stdout/stderr、checkpoint、状态更新或其他可见进度，就视为仍在运行。
 
@@ -160,7 +160,7 @@ codex harness complete --task-id <task-id> --summary-file summary.md
 
 ## 7.1 SubAgent 执行 xhigh review
 
-当宿主环境支持真实 SubAgent 时，推荐把耗时的最终代码审核派发给单独的 XHigh Review Runner。这个角色不是“让另一个通用模型自己审查代码”，而是让它作为命令执行器运行 Codex CLI 的 xhigh review gate。
+当当前 Codex 会话支持 SubAgent 时，推荐把耗时的最终代码审核派发给单独的 XHigh Review Runner。这个角色不是“让另一个通用模型自己审查代码”，而是让它作为命令执行器运行 Codex CLI 的 xhigh review gate。
 
 推荐指令：
 
@@ -188,17 +188,16 @@ candidate commit 只应包含本轮相关文件；如果工作树里混有用户
 
 ## 8. 当前项目的落地方式
 
-当前没有内建宿主级 SubAgent 自动执行器，所以落地方式是：
+当前落地方式是使用 Codex SubAgent 作为执行通道，同时保持插件侧只负责计划、scope guard 和 receipt 汇总：
 
-- 主 agent 使用宿主环境提供的 SubAgent 能力时，按本文件定义角色和 artifact。
+- 主 agent 使用 Codex 宿主提供的 SubAgent 能力时，按本文件定义角色和 artifact。
 - lifecycle 会在显式、route policy、复杂/应用级任务、xhigh review gate 或通用自动判断命中时写入 `subagent_runtime` 和 `subagent_dispatch_plan`。`route policy` 可来自 `.codex/harness/project_profile.json` 或 `.codex/harness/workspace-routing.json` 的 `subagent_runtime_policy`，用于把正式 implementation 任务的授权持久化。通用 planner 会综合 `task_intent`、`task_type`、`risk_level`、route 数量、scope 大小、复杂度和 review gate：功能 story、系统改动、发布 gate、高风险或复杂应用级任务会允许宿主派发；普通低风险小修仍保持主 Agent 串行。只有当 `subagent_runtime.host_dispatch_allowed=true` 时，主 agent 才应按 `host_spawn_requests` 调用宿主 SubAgent；推荐但未允许派发时只记录计划，等待用户或宿主确认。
 - 当 planner 判定实现任务需要旁路审查时，dispatch plan 会在 route specialist 之外加入 `Route Review Specialist`。它只做限定 scope 的风险和测试覆盖审查，不替代最终 commit-based 的 `codex xhigh review --commit <commit-sha>` gate。
-- 如果宿主没有 SubAgent 工具、调用失败或 scope 冲突，主 agent 必须记录降级原因，并按同一个 dispatch plan 串行执行或回到普通主 Agent 流程。
-- 如果宿主环境支持 SubAgent，主 agent 可以派发 XHigh Review Runner 执行 `codex xhigh review --commit <commit-sha>`；这属于使用宿主能力，不代表本仓库内建了自动执行器。
-- 如果宿主环境没有 SubAgent，主 agent 仍按角色清单自我检查。
+- 如果 Codex SubAgent 调用失败或 scope 冲突，主 agent 必须记录降级原因，并按同一个 dispatch plan 串行执行或回到普通主 Agent 流程。
+- 主 agent 可以派发 XHigh Review Runner 执行 `codex xhigh review --commit <commit-sha>`；这属于使用 Codex SubAgent 能力，不代表本仓库内建了独立执行器。
 - 所有角色结论通过 `codex harness checkpoint` 或最终 summary 沉淀。
 - workspace 多项目任务可用 `codex workspace bind/scope-check/summarize` 生成 binding、检查越权并汇总冲突。
-- 需要标准化派发顺序时，用 `codex workspace schedule --route-file route.json` 生成 dispatch plan；它描述 coordinator/specialist 的角色、scope、依赖和 prompt，但不负责启动真实 agent 进程。
+- 需要标准化派发顺序时，用 `codex workspace schedule --route-file route.json` 生成 dispatch plan；它描述 coordinator/specialist 的角色、scope、依赖和 prompt，并由主 agent 将 `host_spawn_requests` 映射到 Codex SubAgent。
 - lifecycle 会在 `workspace_routing.subagent_runtime` 记录实际运行决策，例如 `main_agent_serial`、`recommended_not_started`、`requested_not_started` 或 `artifact_recorded`；该字段说明 route binding 是否只是计划、是否建议宿主 SubAgent、以及为什么没有自动启动。
 - 文档必须明确哪些是“已实现运行时能力”，哪些是“推荐协作协议”。
 
@@ -219,7 +218,7 @@ codex harness roles plan --task-id <task-id>
 codex harness roles record --task-id <task-id> --role Reviewer --result-file result.json
 ```
 
-当前第一阶段已经具备 route binding、scope guard、coordinator summary 和 dispatch plan 生成。下一阶段应补宿主级并发执行适配、超时控制、取消状态和更完整的结果合并。
+当前第一阶段已经具备 route binding、scope guard、coordinator summary、dispatch plan 生成和 Codex SubAgent receipt dogfood。下一阶段应补更完整的观察记录、取消状态和结果合并。
 
 ## 10. Workspace 路由绑定
 
@@ -270,15 +269,15 @@ docs/WORKSPACE_ADAPTIVE_ROUTING.md
 
 ## 11. 验收标准
 
-当未来声明“已支持真实 SubAgent 自动调度”时，至少要满足：
+当声明“已支持 Codex SubAgent 派发闭环”时，至少要满足：
 
 - 有角色配置 schema。
 - 有每个角色的输入、输出和责任边界。
 - 有 artifact 记录和查询方式。
 - 有冲突文件检测。
 - 有失败/超时/取消状态。
-- 能实际启动或委托宿主启动对应 SubAgent，并把 dispatch 状态回写。
+- 能由主 agent 按 `host_spawn_requests` 派发 Codex SubAgent，并把 dispatch 状态回写。
 - 有最终汇总规则。
 - 有验证结果和安全检查结果汇聚。
 
-在这些能力完成前，本项目只能说“支持按 SubAgent 角色协议记录协作结果，并支持 workspace route binding/scope guard/coordinator summary/dispatch plan”，不能说“已经实现真实 SubAgent 自动执行器”。
+本项目可以说“支持按 SubAgent 角色协议记录协作结果，并支持 workspace route binding/scope guard/coordinator summary/dispatch plan/Codex SubAgent receipt”。不能说“插件内建了独立 SubAgent 子进程执行器”。
