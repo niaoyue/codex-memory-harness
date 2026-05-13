@@ -11,12 +11,19 @@
 - `scripts/hook_runner.py`：任务生命周期 hook。
 - `scripts/harness_controller.py`：`start` / `checkpoint` / `complete` 任务运行时。
 - `scripts/verification_runner.py`：配置化验证 runner。
+- `scripts/memory_mining.py`：历史事件账本、记忆候选挖掘和 accepted context 查询。
+- `scripts/memory_retention.py`：memory retention 状态、按 `task_id` dry-run 清理和 confirm 归档。
+- `scripts/eval_replay.py`：将失败或高价值 artifact 转成 `.codex/evals` 并做 deterministic no-network replay checks。
+- `scripts/semantic_retrieval.py`：可选本地 deterministic semantic provider，不依赖网络或重型向量库。
 - `scripts/shared_memory.py`：项目共享 memory promote、validate 和 index rebuild。
 - `scripts/workspace_scanner.py`：只读 workspace scanner，输出 project inventory。
 - `scripts/workspace_router.py`：只读 workspace route planner，输出 route plan。
 - `scripts/workspace_verifier.py`：按 route plan 聚合多项目 verification profile。
 - `scripts/workspace_subagents.py`：生成 SubAgent bindings、执行 scope-check 和 coordinator summary。
+- `scripts/subagent_receipts.py`：导入宿主 SubAgent 执行回执，输出 integration readiness report。
 - `scripts/workspace_lifecycle.py`：把 workspace routing 接入 memory hook 生命周期。
+- `scripts/release_profile_gate.py`：release profile 与 release manifest evidence gate。
+- `scripts/requirements_conflict_scanner.py`：显式 requirement/spec conflict 静态扫描，输出 requirements gate。
 - `mcp/memory_server.py`：最小 MCP stdio 服务入口。
 
 ## 安装
@@ -57,17 +64,9 @@ codex memory update
 codex memory check-install
 ```
 
-安装器默认会把随包附带的 openai/skills curated 技能和本项目 release gate 技能复制到 `~/.agents/skills`：
+安装器默认会把 `skills/bundled-skills.json` 中登记的所有随包技能复制到 `~/.agents/skills`。这些技能覆盖 security、GitHub、CLI、迁移、release gate、需求澄清、接口设计、TDD、提交、review、PRD、重构、文档、图像、OpenAI docs、plugin/skill 创建等场景。
 
-- `security-best-practices`
-- `security-threat-model`
-- `cli-creator`
-- `migrate-to-codex`
-- `gh-fix-ci`
-- `gh-address-comments`
-- `harness-release-gate`
-
-这些技能位于 `skills/openai-curated/` 和 `skills/local/`，来源记录在 `skills/bundled-skills.json`。安装时不联网下载；如果 `~/.agents/skills/<skill-name>` 已存在，会跳过并保留用户已有版本。需要跳过技能安装时使用：
+这些技能位于 `skills/openai-curated/` 和 `skills/local/`，安装时不联网下载；如果 `~/.agents/skills/<skill-name>` 已存在，会跳过并保留用户已有版本。需要跳过技能安装时使用：
 
 ```bat
 install.bat --skip-skills

@@ -71,8 +71,11 @@ class LauncherEntrypointTests(unittest.TestCase):
         self.assertIn("memories", block)
         self.assertIn("官方 Codex Memories", block)
         self.assertIn("~/.agents/skills", block)
-        self.assertIn("GitHub CI 修复", block)
-        self.assertIn("Harness release gate", block)
+        self.assertIn("bundled-skills.json", block)
+        self.assertIn("需求澄清", block)
+        self.assertIn("接口设计", block)
+        self.assertIn("release gate", block)
+        self.assertIn("TDD", block)
         self.assertNotIn("codex_bootstrap.py --cwd", block)
 
     def test_launcher_declares_memory_command_dispatcher(self) -> None:

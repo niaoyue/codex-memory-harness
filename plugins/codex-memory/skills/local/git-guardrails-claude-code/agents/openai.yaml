@@ -1,0 +1,4 @@
+interface:
+  display_name: "Git Guardrails Claude Code"
+  short_description: "Prevent destructive git operations in Codex sessions and prov..."
+  default_prompt: "Use $git-guardrails-claude-code to help with this task."

@@ -312,6 +312,12 @@
         "non_goals",
         "implementation_spec_mismatches",
         "safety_security_migration_rollback_gaps",
+        "product_requirement_questions",
+        "technical_decision_basis",
+        "test_plan_gaps",
+        "platform_constraint_gaps",
+        "performance_package_constraints",
+        "asset_bundle_constraints",
         "recommended_next_step"
       ],
       "oneOf": [
@@ -448,6 +454,42 @@
           }
         },
         "safety_security_migration_rollback_gaps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "product_requirement_questions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "technical_decision_basis": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "test_plan_gaps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "platform_constraint_gaps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "performance_package_constraints": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "asset_bundle_constraints": {
           "type": "array",
           "items": {
             "type": "string"

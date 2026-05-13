@@ -165,6 +165,41 @@ class WorkspaceVerifierTests(unittest.TestCase):
         self.assertEqual(gate["status"], "passed")
         self.assertEqual(aggregation["overall_status"], "not_run")
 
+    def test_release_profile_blocks_missing_webgl_minigame_and_budget_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            _write_harness_config(root)
+            _write_text(root / "client" / "Assets" / "Login.cs", "DiagnosticLog.Flow(\"ok\");\n")
+            route_plan = _route_plan("client", ["client_quick"])
+            route_plan["risk_level"] = "release_blocking"
+            route_plan["routes"] = [
+                {
+                    "route_id": "client-release",
+                    "project_id": "client",
+                    "domain": "game_client",
+                    "cwd": "client",
+                    "assigned_scope": ["client/Assets"],
+                }
+            ]
+            route_plan["release_profile"] = {
+                "profile_id": "client_release",
+                "targets": ["webgl", "wechat_minigame"],
+                "locales": ["zh-CN", "en-US"],
+                "gates": {
+                    "webgl_minigame_compatible": {"blocking": True},
+                    "package_budget": {"blocking": True, "budget": {"mb": 80}},
+                    "performance_budget": {"blocking": True, "budget": {"startup_ms": 3000}},
+                },
+                "evidence": {"localization_complete": True},
+            }
+
+            aggregation = workspace_verifier.aggregate_verification(root, route_plan, no_run=True)
+
+        self.assertEqual(aggregation["overall_status"], "blocked")
+        self.assertEqual(aggregation["release_gates"]["localization_complete"]["status"], "passed")
+        self.assertEqual(aggregation["release_gates"]["webgl_minigame_compatible"]["status"], "manual_required")
+        self.assertEqual(aggregation["release_gates"]["package_budget"]["status"], "manual_required")
+
     def test_main_skips_checkpoint_when_route_task_spec_is_missing(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

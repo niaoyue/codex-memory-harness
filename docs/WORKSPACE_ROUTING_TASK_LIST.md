@@ -4,7 +4,7 @@
 
 本文把 `docs/WORKSPACE_ADAPTIVE_ROUTING.md` 的设计拆成可执行任务，并同步当前项目进度。
 
-当前状态：已完成文档设计、设计审查、隐私边界、检索作用域同步、workspace routing schema 与项目配置模板、只读 workspace scanner、最小只读 route planner、最小 workspace verification aggregation、SubAgent route binding、scope guard、coordinator summary、dispatch plan、memory lifecycle 软集成、workspace memory 自动分层写入、游戏客户端自动扫描默认规则、游戏客户端 profile 模板生成器、服务器/后台/文档/美术业务模板、本仓库 dogfood workspace routing 配置、workspace routing 发布迁移说明和基础 AI 诊断日志 release gate；尚未实现真实 SubAgent 自动执行器和发布级完整验证平台。
+当前状态：已完成文档设计、设计审查、隐私边界、检索作用域同步、workspace routing schema 与项目配置模板、只读 workspace scanner、最小只读 route planner、最小 workspace verification aggregation、SubAgent route binding、scope guard、coordinator summary、dispatch plan、host receipt readiness report、memory lifecycle 软集成、workspace memory 自动分层写入、游戏客户端自动扫描默认规则、游戏客户端 profile 模板生成器、服务器/后台/文档/美术业务模板、本仓库 dogfood workspace routing 配置、workspace routing 发布迁移说明、基础 AI 诊断日志 release gate 和 release manifest evidence gate；尚未实现真实 SubAgent 自动执行器和完整发布级平台构建流水线。
 
 ## 2. 进度状态
 

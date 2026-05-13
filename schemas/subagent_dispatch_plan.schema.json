@@ -50,6 +50,14 @@
         "$ref": "#/$defs/dispatch_item"
       }
     },
+    "subagent_blocker_plan": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "dispatch_plan_patch": {
+      "type": "object",
+      "additionalProperties": true
+    },
     "completion_gate": {
       "type": "object",
       "additionalProperties": true

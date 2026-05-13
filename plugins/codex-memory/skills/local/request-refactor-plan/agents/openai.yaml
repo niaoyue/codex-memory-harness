@@ -1,0 +1,4 @@
+interface:
+  display_name: "Request Refactor Plan"
+  short_description: "Create a detailed refactor plan with tiny commits via user in..."
+  default_prompt: "Use $request-refactor-plan to help with this task."

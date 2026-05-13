@@ -22,6 +22,7 @@
 - 支持多项目 verification aggregation，每个子项目可使用自己的 cwd 和 profile。
 - 支持 scope guard、敏感信息扫描、裸日志检查和 release gate。
 - 支持项目私有 memory、用户全局 memory、项目共享 memory 的分层写入。
+- 支持 skill-first 路由：需求澄清、接口设计、PRD、TDD、review、提交、安全和 CI 等任务先匹配技能，不能自答的问题才反馈用户。
 
 ### 2.1 第一阶段职责边界
 
@@ -52,9 +53,9 @@
 
 用户看到的流程应是：
 
-1. Codex 识别涉及哪些子项目和风险。
+1. Codex 识别涉及哪些子项目、风险和可用技能。
 2. 写任务先绑定 primary checkout 或 managed worktree，并得到 `effective_cwd`。
-3. Codex 给出 route plan 和验证计划。
+3. Codex 给出 route plan、技能使用计划、卡点分析和验证计划。
 4. Coordinator 拆分任务，必要时分配 SubAgent。
 5. 各 SubAgent 只处理自己的项目、scope 和绑定 worktree。
 6. 需要运行反馈时，临时开启对应 scope 的 AI 诊断日志。
@@ -146,7 +147,7 @@ flowchart TD
 
 每个实现循环包含：
 
-1. 读取 route binding、项目规则和相关 memory。
+1. 读取 route binding、项目规则、匹配技能和相关 memory。
 2. 修改最小必要文件。
 3. 如需要反馈，开启限定 scope 的 AI 诊断日志。
 4. 运行 quick、diagnostic、smoke 或项目专用 profile。
@@ -176,6 +177,16 @@ XHigh Review Runner SubAgent 只负责运行 commit-based 的 `codex xhigh revie
 - `verification_profile_ids`
 - `diagnostic_logging` 使用情况
 - 未验证项和风险
+
+当需求被拆分成多任务时，Coordinator 或主 Agent 必须先列出卡点分析：依赖卡点、决策卡点、环境卡点、接口卡点和验证卡点。只要不是所有任务都被同一类阻塞卡住，就按依赖关系派发多个 disjoint scope 的 SubAgent 并行推进；每个 SubAgent 仍必须遵守自己的技能触发规则、scope guard 和 checkpoint 输出。
+
+## 6.1 需求、技术与资源默认规则
+
+需求或策划文档默认进入完整性审查：目标、状态、边界、异常、验收、多语言、多平台、WebGL/小游戏、性能、包体、安全、迁移和回滚缺口都要列出。能通过本地上下文自答的先补齐；不能自答的问题按阻断程度反馈用户。
+
+技术选择默认支持多语言和全平台，重点考虑 WebGL/小游戏兼容、性能和包体。优先现有约定和官方库，但如果官方方案在关键指标上比第三方稳定方案差约 20% 以上，且第三方 license、维护、安全和平台兼容可接受，应优先第三方。避免为了抽象而过度封装，模块应可拆卸、可选择性编译和容易裁剪。
+
+客户端资源默认限制依赖扩散：一个业务预制体优先只依赖本模块 AB 包，最多再依赖一个公共 AB 包；跨模块公共资源必须有 owner、版本、影响范围和回滚策略。
 
 ## 7. AI 诊断日志位置
 

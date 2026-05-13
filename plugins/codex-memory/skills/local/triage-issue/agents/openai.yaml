@@ -1,0 +1,4 @@
+interface:
+  display_name: "Triage Issue"
+  short_description: "Triage a bug or issue by exploring the codebase to find root..."
+  default_prompt: "Use $triage-issue to help with this task."

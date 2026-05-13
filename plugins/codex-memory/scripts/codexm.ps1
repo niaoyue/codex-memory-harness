@@ -17,6 +17,9 @@ $HookScript = Join-Path $ScriptRoot "hook_runner.py"
 $InstallScript = Join-Path $ScriptRoot "install_codex_memory.py"
 $VerificationScript = Join-Path $ScriptRoot "verification_runner.py"
 $SharedMemoryScript = Join-Path $ScriptRoot "shared_memory.py"
+$MemoryMiningScript = Join-Path $ScriptRoot "memory_mining.py"
+$MemoryRetentionScript = Join-Path $ScriptRoot "memory_retention.py"
+$EvalReplayScript = Join-Path $ScriptRoot "eval_replay.py"
 $LegacyGlobalMigrationScript = Join-Path $ScriptRoot "legacy_global_memory_migration.py"
 $WorkspaceScript = Join-Path $ScriptRoot "workspace_scanner.py"
 $WorkspaceRouterScript = Join-Path $ScriptRoot "workspace_router.py"
@@ -131,6 +134,10 @@ Codex Memory 命令：
   codex memory hook <event> [...]
   codex memory promote --task-id <task-id> [--kind fact]
   codex memory shared validate|index rebuild
+  codex memory mine status|run
+  codex memory candidates list|accept|reject|deprecate
+  codex memory retention status|cleanup --task-id <task-id> [--confirm]
+  codex memory eval create|list|run
   codex memory migrate-legacy-global [--dry-run|--confirm]
 兼容别名：codex harness/package/workspace ...；codex xhigh review --commit <commit-sha>；codex-memory-doctor；codexm memory ...
 常用：codex workspace schedule；codex workspace game-client
@@ -234,6 +241,21 @@ function Invoke-MemoryCommand {
         }
         "shared" {
             Invoke-PythonScriptAndExit -ScriptPath $SharedMemoryScript -Arguments (@("--project-root", $cwd, "shared") + $remaining)
+        }
+        "mine" {
+            Invoke-PythonScriptAndExit -ScriptPath $MemoryMiningScript -Arguments (@("mine") + $remaining)
+        }
+        "candidates" {
+            Invoke-PythonScriptAndExit -ScriptPath $MemoryMiningScript -Arguments (@("candidates") + $remaining)
+        }
+        "retention" {
+            Invoke-PythonScriptAndExit -ScriptPath $MemoryRetentionScript -Arguments $remaining
+        }
+        "eval" {
+            Invoke-PythonScriptAndExit -ScriptPath $EvalReplayScript -Arguments (@("--project-root", $cwd) + $remaining)
+        }
+        "evals" {
+            Invoke-PythonScriptAndExit -ScriptPath $EvalReplayScript -Arguments (@("--project-root", $cwd) + $remaining)
         }
         "migrate-legacy-global" {
             Invoke-PythonScriptAndExit -ScriptPath $LegacyGlobalMigrationScript -Arguments $remaining

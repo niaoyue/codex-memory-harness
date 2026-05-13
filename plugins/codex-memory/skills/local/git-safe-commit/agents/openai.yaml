@@ -1,0 +1,4 @@
+interface:
+  display_name: "Safe Git Commit"
+  short_description: "Filter, stage, and commit repo changes safely"
+  default_prompt: "Use $git-safe-commit to filter changes, stage the right files, write a clear commit message, and commit the current repo state."

@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import workspace_subagents
+import subagent_blocker_plan
 import subagent_runtime_planner
 from harness_controller import checkpoint_task
 
@@ -29,19 +30,31 @@ def build_dispatch_plan(
         items.append(coordinator_item(route_plan, coordinator, "summarize", [item["dispatch_id"] for item in specialist_items]))
     if runtime and runtime.get("review_subagent_required") and specialist_items:
         items.append(reviewer_item(route_plan, specialist_items))
+    blocker_plan = subagent_blocker_plan.build_blocker_plan(route_plan, bindings)
+    spawn_items = items if subagent_blocker_plan.can_parallelize(blocker_plan) else [
+        item for item in items if item.get("binding_mode") == "coordinator" and item.get("phase") == "prepare"
+    ]
     return {
         "version": 1,
         "task_id": str(route_plan.get("task_id") or "workspace-route"),
         "route_plan_id": str(route_plan.get("route_plan_id") or ""),
-        "status": "ready",
+        "status": "ready" if subagent_blocker_plan.can_parallelize(blocker_plan) else "blocked",
         "execution_model": "host_subagent_or_manual",
         "autostart": False,
-        "host_spawn_requests": [host_spawn_request(item) for item in items],
+        "host_spawn_requests": [host_spawn_request(item) for item in spawn_items],
         "items": items,
+        "subagent_blocker_plan": blocker_plan,
+        "dispatch_plan_patch": {
+            "can_generate_host_spawn_requests": subagent_blocker_plan.can_parallelize(blocker_plan),
+            "not_generated_reasons": [] if subagent_blocker_plan.can_parallelize(blocker_plan) else blocker_plan["dispatch_recommendation"]["blocking_ids"],
+            "host_spawn_requests": [host_spawn_request(item) for item in spawn_items],
+        },
         "completion_gate": {
             "requires_checkpoint": True,
             "requires_scope_guard": True,
             "requires_verification": bool(route_plan.get("verification_plan")),
+            "requires_coordinator_summary": bool(coordinator),
+            "requires_conflict_report": not subagent_blocker_plan.can_parallelize(blocker_plan),
         },
     }
 
@@ -105,6 +118,14 @@ def host_spawn_request(item: dict[str, Any]) -> dict[str, Any]:
         "message": item.get("prompt") or "",
         "checkpoint_required": True,
         "scope_guard_required": item.get("binding_mode") == "specialist",
+        "slice_id": item.get("binding_id") or item.get("dispatch_id"),
+        "assigned_scope": item.get("assigned_scope") or [],
+        "forbidden_paths": item.get("forbidden_paths") or [],
+        "blocked_by": item.get("blocked_by") or [],
+        "unblock_condition": item.get("unblock_condition"),
+        "interface_contracts": item.get("interface_contracts") or [],
+        "verification_profile_ids": item.get("verification_profile_ids") or [],
+        "checkpoint_schema": "subagent_artifact.v1",
         "wait_policy": "progress_output_observation",
         "idle_policy": "progress_signal_observation_only",
         "total_timeout_policy": "none",

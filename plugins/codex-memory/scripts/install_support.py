@@ -227,7 +227,11 @@ def agents_block(home_plugin: Path) -> str:
 - 只有跨项目偏好、长期通用规则、用户明确要求全局沉淀时，才写入全局记忆：`{global_memory}`。
 - 官方 Codex Memories 使用 `{official_memory}`；该目录保留给 Codex 官方自动记忆，不写入本插件的 SQLite/JSONL 运行态。
 - 推荐优先通过官方 Codex config/hooks/MCP 接入；PowerShell/POSIX wrapper 作为兼容入口、诊断入口和旧环境兜底。
-- 本包默认随安装写入 bundled Codex skills：安全最佳实践、威胁模型、CLI 创建、迁移到 Codex、GitHub CI 修复、PR 评论处理和 Harness release gate；目标位置为 `~/.agents/skills`。
+- 本包默认随安装写入 `bundled-skills.json` 登记的所有可用治理技能，覆盖安全、GitHub、CLI、迁移、release gate、需求澄清、接口设计、TDD、提交、review、PRD、重构、文档、图像、OpenAI docs、plugin/skill 创建等场景；目标位置为 `~/.agents/skills`。
+- 默认采用 skill-first 工作流：任务开始先匹配可用技能；需求/策划文档用 `grill-me` 风格提出不确定、逻辑混乱和逻辑错误清单，能通过本地代码和文档自答的先补齐，不能自答的反馈用户；创建接口、协议、schema、CLI 或跨模块契约前优先用 `design-an-interface` 形成多个接口方向。
+- 需求被拆成多任务时，先分析依赖、决策、环境、接口和验证卡点；除非所有任务都被同一类阻塞卡住，否则按依赖关系使用多 SubAgent 并行推进。每个 SubAgent 必须有明确 scope、cwd、规则、验收和 forbidden paths，并按 harness checkpoint 回写结果。
+- 策划需求默认进入完整性审查：目标、状态、边界、异常、验收、多语言、多平台、WebGL/小游戏、性能、包体、安全、迁移和回滚缺口都要列出。技术选择默认支持多语言和全平台，重点考虑 WebGL/小游戏兼容、性能和包体；优先现有约定和官方库，但如果官方方案在关键指标上比第三方稳定方案差约 20% 以上且第三方 license/安全/维护可接受，应优先第三方。避免为抽象而过度封装，模块要可拆卸、可选择性编译和容易裁剪。
+- 游戏/客户端资源管理默认限制依赖扩散：一个业务预制体优先只依赖本模块 AB 包，最多再依赖一个公共 AB 包；跨模块公共资源必须有 owner、版本、影响范围和回滚策略。
 - 不要求用户手动调用记忆命令；官方 hooks 可用时自动桥接 `UserPromptSubmit`、`PostToolUse`、`Stop`，不可用时代理应在任务生命周期内自动调用 `before_task`、`after_tool`、`before_response`、`on_task_complete`。
 - `codex memory doctor` 会检查 `features.hooks`、sandbox/approval、AGENTS.override、官方 Memories 和插件 hook 覆盖情况。
 - 插件不可用时必须降级为普通无记忆模式，并在最终答复的工具调用简报中说明局限。

@@ -258,6 +258,18 @@ def requirement_task_fields() -> tuple[str, ...]:
         "non_goals",
         "implementation_spec_mismatches",
         "safety_security_migration_rollback_gaps",
+        "product_requirement_questions",
+        "planning_questions",
+        "technical_decision_basis",
+        "technology_selection_basis",
+        "test_plan_gaps",
+        "missing_tests",
+        "platform_constraint_gaps",
+        "webgl_mini_game_gaps",
+        "performance_package_constraints",
+        "package_size_constraints",
+        "asset_bundle_constraints",
+        "ab_constraints",
     )
 
 

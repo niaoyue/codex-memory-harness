@@ -1,0 +1,4 @@
+interface:
+  display_name: "Migrate To Shoehorn"
+  short_description: "Migrate test files from `as` type assertions to @total-typesc..."
+  default_prompt: "Use $migrate-to-shoehorn to help with this task."

@@ -48,7 +48,7 @@
 | T30 | 13 | 补齐 SubAgent 角色分工协议 | `docs/SUBAGENT_WORKFLOW.md` | T28 | done |
 | T31 | 14 | 实现写入前敏感信息扫描器 | memory/artifact/index 写入前脱敏与拒绝策略 | T28,T29,T30 | done |
 | T32 | 14 | 实现 SubAgent artifact schema | roles、subagents artifact、冲突检测和汇总规则 | T30 | done |
-| T33 | 14 | 实现可选语义检索 provider | embedding 索引、rebuild、降级和删除策略 | T29,T31 | todo |
+| T33 | 14 | 实现可选语义检索 provider | `semantic_retrieval.py` 已提供本地 deterministic token/TF-IDF/Jaccard provider，`RetrievalEngine` 默认 disabled，显式 `local/auto` 时启用并支持降级 | T29,T31 | done |
 | T34 | 15 | 补齐游戏客户端专项工作流文档 | `docs/GAME_CLIENT_WORKFLOW.md` | T28,T30 | done |
 | T35 | 15 | 评估 `codex game-client` 独立命令 | 结论：不新增顶层入口，改用 `codex workspace game-client init/template` 生成 Unity/Laya/Cocos profile | T34 | done |
 | T36 | 16 | 补齐 Workspace 自适应路由设计 | `docs/WORKSPACE_ADAPTIVE_ROUTING.md` | T30,T34 | done |
@@ -70,23 +70,23 @@
 | T52 | 18 | 实现 workspace lifecycle 软集成 | hook lifecycle 写入 route plan/bindings、scope guard 和 routing review | T37,T41,T42 | done |
 | T53 | 18 | 实现 SubAgent dispatch plan | `subagent_scheduler.py` 与 `codex workspace schedule` | T42,T52 | done |
 | T54 | 18 | 实现游戏客户端 profile 模板生成器 | `game_client_profiles.py` 与 `codex workspace game-client init/template` | T34,T52 | done |
-| T55 | 19 | 实现发布级完整验证平台 | 渠道包、热更、构建产物、平台配置和回滚材料 gate | T50,T54 | todo |
+| T55 | 19 | 实现发布级完整验证平台 | 已有 release profile/evidence gate 与 `release_profile_gate.py --manifest-file` manifest gate；完整渠道包、热更、平台构建和回滚材料 gate 依赖业务项目与 CI 材料，继续拆分推进 | T50,T54 | doing |
 | T56 | 19 | 补服务器/后台/文档/美术业务模板 | `workspace_business_templates.py` 与 `codex workspace project-template init/template` | T54,WR-26,WR-27,WR-28 | done |
 | T57 | 19 | 补 workspace routing 发布与迁移说明 | `docs/WORKSPACE_ROUTING_MIGRATION.md` 说明普通 harness 到 workspace routing 的升级说明和兼容边界 | T52,WR-30 | done |
 | T58 | 20 | 实现 workspace memory 自动分层写入 | 根据 `memory_plan` 写入 workspace summary 与子项目 fact | T43,WR-34 | done |
-| T59 | 20 | 实现真实 SubAgent 自动执行器 | 在宿主支持时消费 `host_spawn_requests` 并回写状态 | T53 | todo |
+| T59 | 20 | 实现真实 SubAgent 自动执行器 | 当前已生成 `host_spawn_requests` 与调度计划，`subagent_receipts.py` 已支持宿主执行回执/status 汇总；真实启动/观察 SubAgent 仍依赖宿主 API | T53 | blocked |
 | T60 | 20 | 补本仓库 dogfood workspace routing 配置 | 当前仓库根 `.codex/harness/workspace-routing.json` 与源码布局对齐 | WR-33 | done |
 | T61 | 20 | 实现安装器 dry-run | 安装前输出将写入的 profile、AGENTS、marketplace、skills 和 Codex config 变更 | T20 | done |
 | T62 | 20 | 实现旧全局 memory marker 迁移工具 | `migrate-legacy-global --dry-run/--confirm`，含 manifest、checksum 和回滚说明 | T21 | done |
 | T63 | 20 | 提供 custom agents 模板 | `.codex/agents` 模板对齐 dispatch plan，不默认写入用户全局 | T53 | done |
-| T64 | 20 | 平台化 eval replay | `.codex/evals` 或等价结构，把失败和高价值任务转为可回放评测 | T24,T55 | todo |
-| T65 | 20 | 实现 memory archive/cleanup 与 retention policy | 提供正式归档、清理、按 `task_id` 删除和索引规模控制命令，作为语义检索前置条件 | T31,T58 | todo |
+| T64 | 20 | 平台化 eval replay | `eval_replay.py` 已支持 create/list/run，将失败或高价值 artifact 转为 `.codex/evals/*.json`，run 只做 deterministic no-network safety checks | T24,T55 | done |
+| T65 | 20 | 实现 memory archive/cleanup 与 retention policy | `memory_retention.py` 已支持 status、dry-run cleanup、confirm archive/cleanup，按 `task_id` 精确处理 DB 行和 history JSONL | T31,T58 | done |
 | T66 | 21 | 设计自动历史记忆挖掘方案 | `docs/AUTOMATED_MEMORY_MINING.md`，明确事件账本、候选、自动提升和人工确认边界 | T15,T31,T48 | done |
-| T67 | 21 | 实现历史事件账本 | `.codex/memories/history/events.jsonl` 或等价 SQLite 表，记录脱敏后的 prompt、命令、纠正和结果摘要 | T66,T31 | todo |
-| T68 | 21 | 实现记忆候选挖掘器 | 从历史事件聚类生成 `workflow_preference`、`command_preference`、`correction_pattern` 候选 | T67 | todo |
-| T69 | 21 | 实现自动提升策略 | 低风险高置信候选自动 accepted；高风险、冲突、低证据候选进入 needs_review/observed | T68,T31 | todo |
-| T70 | 21 | 将 accepted 私有记忆注入 context pack | 按 project_id、intent、working_set 和 scope 过滤自动挖掘记忆，并低于当前用户请求与项目规则 | T69,T11 | todo |
-| T71 | 21 | 增加自动挖掘治理命令 | `codex memory mine ...`、`codex memory candidates ...`、doctor 状态、按 task/session/project 删除 | T69,T65 | todo |
+| T67 | 21 | 实现历史事件账本 | `memory_store.py` 已将任务事件追加到 history ledger，失败静默降级 | T66,T31 | done |
+| T68 | 21 | 实现记忆候选挖掘器 | `memory_mining.py` 已从历史事件生成 workflow/command/correction 候选 | T67 | done |
+| T69 | 21 | 实现自动提升策略 | `memory_mining.py` 已支持 candidate accept/reject/deprecate 与 accepted context 查询 | T68,T31 | done |
+| T70 | 21 | 将 accepted 私有记忆注入 context pack | `context_builder.py` 已按 project/scope/intent/working_set 注入 Learned Preferences，并受预算控制 | T69,T11 | done |
+| T71 | 21 | 增加自动挖掘治理命令 | `codexm.ps1` 已暴露 `codex memory mine status|run`、`codex memory candidates list|accept|reject|deprecate`，清理接入 retention | T69,T65 | done |
 | T72 | 22 | 设计 review gate 优化方案 | `docs/REVIEW_GATE_OPTIMIZATION.md`，明确 preflight、diff fingerprint、ledger、runner 恢复和 slice planner | T53,T24 | done |
 | T73 | 22 | 实现 review preflight | `codex review preflight --uncommitted`，运行 diff check、配置化验证摘要、敏感扫描和打包边界检查 | T72,T24,T31 | done |
 | T74 | 22 | 实现 diff fingerprint 与 review ledger | 将 review 结果绑定到 diff fingerprint，diff 变化时旧 review 自动 invalidated | T72 | done |
@@ -98,11 +98,22 @@
 | T80 | 23 | 实现 worktree allocator | 单 session 绑定 primary checkout，并发写同项目时创建 managed worktree 和 session branch | T79 | done |
 | T81 | 23 | 集成 session binding lifecycle | 最小 `write-guard` 已落地；完整 before_task/before_first_write/after_tool/before_response/on_task_complete 强制接入仍需后续 hook/宿主支持 | T80,T52 | doing |
 | T82 | 23 | 实现 stale 与 cleanup 治理 | `worktree list` 已展示 stale/dirty orphan/prunable/pruned，`worktree prune --dry-run` 已输出候选，`worktree prune --confirm` 已重新校验并清理 clean managed worktree，`worktree recover <binding-id>` 已能恢复 clean at base 的 managed stale/prunable binding 并阻断 dirty/pruned/非 managed 场景 | T81,T65 | done |
-| T83 | 23 | 支持多 session 同 task 协作 | 与 SubAgent binding/scope guard 联动，coordinator 合并 specialist branches，final gate 绑定 integration worktree | T81,T53,T74 | todo |
+| T83 | 23 | 支持多 session 同 task 协作 | 已具备 binding、scope guard、coordinator summary 和 `subagent_receipts.py` integration readiness report；自动合并 specialist branches 与 integration worktree final gate 依赖 T59/T81 强制接入 | T81,T53,T74 | blocked |
 | T84 | 24 | 引入 OpenSpec change contract 与需求完整性门禁 | `openspec/` profile、`change-governance` spec、OpenSpec/BMAD 集成 proposal/design/tasks/spec delta；本切片仅落地文档，不实现 runtime | T24,T76,T81 | done |
 | T85 | 24 | 定义 BMAD upstream planning policy | 明确何时进入 Product Brief/PRFAQ/PRD/Architecture/Epic/Story/Readiness，何时直接进入 OpenSpec change contract | T84 | done |
 | T86 | 24 | 调研并适配 OpenSpec/BMAD 上游核心代码复用 | 已核对 license、版本、entrypoint、依赖、telemetry、storage 和安全边界；决策为先做命令/插件 adapter，vendoring 仅在 adapter 不足时按 pinned source + LICENSE/NOTICE 执行，不重写上游 core | T84,T85 | done |
-| T87 | 24 | 实现严格 Requirements Integrity Gate runtime | 已完成最小 runtime 切片：docs/tooling governance adapter 任务不再误判为 product `feature_story`，verification artifact touched paths 不再触发 adaptive release route；strict output schema 已落地并覆盖 `passed` / `needs_clarification` / `needs_bmad_upstream` / `blocked_by_conflict` 测试；blocking gate 现在会在 route binding 与 workspace write-guard 层禁用写权限；BMAD upstream 自动判定和 spec/implementation 冲突检测仍需后续切片 | T84,T86 | doing |
+| T87 | 24 | 实现严格 Requirements Integrity Gate runtime | 已完成最小 runtime、blocking write enforcement、governance adapter、误判修复与 `requirements_conflict_scanner.py` 显式 spec/implementation conflict 静态扫描；真实 BMAD upstream 执行仍需外部工具或用户规划材料 | T84,T86 | doing |
+| T88 | 25 | 落地 skill-first 治理文档 | `docs/SKILL_ROUTING_AND_DEFAULT_GOVERNANCE.md`，列出可用技能、触发场景、需求/技术/测试/review/SubAgent 默认规则 | T84,T87 | done |
+| T89 | 25 | 扩展 bundled skills 清单 | `bundled-skills.json` 已改为 manifest-driven 全量可用技能清单，安装验证按 manifest 期望数量计算；安装仍不覆盖用户已有技能目录 | T20,T88,T31 | done |
+| T90 | 25 | 实现 skill routing audit runtime | `skill_routing_audit.py` 已接入 hook before_task/after_tool/before_response，输出 matched/used/skipped、原因、checkpoint signal 和最终 brief | T88,T52 | done |
+| T91 | 25 | 扩展 Requirements Gate 默认治理字段 | Requirements Gate schema 已纳入策划问题、技术选择依据、测试计划缺口、性能/包体/WebGL/小游戏/资源 AB 约束字段 | T24,T85,T87,T88 | done |
+| T92 | 25 | 强化多任务 SubAgent 卡点分析 | `subagent_blocker_plan.py` 已在 dispatch plan 前输出依赖/决策/环境/接口/验证卡点、scope matrix，并阻断非 disjoint 并行派发；真正跨 session 合并仍由 T59/T83 后续能力扩展 | T53,T81,T88 | done |
+| T93 | 25 | 扩展发布级验证到小游戏与资源依赖 | release profile gate 原型已覆盖本地化、平台矩阵、WebGL/小游戏、AB 依赖、包体、性能和诊断日志关闭的证据聚合 | T55,T88 | done |
+| T94 | 25 | 治理文档一致性清理 | README、系统总结、skill-first 文档、OpenSpec tasks 与任务清单已同步 manifest skills、commit-based review、workspace memory 分层和治理 adapter 现状 | T58,T72,T84,T88 | done |
+| T95 | 25 | 实现 OpenSpec command/artifact adapter 原型 | `governance_adapter.py` 已连接 OpenSpec change contract、harness task、verification artifact、effective cwd 与证据 bundle，不复制第三方 core | T86,T87,T81 | done |
+| T96 | 25 | 实现 BMAD upstream planning adapter 原型 | `governance_adapter.py` 已支持 BMAD planning artifact 作为 upstream evidence，不声称本项目已有 BMAD 多 agent runtime | T85,T86,T95 | done |
+| T97 | 25 | 连接最终验证/review 证据到 spec sync/archive | `governance_adapter.py` 已把 verification、release gate、commit-based xhigh review ledger 与 sync/archive readiness 串成可审计 evidence bundle | T72,T76,T84,T95,T96 | done |
+| T98 | 25 | 校验已安装 bundled skill 是否滞后于随包源 | `skill_bundle.py` 已记录 source/target `SKILL.md` digest，`install --dry-run` 会把 stale existing skill 标为 blocked，避免本机旧 `harness-release-gate` 继续提示 `--uncommitted` review 旧流程 | T89,T72 | done |
 
 ## 3. 当前推荐执行步
 
@@ -491,7 +502,7 @@
 
 ## 6. 当前状态与下一步
 
-当前已完成至 Step 30，状态如下；Step 31 起是本轮文档审计确认后的计划项，尚未实现：
+当前已完成至 Step 39，状态如下；其中 Step 37 仍有 hook/宿主强制接入的后续增强项：
 
 - Step 6 已完成
 - Step 7 已完成
@@ -522,10 +533,13 @@
 - Step 29 已完成：服务器/后台/文档/美术业务模板与 `codex workspace project-template`
 - Step 30 已完成：本仓库 dogfood workspace routing 配置与发布迁移说明
 - Step 31 已完成：workspace memory 自动分层写入会在任务完成时根据 route plan `memory_plan` 写入 `.codex/shared` proposed 草稿，并可用 `workspace_memory_writer.py` 进行 dry-run/confirm。
-- Step 32 计划：真实 SubAgent 自动执行器
-- Step 33 计划：发布级完整验证平台与 eval replay
-- Step 34 进行中：安装器 dry-run、旧全局 memory marker 迁移工具和 custom agents 模板已完成；memory archive/cleanup 与可选语义检索 provider 尚未实现。
-- Step 35 计划：自动历史记忆挖掘 runtime。该能力以自动化为默认目标：低风险高置信用户习惯自动 accepted，高风险、冲突或低证据候选才进入待确认队列，避免要求用户每次手动整理。
+- Step 32 受阻：真实 SubAgent 自动执行器仍依赖宿主 SubAgent API；当前仓库已能生成 `host_spawn_requests` 和调度计划，并通过 `subagent_receipts.py` 导入宿主执行回执与 readiness report。
+- Step 33 进行中：release profile/evidence gate、release manifest gate 与 eval replay 已完成；完整发布级验证平台仍依赖业务项目渠道包、热更、平台构建、CI 和回滚材料。
+- Step 34 已完成：安装器 dry-run、旧全局 memory marker 迁移工具、custom agents 模板、memory archive/cleanup 与可选本地语义检索 provider 均已落地。
+- Step 35 已完成：自动历史记忆挖掘 runtime 已落地事件账本、候选挖掘、accepted context 注入和治理命令；低风险偏好可进入 accepted context，高风险或冲突候选保留为可审查状态。
 - Step 36 已完成：review gate 优化 runtime 已提供 `codex review status/preflight/plan/record/findings/ledger`，最终语义改为先创建 candidate commit，再用 `codex xhigh review --commit <commit-sha>` 审核被审提交；通过 preflight、commit fingerprint、review ledger、runner 恢复记录和 slice planner 降低长耗时与重复失败。
 - Step 37 进行中：最小 session-worktree write guard 已提供 `codex workspace session ...`、`codex workspace worktree list` 和 `codex workspace write-guard ...`；当前能在 dirty primary checkout 或已有其他 active write lease 时创建 managed worktree 并返回 `effective_cwd`。后续还需把 before_first_write 做成宿主/Hook 强制拦截，并补 stale cleanup 与多 session 合并。
 - Step 38 已完成：stale/cleanup 治理已完成只读、dry-run、confirm 清理和 recover 切片；`codex workspace worktree list` 会展示 active、stale、dirty orphan、prunable、pruned 和 needs_user_review，`codex workspace worktree prune --dry-run` 只输出 released 且 clean at base 的 managed worktree 候选，不执行删除，`codex workspace worktree prune --confirm` 会重新校验 Git 状态和 managed worktree 容器路径后执行 `git worktree remove` 并把 binding 标记为 `pruned`，`codex workspace worktree recover <binding-id>` 只恢复 clean at base 的 managed stale/prunable binding。多 session 合并继续由 T83 跟进。
+- Step 39 已完成：skill-first governance runtime 已完成 T89-T97；bundled skills 改为 manifest-driven 全量可用技能，hook lifecycle 输出 skill routing audit，Requirements Gate 扩展治理字段，SubAgent dispatch 前输出 blocker/scope matrix，release profile 原型覆盖小游戏/WebGL/AB/包体/性能证据，OpenSpec/BMAD governance adapter 连接 verification 与 commit-based review evidence。
+- Step 40 已完成：bundled skill 安装状态新增 stale 检测；随包 `harness-release-gate` 已是 candidate commit + `codex xhigh review --commit <commit-sha>` 流程，若用户本机已安装技能仍是旧版，`install --dry-run` 会报告 `stale_existing_needs_update`，不再静默当作 `no_change`。
+- Step 41 已完成：T33/T64/T65/T67-T71 已完成实现和定向测试；T55/T59/T83/T87 的可离线切片已落地为 release manifest gate、host receipt/readiness report 和 requirements conflict scanner；剩余项明确为宿主、CI、业务构建材料、强制写入 hook 或外部 BMAD 执行依赖，不在仓库内伪造完成状态。

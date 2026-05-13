@@ -1,0 +1,4 @@
+interface:
+  display_name: "Write A PRD"
+  short_description: "Create a PRD through user interview, codebase exploration, an..."
+  default_prompt: "Use $write-a-prd to help with this task."

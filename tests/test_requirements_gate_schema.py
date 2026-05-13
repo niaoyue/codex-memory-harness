@@ -25,6 +25,9 @@ class RequirementsGateSchemaTests(unittest.TestCase):
                 "user_request": "When the player opens gifts, show the reward list and claim button.",
                 "acceptance": ["gift reward list opens"],
                 "non_goals": ["do not change payment flows"],
+                "technical_decision_basis": ["use existing reward UI module"],
+                "platform_constraint_gaps": ["confirm WebGL memory budget"],
+                "asset_bundle_constraints": ["business prefab may depend on module AB plus one shared AB"],
             },
             text="add gift mode",
         )
@@ -34,6 +37,9 @@ class RequirementsGateSchemaTests(unittest.TestCase):
         self.assertFalse(_required_schema_keys() - set(gate))
         self.assertEqual(gate["missing_requirements"], gate["missing"])
         self.assertEqual(gate["non_goals"], ["do not change payment flows"])
+        self.assertEqual(gate["technical_decision_basis"], ["use existing reward UI module"])
+        self.assertEqual(gate["platform_constraint_gaps"], ["confirm WebGL memory budget"])
+        self.assertEqual(gate["asset_bundle_constraints"], ["business prefab may depend on module AB plus one shared AB"])
         self.assertTrue(gate["recommended_next_step"])
 
     def test_missing_requirements_use_blocking_clarification_schema(self) -> None:

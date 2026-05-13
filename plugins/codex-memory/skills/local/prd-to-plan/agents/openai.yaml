@@ -1,0 +1,4 @@
+interface:
+  display_name: "PRD To Plan"
+  short_description: "Turn a PRD into a multi-phase implementation plan using trace..."
+  default_prompt: "Use $prd-to-plan to help with this task."

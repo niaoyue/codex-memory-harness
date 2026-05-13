@@ -48,7 +48,8 @@ with current implementation. Codex Memory Harness must add that gate explicitly.
 - Do not copy OpenSpec or BMAD source code in this slice.
 - Do not claim that BMAD multi-agent behavior is already implemented by this
   repository.
-- Do not replace `codex xhigh review --uncommitted` or the local review gate.
+- Do not replace the candidate-commit `codex xhigh review --commit <commit-sha>`
+  final review gate or the local review workflow.
 - Do not implement full OpenSpec/BMAD adapters in this slice; T87 runtime edits
   are limited to Requirements Gate and verification-artifact routing false
   positives discovered while dogfooding the governance contract.

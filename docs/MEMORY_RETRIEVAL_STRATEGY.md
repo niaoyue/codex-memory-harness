@@ -104,7 +104,7 @@
 建议满足以下条件后再引入：
 
 - 写入前敏感信息扫描已经落地。
-- memory archive/cleanup 与 retention policy 已经落地，能控制索引规模；当前尚未实现，必须先进入计划列表。
+- memory archive/cleanup 与 retention policy 已经落地，能控制索引规模；当前可用 `memory_retention.py` 按 `task_id` dry-run/confirm 归档清理。
 - 每条可索引内容都有来源、时间、scope、task_id 和可删除标识。
 - 多项目 workspace 中，每条可索引内容都有 `workspace_id`、`project_id`、`domain`、`scope`、`task_id` 和可删除标识。
 - 有清晰的 rebuild/reindex 命令。
@@ -127,7 +127,7 @@ RetrievalProvider
   - ExactProvider        当前 rg 路径/精确检索
   - FullTextProvider     当前 rg 全文检索
   - MemorySqlProvider    SQLite task/decision/summary 检索
-  - SemanticProvider     可选向量检索
+  - SemanticProvider     可选本地 semantic provider 或未来向量检索
 ```
 
 语义 provider 的最低要求：
@@ -175,15 +175,11 @@ docs/MEMORY_LAYERING.md
 
 ## 8. 当前落点
 
-当前代码中 `retrieval_store.py` 已保留 `semantic` 模式，但明确返回：
+当前代码中 `retrieval_store.py` 的 `semantic` 模式已经接入可选本地 provider。默认构造仍是 `semantic_provider="disabled"`，避免改变基础 exact/fulltext 行为；显式传 `semantic_provider="local"` 或 `"auto"` 时，`semantic_retrieval.py` 会基于 UTF-8 文本、token 归一、少量同义词 canonical 化、TF-IDF 和 Jaccard 混合评分建立本地 deterministic 索引。
 
-```text
-Semantic retrieval is not implemented in the local MVP.
-```
+这个 provider 不是向量数据库，也不是远程 embedding 服务；它的目标是先补足“自然语言近似检索”的低依赖本地能力。真正的向量检索仍应等到索引删除、安全过滤、权限、成本和 rebuild 策略足够成熟后再引入。
 
-这条状态应继续保留，直到真正完成 provider、索引、安全过滤和验证闭环。文档上需要明确：当前没有向量数据库，是为了先保证本地、可审计、低依赖和安全默认值。
-
-当前尚未实现正式的 `codex memory archive/cleanup`、retention policy 或按 `task_id` 删除长期索引的用户命令。现有 demo cleanup 只用于测试/演示数据清理，不能当作正式记忆归档能力。该能力应在接入语义索引前先补齐。
+当前已实现正式的 memory retention 用户命令入口：`codex memory retention status` 与 `codex memory retention cleanup --task-id <task-id> [--confirm]`。清理默认 dry-run，`--confirm` 会先写 archive，再按 `task_id` 精确处理 SQLite 行与 history JSONL 记录。
 
 ## 9. 自动记忆挖掘
 

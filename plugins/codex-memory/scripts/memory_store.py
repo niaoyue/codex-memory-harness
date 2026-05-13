@@ -128,6 +128,12 @@ class MemoryStore:
         }
         with init_storage.resolve_storage_paths().event_log_path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(record, ensure_ascii=False) + "\n")
+        try:
+            import memory_mining
+
+            memory_mining.append_history_event(event_type, safe_payload)
+        except Exception:
+            pass
 
     def _set_meta(self, key: str, value: Any) -> None:
         value_json = json.dumps(value, ensure_ascii=False)

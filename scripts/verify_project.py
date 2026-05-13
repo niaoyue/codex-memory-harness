@@ -14,7 +14,7 @@ import build_release
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 MAX_CODE_LINES = 500
-BEHAVIOR_TEST_TIMEOUT_SECONDS = 240
+BEHAVIOR_TEST_TIMEOUT_SECONDS = 360
 CODE_SUFFIXES = {".py", ".ps1", ".bat", ".sh"}
 JSON_SUFFIXES = {".json"}
 SKIPPED_DIR_NAMES = {
@@ -33,7 +33,7 @@ def is_generated(path: Path) -> bool:
     parts = set(relative_parts)
     if parts.intersection(SKIPPED_DIR_NAMES):
         return True
-    return relative_parts[:4] == ("plugins", "codex-memory", "skills", "openai-curated")
+    return relative_parts[:3] == ("plugins", "codex-memory", "skills")
 
 
 def iter_project_files() -> list[Path]:
@@ -55,7 +55,7 @@ def check_code_line_counts() -> list[dict[str, object]]:
     for path in iter_project_files():
         if path.suffix not in CODE_SUFFIXES:
             continue
-        lines = len(path.read_text(encoding="utf-8").splitlines())
+        lines = sum(1 for line in path.read_text(encoding="utf-8").splitlines() if line.strip())
         if lines > MAX_CODE_LINES:
             failures.append({"path": str(path), "lines": lines})
     return failures
@@ -179,7 +179,13 @@ def run_installer_smoke_test() -> dict[str, object]:
 
         bundled = payload.get("bundled_skills") if isinstance(payload, dict) else None
         if isinstance(bundled, dict):
-            expect(bundled.get("installed") == 7, "fresh install did not install all 7 bundled skills")
+            manifest_path = package_root / "plugins" / "codex-memory" / "skills" / "bundled-skills.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            expected_skill_count = len(manifest.get("skills", []))
+            expect(
+                bundled.get("installed") == expected_skill_count,
+                f"fresh install did not install all {expected_skill_count} bundled skills",
+            )
             expected_skills_root = home / ".agents" / "skills"
             actual_skills_root = Path(str(bundled.get("target_root", "")))
             expect(

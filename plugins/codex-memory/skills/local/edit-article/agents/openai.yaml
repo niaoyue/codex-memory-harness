@@ -1,0 +1,4 @@
+interface:
+  display_name: "Edit Article"
+  short_description: "Edit and improve articles by restructuring sections, improvin..."
+  default_prompt: "Use $edit-article to help with this task."

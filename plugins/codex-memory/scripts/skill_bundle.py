@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import shutil
 from pathlib import Path
@@ -76,6 +77,20 @@ def _copy_skill(src: Path, dst: Path) -> None:
     )
 
 
+def _skill_md(path: Path) -> Path:
+    return path / "SKILL.md"
+
+
+def _file_sha256(path: Path) -> str:
+    if not path.exists() or not path.is_file():
+        return ""
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return "sha256:" + digest.hexdigest()
+
+
 def ensure_bundled_skills(plugin_root: Path) -> dict[str, Any]:
     manifest = load_manifest(plugin_root)
     target_root = user_skills_root()
@@ -134,12 +149,31 @@ def bundled_skills_status(plugin_root: Path) -> dict[str, Any]:
         src = _skill_source(plugin_root, item)
         dst = target_root / name
         legacy_dst = legacy_target_root / name
+        source_skill = _skill_md(src)
+        target_skill = _skill_md(dst)
+        source_digest = _file_sha256(source_skill)
+        target_digest = _file_sha256(target_skill)
+        target_has_skill_md = target_skill.exists()
+        source_exists = source_skill.exists()
+        target_matches_source = bool(
+            source_digest
+            and target_digest
+            and source_digest == target_digest
+        )
         skills.append(
             {
                 "name": name,
-                "source_exists": (src / "SKILL.md").exists(),
+                "source_exists": source_exists,
                 "target_exists": dst.exists(),
-                "target_has_skill_md": (dst / "SKILL.md").exists(),
+                "target_has_skill_md": target_has_skill_md,
+                "source_digest": source_digest,
+                "target_digest": target_digest,
+                "target_matches_source": target_matches_source,
+                "stale_existing": bool(
+                    source_exists
+                    and target_has_skill_md
+                    and not target_matches_source
+                ),
                 "legacy_target_exists": legacy_dst.exists(),
                 "path": str(dst),
             }
@@ -158,4 +192,5 @@ def bundled_skills_status(plugin_root: Path) -> dict[str, Any]:
         "installed_count": sum(1 for item in skills if item["target_has_skill_md"]),
         "missing_count": sum(1 for item in skills if not item["target_has_skill_md"]),
         "source_missing_count": sum(1 for item in skills if not item["source_exists"]),
+        "stale_count": sum(1 for item in skills if item["stale_existing"]),
     }

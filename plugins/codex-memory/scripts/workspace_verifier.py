@@ -10,6 +10,7 @@ from typing import Any
 import verification_runner
 import workspace_router
 import diagnostic_gate
+import release_profile_gate
 from harness_controller import checkpoint_task
 from task_spec import task_spec_path
 
@@ -173,9 +174,11 @@ def status(results: list[dict[str, Any]], gaps: list[dict[str, Any]], gates: dic
 
 
 def release_gates(project_root: Path, route_plan: dict[str, Any]) -> dict[str, Any]:
-    return {
+    gates = {
         "diagnostic_logging_disabled": diagnostic_gate.evaluate_release_gate(project_root, route_plan)
     }
+    gates.update(release_profile_gate.evaluate_release_profile(route_plan))
+    return gates
 
 
 def string_list(value: Any) -> list[str]:

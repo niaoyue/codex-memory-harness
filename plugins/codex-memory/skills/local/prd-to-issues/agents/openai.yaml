@@ -1,0 +1,4 @@
+interface:
+  display_name: "PRD To Issues"
+  short_description: "Break a PRD into independently grabbable implementation slice..."
+  default_prompt: "Use $prd-to-issues to help with this task."

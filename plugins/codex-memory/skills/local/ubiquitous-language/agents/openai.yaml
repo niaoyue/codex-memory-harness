@@ -1,0 +1,4 @@
+interface:
+  display_name: "Ubiquitous Language"
+  short_description: "Extract a DDD-style ubiquitous language glossary from the cur..."
+  default_prompt: "Use $ubiquitous-language to help with this task."

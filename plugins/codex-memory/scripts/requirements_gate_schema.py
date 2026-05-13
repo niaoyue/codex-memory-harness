@@ -17,8 +17,10 @@ BLOCKING_GATE_STATUSES = frozenset(
 BLOCKING_REQUIREMENT_INTENTS = frozenset({"feature_story", "system_change", "release_gate"})
 ASSUMPTIONS_POLICY = "Do not infer missing product or design behavior. Ask for clarification before implementation."
 TECHNICAL_DECISION_POLICY = (
-    "Follow existing project conventions first. If none exist, choose a production-grade modular "
-    "and interface-driven design, then record the decision."
+    "Follow existing project conventions first. Prefer official libraries, then stable open-source "
+    "libraries, then self-developed code; if a stable third-party option beats the official option "
+    "by about 20% on critical performance or package-size metrics and license/security are acceptable, "
+    "choose the third-party option. Keep modules detachable and avoid wrappers that harm tooling or performance."
 )
 
 
@@ -83,6 +85,12 @@ def build_result(
         "non_goals": report["non_goals"],
         "implementation_spec_mismatches": report["implementation_spec_mismatches"],
         "safety_security_migration_rollback_gaps": report["safety_security_migration_rollback_gaps"],
+        "product_requirement_questions": report["product_requirement_questions"],
+        "technical_decision_basis": report["technical_decision_basis"],
+        "test_plan_gaps": report["test_plan_gaps"],
+        "platform_constraint_gaps": report["platform_constraint_gaps"],
+        "performance_package_constraints": report["performance_package_constraints"],
+        "asset_bundle_constraints": report["asset_bundle_constraints"],
         "recommended_next_step": recommended_next_step(status),
     }
 
@@ -144,6 +152,18 @@ def _report_fields(task: dict[str, Any], missing: list[dict[str, str]]) -> dict[
     rollback_gaps.extend(missing_reasons.get("rollback_plan", []))
     acceptance_gaps = _field_list(task, "acceptance_gaps")
     acceptance_gaps.extend(missing_reasons.get("acceptance_criteria", []))
+    product_questions = _field_list(task, "product_requirement_questions")
+    product_questions.extend(_field_list(task, "planning_questions"))
+    technical_basis = _field_list(task, "technical_decision_basis")
+    technical_basis.extend(_field_list(task, "technology_selection_basis"))
+    test_plan_gaps = _field_list(task, "test_plan_gaps")
+    test_plan_gaps.extend(_field_list(task, "missing_tests"))
+    platform_gaps = _field_list(task, "platform_constraint_gaps")
+    platform_gaps.extend(_field_list(task, "webgl_mini_game_gaps"))
+    performance_constraints = _field_list(task, "performance_package_constraints")
+    performance_constraints.extend(_field_list(task, "package_size_constraints"))
+    asset_constraints = _field_list(task, "asset_bundle_constraints")
+    asset_constraints.extend(_field_list(task, "ab_constraints"))
     return {
         "assumptions": _field_list(task, "assumptions"),
         "missing_requirements": [dict(item) for item in missing],
@@ -153,6 +173,12 @@ def _report_fields(task: dict[str, Any], missing: list[dict[str, str]]) -> dict[
         "non_goals": _field_list(task, "non_goals"),
         "implementation_spec_mismatches": _field_list(task, "implementation_spec_mismatches"),
         "safety_security_migration_rollback_gaps": _unique(rollback_gaps),
+        "product_requirement_questions": _unique(product_questions),
+        "technical_decision_basis": _unique(technical_basis),
+        "test_plan_gaps": _unique(test_plan_gaps),
+        "platform_constraint_gaps": _unique(platform_gaps),
+        "performance_package_constraints": _unique(performance_constraints),
+        "asset_bundle_constraints": _unique(asset_constraints),
     }
 
 

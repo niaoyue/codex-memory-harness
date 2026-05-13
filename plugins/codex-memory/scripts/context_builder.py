@@ -13,6 +13,7 @@ DEFAULT_CONTEXT_BUDGET = {
     "task_state_chars": 1100,
     "summary_chars": 900,
     "decisions_chars": 800,
+    "learned_chars": 500,
     "evidence_chars": 1200,
 }
 
@@ -29,6 +30,7 @@ CONTEXT_PACK_SCHEMA = {
                 "task_state_chars": {"type": "integer"},
                 "summary_chars": {"type": "integer"},
                 "decisions_chars": {"type": "integer"},
+                "learned_chars": {"type": "integer"},
                 "evidence_chars": {"type": "integer"},
                 "used_chars": {"type": "integer"},
             },
@@ -112,11 +114,18 @@ def _normalize_budget(max_total_chars: int | None = None) -> dict[str, int]:
         budget["task_state_chars"]
         + budget["summary_chars"]
         + budget["decisions_chars"]
+        + budget["learned_chars"]
         + budget["evidence_chars"]
     )
     if alloc_total > total_target:
         scale = total_target / alloc_total
-        for key in ("task_state_chars", "summary_chars", "decisions_chars", "evidence_chars"):
+        for key in (
+            "task_state_chars",
+            "summary_chars",
+            "decisions_chars",
+            "learned_chars",
+            "evidence_chars",
+        ):
             budget[key] = max(120, int(budget[key] * scale))
     return budget
 
@@ -172,6 +181,7 @@ class ContextBuilder:
             task_id=resolved_task_id,
             limit=decision_limit,
         )
+        learned_candidates = self._accepted_memory_candidates(task_state, limit=5)
 
         evidence_queries = _clean_query_list(queries)
         if not evidence_queries:
@@ -205,6 +215,13 @@ class ContextBuilder:
         )
         sections.append(decisions_section)
         remaining_total = max(0, remaining_total - decisions_section.chars_used)
+
+        learned_section = self._build_learned_preferences_section(
+            learned_candidates,
+            min(budget["learned_chars"], remaining_total),
+        )
+        sections.append(learned_section)
+        remaining_total = max(0, remaining_total - learned_section.chars_used)
 
         evidence_section = self._build_evidence_section(
             evidence_items,
@@ -257,6 +274,41 @@ class ContextBuilder:
                 combined.append(item)
         combined.sort(key=lambda item: (-float(item["score"]), item["path"], item.get("line") or 0))
         return combined
+
+    def _accepted_memory_candidates(
+        self,
+        task_state: dict[str, Any] | None,
+        *,
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        try:
+            import memory_mining
+        except Exception:
+            return []
+
+        metadata = task_state.get("metadata") if isinstance(task_state, dict) else {}
+        metadata = metadata if isinstance(metadata, dict) else {}
+        routing = metadata.get("workspace_routing") or {}
+        route_plan = routing.get("route_plan") if isinstance(routing, dict) else {}
+        route_plan = route_plan if isinstance(route_plan, dict) else {}
+        project_id = str(
+            metadata.get("project_id")
+            or route_plan.get("primary_project")
+            or route_plan.get("project_id")
+            or ""
+        )
+        intent = str(route_plan.get("task_intent") or metadata.get("task_intent") or "")
+        working_set = task_state.get("working_set") if isinstance(task_state, dict) else []
+        try:
+            return memory_mining.accepted_context(
+                limit=limit,
+                project_id=project_id,
+                scope="project",
+                intent=intent,
+                working_set=list(working_set or []),
+            )
+        except Exception:
+            return []
 
     def _build_task_state_section(
         self,
@@ -320,6 +372,26 @@ class ContextBuilder:
             lines.append(f"- {item['title']}: {item['details']}")
         content, truncated = _truncate_text("\n".join(lines), limit)
         return SectionResult("repo_decisions", title, content, len(content), truncated)
+
+    def _build_learned_preferences_section(
+        self,
+        candidates: list[dict[str, Any]],
+        limit: int,
+    ) -> SectionResult:
+        title = "Learned Preferences"
+        if not candidates:
+            return SectionResult("learned_preferences", title, "", 0, False)
+
+        lines = []
+        for item in candidates:
+            statement = str(item.get("statement") or "").strip()
+            if not statement:
+                continue
+            confidence = str(item.get("confidence") or "unknown").strip()
+            risk = str(item.get("risk") or "unknown").strip()
+            lines.append(f"- {statement} (confidence={confidence}, risk={risk})")
+        content, truncated = _truncate_text("\n".join(lines), limit)
+        return SectionResult("learned_preferences", title, content, len(content), truncated)
 
     def _build_evidence_section(
         self,

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Obsidian Vault"
+  short_description: "Search, create, and manage notes in an Obsidian vault with wi..."
+  default_prompt: "Use $obsidian-vault to help with this task."

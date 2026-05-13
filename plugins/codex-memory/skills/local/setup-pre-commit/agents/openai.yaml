@@ -1,0 +1,4 @@
+interface:
+  display_name: "Setup Pre Commit"
+  short_description: "Set up Husky pre-commit hooks with lint-staged (Prettier), ty..."
+  default_prompt: "Use $setup-pre-commit to help with this task."

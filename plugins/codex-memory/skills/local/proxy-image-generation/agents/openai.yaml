@@ -1,0 +1,4 @@
+interface:
+  display_name: "Proxy Image Generation"
+  short_description: "通过代理与 Responses API 为 Codex 提供稳定生图工作流"
+  default_prompt: "为当前环境生成 CLIProxyAPI 生图别名、验证 Responses API 出图，并将图片保存到本地。"

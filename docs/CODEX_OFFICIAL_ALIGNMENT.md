@@ -57,6 +57,8 @@
 | A8 | `.codex` 开发配置与发布边界分层 | 合理 | 文档、`build_release.py`、`verify_project.py` | 已基本具备，继续约束 |
 | A9 | 官方 Memories 旧 runtime marker 迁移 | 合理但高风险 | `codex memory migrate-legacy-global --dry-run/--confirm` | 已执行，显式 confirm 才写入 |
 | A10 | 减少对 `powershell` 命令名依赖 | 合理但改动较大 | shell launcher 或 Python-first launcher | 暂缓为跨平台专项 |
+| A11 | skill-first 工作流与技能场景触发 | 合理 | `docs/SKILL_ROUTING_AND_DEFAULT_GOVERNANCE.md`、`skill_routing_audit.py`、bundled skills manifest | 已执行，运行时会输出 matched/used/skipped |
+| A12 | 策划需求、技术选择、测试、资源和 review 默认治理 | 合理 | 全局 AGENTS 标记块、项目 `AGENTS.md`、完整开发流程文档、Requirements Gate schema | 已执行，后续可继续细化自动判定 |
 
 ## 5. 本轮执行范围
 
@@ -64,7 +66,7 @@
 
 1. 将 bundled skills 的新安装目标对齐到官方用户技能目录 `~/.agents/skills`。
 2. 保留 `$CODEX_HOME/skills` 作为 legacy 状态检查路径，不再作为新安装主目标。
-3. 新增随包 local skill：`harness-release-gate`。
+3. 将当前可用治理技能登记到 `bundled-skills.json`，并随包离线安装。
 4. 在安装器写入的全局 AGENTS 标记块里补短验证入口，确保新环境安装后能同步。
 5. 修正文档，把“本机 dogfood”与“安装后同步”拆开。
 
@@ -75,6 +77,7 @@
 - 新增危险命令 guard；需要单独设计 hook payload、事件兼容和测试。
 - 旧 memory 迁移命令；需要 dry-run、manifest、checksum 和回滚设计。
 - 跨平台 launcher；涉及 hook/MCP 命令结构调整，应单独验证。
+- 全量扩展 bundled skills；需要逐个核对来源、license、依赖、体积和离线安装边界后再 vendor。
 
 ## 6. 推荐后续落地顺序
 
@@ -94,6 +97,7 @@ python -X utf8 scripts\verify_project.py
 - `bundled_skills.target_root` 指向 `~/.agents/skills`。
 - `harness-release-gate`、安全、迁移、GitHub CI/PR 等技能在状态中可见。
 - 目标已存在时跳过，不覆盖用户版本。
+- skill-first 规则随安装写入全局 AGENTS 标记块；后续扩展后的可利用技能也应进入 `bundled-skills.json` 并离线安装。
 - `verify_project.py` 会从 release package 解压后的目录运行隔离 `install.bat --mode copy`，校验普通首次安装的写入路径。
 
 ### P1：项目模板传播

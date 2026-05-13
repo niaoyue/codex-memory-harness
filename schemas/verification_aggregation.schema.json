@@ -59,6 +59,24 @@
         },
         "debug_macro_disabled": {
           "$ref": "#/$defs/gate_result"
+        },
+        "localization_complete": {
+          "$ref": "#/$defs/gate_result"
+        },
+        "platform_matrix_passed": {
+          "$ref": "#/$defs/gate_result"
+        },
+        "webgl_minigame_compatible": {
+          "$ref": "#/$defs/gate_result"
+        },
+        "asset_bundle_dependency_policy": {
+          "$ref": "#/$defs/gate_result"
+        },
+        "package_budget": {
+          "$ref": "#/$defs/gate_result"
+        },
+        "performance_budget": {
+          "$ref": "#/$defs/gate_result"
         }
       }
     },
@@ -217,8 +235,6 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "path",
-        "line",
         "type",
         "reason"
       ],

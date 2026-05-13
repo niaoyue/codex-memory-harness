@@ -27,6 +27,7 @@ from hook_runner_utils import (
 import init_storage
 from memory_store import MemoryStore
 from retrieval_store import RetrievalEngine
+import skill_routing_audit
 from workspace_artifact_filters import (
     is_subagent_artifact,
     routing_excluded_paths as filtered_routing_excluded_paths,
@@ -131,6 +132,15 @@ class HookRunner:
         workspace_routing = workspace_lifecycle.safe_workspace_routing(task_id, routing_payload)
         if workspace_routing:
             metadata["workspace_routing"] = workspace_routing
+        metadata["skill_routing_audit"] = skill_routing_audit.match_task_skills(
+            task_id=task_id,
+            task={
+                "objective": objective,
+                "working_set": routing_working_set,
+                "metadata": metadata,
+            },
+            previous=metadata.get("skill_routing_audit") if isinstance(metadata.get("skill_routing_audit"), dict) else None,
+        )
         merged_payload = {
             "objective": objective,
             "status": _string(payload.get("status")) or _string(current_state.get("status")) or "open",
@@ -177,6 +187,11 @@ class HookRunner:
         touched_paths = _string_list(payload.get("touched_paths")) or _string_list(payload.get("files"))
         routing_touched_paths = filtered_routing_touched_paths(tool_name, payload, touched_paths)
         metadata = _merge_dicts(current_state.get("metadata"), payload.get("metadata"))
+        metadata["skill_routing_audit"] = skill_routing_audit.merge_payload_decisions(
+            metadata.get("skill_routing_audit") if isinstance(metadata.get("skill_routing_audit"), dict) else {},
+            payload,
+            event="after_tool",
+        )
         existing_excluded_paths = _string_list(metadata.get("routing_excluded_paths"))
         owned_working_set = _without_paths(_merge_lists(_string_list(current_state.get("working_set")), _string_list(payload.get("working_set"))), existing_excluded_paths)
         stored_excluded_paths = _without_paths(existing_excluded_paths, routing_touched_paths)
@@ -262,6 +277,11 @@ class HookRunner:
             "context_pack": context_pack,
             "workspace_routing_review": workspace_lifecycle.routing_review(task_state),
         }
+        metadata = task_state.get("metadata") if isinstance(task_state, dict) and isinstance(task_state.get("metadata"), dict) else {}
+        result["skill_routing_audit"] = skill_routing_audit.render_skill_audit(
+            audit=metadata.get("skill_routing_audit") if isinstance(metadata.get("skill_routing_audit"), dict) else {},
+            target="brief",
+        )["brief"]
         if payload.get("writeback"):
             result["writeback"] = self._write_response_memory(resolved_task_id, payload, task_state)
         return result

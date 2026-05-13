@@ -104,7 +104,7 @@ Memory 写入应分层：
 - 子项目 memory 只写该项目相关事实，必须带 `project_id`、`domain` 和 scope。
 - 低置信度识别只写判断依据和不确定性，不能写成确定事实。
 
-当前实现只在 task metadata / artifact 中记录 route plan、memory plan、bindings 和 routing review，不会自动把 workspace 级或子项目级结论写入长期 memory。需要共享的稳定事实必须先人工提炼和脱敏，再通过 `codex memory promote` 与 `codex memory shared validate` 进入 `.codex/shared`。自动分层写入属于后续计划项。
+当前实现会在 task metadata / artifact 中记录 route plan、memory plan、bindings 和 routing review，并在任务完成时按 `memory_plan` 自动生成 `.codex/shared` proposed 草稿，区分 workspace route summary 和子项目 facts。proposed 草稿不是已接受的团队事实；需要共享的稳定事实仍必须人工 review、脱敏和 validate 后，才能从 proposed 进入 accepted。
 
 ## AI 诊断日志边界
 

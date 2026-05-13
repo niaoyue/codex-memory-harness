@@ -1,0 +1,4 @@
+interface:
+  display_name: "Design An Interface"
+  short_description: "Generate multiple radically different interface designs for a..."
+  default_prompt: "Use $design-an-interface to help with this task."

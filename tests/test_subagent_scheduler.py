@@ -43,6 +43,8 @@ class SubagentSchedulerTests(unittest.TestCase):
         self.assertTrue(specialist_spawn["no_fixed_total_timeout"])
         self.assertEqual(specialist_spawn["total_timeout_policy"], "none")
         self.assertEqual(specialist_spawn["observation_window_policy"], "poll_only_never_interrupt")
+        self.assertEqual(specialist_spawn["checkpoint_schema"], "subagent_artifact.v1")
+        self.assertEqual(specialist_spawn["assigned_scope"], ["client/Assets"])
         self.assertIn("binding-client-route", specialist_spawn["binding_id"])
         self.assertIn("Do not edit outside assigned_scope", specialist["prompt"])
         self.assertIn("Host wait windows are observation polls only", specialist["prompt"])
@@ -124,6 +126,23 @@ class SubagentSchedulerTests(unittest.TestCase):
         self.assertTrue(result["subagent_runtime"]["review_subagent_required"])
         roles = [item["role"] for item in result["dispatch_plan"]["host_spawn_requests"]]
         self.assertIn("Route Review Specialist", roles)
+
+    def test_scheduler_records_blocker_plan_and_blocks_overlapping_parallel_writes(self) -> None:
+        route_plan = _route_plan()
+        route_plan["routes"][1]["assigned_scope"] = ["client/Assets/UI"]
+        bindings = workspace_subagents.create_bindings(route_plan)
+
+        plan = subagent_scheduler.build_dispatch_plan(route_plan, bindings)
+
+        blocker_plan = plan["subagent_blocker_plan"]
+        self.assertEqual(blocker_plan["status"], "serial_required")
+        self.assertFalse(blocker_plan["scope_matrix"]["disjoint"])
+        self.assertFalse(plan["dispatch_plan_patch"]["can_generate_host_spawn_requests"])
+        specialist_requests = [
+            item for item in plan["host_spawn_requests"]
+            if item.get("scope_guard_required")
+        ]
+        self.assertEqual(specialist_requests, [])
 
 
 def _route_plan(intent: str = "small_change") -> dict[str, object]:

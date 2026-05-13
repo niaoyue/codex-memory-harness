@@ -1,42 +1,225 @@
 {
-  "version": 1,
+  "version": 2,
   "source_repo": "https://github.com/openai/skills",
   "source_ref": "af9b54f235d0d56c6b4410be54d578b0fda4ddfc",
-  "source_path": "skills/.curated",
+  "source_path": "skills/.curated plus local/system skills available in the packaging environment",
   "reviewed_curated_skill_count": 38,
-  "selection_policy": "Install the curated skills that directly support Codex Memory Harness installation, security review, threat modeling, CLI design, Codex migration, GitHub CI repair, and PR comment handling, plus local skills that make this package's verification gate reusable after install. Exclude domain-specific UI/design/deploy/service skills and skills with extra runtime dependencies unless this project later needs them explicitly.",
+  "bundled_skill_count": 32,
+  "selection_policy": "Install every reusable skill available to this package runtime that can be bundled without network access. OpenAI curated skills keep their upstream LICENSE.txt files; local and system skills are vendored under the local source group and are installed only when the target skill directory is missing.",
   "installed_by_default": true,
   "overwrite_existing": false,
   "skills": [
     {
       "name": "security-best-practices",
-      "reason": "Provides language and framework security review references for changes touching hooks, MCP, installers, and memory writes."
+      "reason": "Provides language and framework security review references for changes touching hooks, MCP, installers, and memory writes.",
+      "trigger_keywords": ["security", "secure", "安全", "漏洞", "best practice"]
     },
     {
       "name": "security-threat-model",
-      "reason": "Adds a structured threat-model workflow for reviewing plugin install surfaces, local storage, and tool execution boundaries."
+      "reason": "Adds a structured threat-model workflow for reviewing plugin install surfaces, local storage, and tool execution boundaries.",
+      "trigger_keywords": ["threat", "abuse", "威胁", "建模", "attack"]
     },
     {
       "name": "cli-creator",
-      "reason": "Matches this package's Codex-facing CLI and wrapper design work."
+      "reason": "Matches this package's Codex-facing CLI and wrapper design work.",
+      "trigger_keywords": ["cli", "command", "命令行", "wrapper", "sdk"]
     },
     {
       "name": "migrate-to-codex",
-      "reason": "Helps users migrate agent configuration, hooks, skills, and MCP setup into Codex-oriented layouts."
+      "reason": "Helps users migrate agent configuration, hooks, skills, and MCP setup into Codex-oriented layouts.",
+      "trigger_keywords": ["migrate", "迁移", "codex", "agents", "mcp"]
     },
     {
       "name": "gh-fix-ci",
-      "reason": "Supports GitHub CI failure inspection and remediation for repository maintenance workflows."
+      "reason": "Supports GitHub CI failure inspection and remediation for repository maintenance workflows.",
+      "trigger_keywords": ["github", "ci", "actions", "check", "失败"]
     },
     {
       "name": "gh-address-comments",
-      "reason": "Supports GitHub PR review comment collection and response workflows."
+      "reason": "Supports GitHub PR review comment collection and response workflows.",
+      "trigger_keywords": ["github", "pr", "comments", "review comments", "评论"]
     },
     {
       "name": "harness-release-gate",
       "source_group": "local",
       "path": "local/harness-release-gate",
-      "reason": "Makes this package's verify, xhigh review, and commit gate available in fresh installs without relying on local-only AGENTS.md edits."
+      "reason": "Makes this package's verify, xhigh review, and commit gate available in fresh installs without relying on local-only AGENTS.md edits.",
+      "trigger_keywords": ["release", "gate", "verify", "验证", "review", "提交"]
+    },
+    {
+      "name": "design-an-interface",
+      "source_group": "local",
+      "path": "local/design-an-interface",
+      "reason": "Designs module, API, schema, CLI, and contract interfaces before implementation.",
+      "trigger_keywords": ["interface", "api", "schema", "contract", "接口", "协议", "契约"]
+    },
+    {
+      "name": "edit-article",
+      "source_group": "local",
+      "path": "local/edit-article",
+      "reason": "Improves article and handbook structure when documentation prose is the primary deliverable.",
+      "trigger_keywords": ["article", "文档", "handbook", "rewrite", "修订"]
+    },
+    {
+      "name": "git-guardrails-claude-code",
+      "source_group": "local",
+      "path": "local/git-guardrails-claude-code",
+      "reason": "Provides reusable guardrails for rejecting destructive git commands in automation.",
+      "trigger_keywords": ["git", "guardrail", "危险", "reset", "clean"]
+    },
+    {
+      "name": "git-safe-commit",
+      "source_group": "local",
+      "path": "local/git-safe-commit",
+      "reason": "Stages and commits only task-related files while filtering runtime artifacts and sensitive material.",
+      "trigger_keywords": ["commit", "提交", "stage", "staging", "git"]
+    },
+    {
+      "name": "grill-me",
+      "source_group": "local",
+      "path": "local/grill-me",
+      "reason": "Stress-tests unclear product, planning, and design requirements before implementation.",
+      "trigger_keywords": ["requirement", "需求", "策划", "澄清", "逻辑", "question"]
+    },
+    {
+      "name": "improve-codebase-architecture",
+      "source_group": "local",
+      "path": "local/improve-codebase-architecture",
+      "reason": "Finds architecture improvements that deepen modules and improve testability.",
+      "trigger_keywords": ["architecture", "架构", "模块", "refactor", "可测试"]
+    },
+    {
+      "name": "migrate-to-shoehorn",
+      "source_group": "local",
+      "path": "local/migrate-to-shoehorn",
+      "reason": "Migrates TypeScript tests from broad type assertions to shoehorn-based partial test data.",
+      "trigger_keywords": ["shoehorn", "typescript", "test", "as", "类型"]
+    },
+    {
+      "name": "obsidian-vault",
+      "source_group": "local",
+      "path": "local/obsidian-vault",
+      "reason": "Searches and updates Obsidian vault notes with wikilinks and indexes.",
+      "trigger_keywords": ["obsidian", "vault", "笔记", "wikilink"]
+    },
+    {
+      "name": "prd-to-issues",
+      "source_group": "local",
+      "path": "local/prd-to-issues",
+      "reason": "Converts a PRD into issue-sized implementation slices.",
+      "trigger_keywords": ["prd", "issues", "github issue", "任务", "工单"]
+    },
+    {
+      "name": "prd-to-plan",
+      "source_group": "local",
+      "path": "local/prd-to-plan",
+      "reason": "Turns a PRD into phased tracer-bullet implementation plans.",
+      "trigger_keywords": ["prd", "plan", "计划", "tracer", "阶段"]
+    },
+    {
+      "name": "proxy-image-generation",
+      "source_group": "local",
+      "path": "local/proxy-image-generation",
+      "reason": "Configures Responses API image generation proxies and local save scripts.",
+      "trigger_keywords": ["image", "图片", "image_generation", "proxy", "responses"]
+    },
+    {
+      "name": "request-refactor-plan",
+      "source_group": "local",
+      "path": "local/request-refactor-plan",
+      "reason": "Creates a small-commit refactor RFC before large module boundary changes.",
+      "trigger_keywords": ["refactor", "重构", "rfc", "plan", "小提交"]
+    },
+    {
+      "name": "review-fix-merge-branch",
+      "source_group": "local",
+      "path": "local/review-fix-merge-branch",
+      "reason": "Runs a branch-quality loop of self-check, review, fix, commit, and safe merge.",
+      "trigger_keywords": ["review", "merge", "branch", "分支", "合并"]
+    },
+    {
+      "name": "scaffold-exercises",
+      "source_group": "local",
+      "path": "local/scaffold-exercises",
+      "reason": "Creates course exercise directories, problems, solutions, and explainers.",
+      "trigger_keywords": ["exercise", "course", "练习", "题解"]
+    },
+    {
+      "name": "setup-pre-commit",
+      "source_group": "local",
+      "path": "local/setup-pre-commit",
+      "reason": "Sets up Husky pre-commit hooks with formatting, type checking, and tests.",
+      "trigger_keywords": ["pre-commit", "husky", "lint-staged", "提交前"]
+    },
+    {
+      "name": "tdd",
+      "source_group": "local",
+      "path": "local/tdd",
+      "reason": "Supports red-green-refactor development for risky features and bug fixes.",
+      "trigger_keywords": ["tdd", "red-green", "test", "测试", "bug", "修复"]
+    },
+    {
+      "name": "triage-issue",
+      "source_group": "local",
+      "path": "local/triage-issue",
+      "reason": "Performs read-only root-cause triage for bugs and issue reports.",
+      "trigger_keywords": ["bug", "issue", "triage", "根因", "异常"]
+    },
+    {
+      "name": "ubiquitous-language",
+      "source_group": "local",
+      "path": "local/ubiquitous-language",
+      "reason": "Extracts DDD-style terminology and flags ambiguous domain language.",
+      "trigger_keywords": ["ddd", "domain", "术语", "领域", "language"]
+    },
+    {
+      "name": "write-a-prd",
+      "source_group": "local",
+      "path": "local/write-a-prd",
+      "reason": "Creates product requirement documents from ideas or business goals.",
+      "trigger_keywords": ["prd", "需求文档", "产品需求", "feature"]
+    },
+    {
+      "name": "write-a-skill",
+      "source_group": "local",
+      "path": "local/write-a-skill",
+      "reason": "Creates new Codex skills with progressive disclosure and bundled resources.",
+      "trigger_keywords": ["skill", "技能", "write skill", "create skill"]
+    },
+    {
+      "name": "imagegen",
+      "source_group": "local",
+      "path": "local/imagegen",
+      "reason": "Generates or edits bitmap visual assets when image generation is required.",
+      "trigger_keywords": ["image", "图片", "生成图", "bitmap", "asset"]
+    },
+    {
+      "name": "openai-docs",
+      "source_group": "local",
+      "path": "local/openai-docs",
+      "reason": "Uses official OpenAI documentation for OpenAI product and API questions.",
+      "trigger_keywords": ["openai", "chatgpt", "responses api", "codex", "model"]
+    },
+    {
+      "name": "plugin-creator",
+      "source_group": "local",
+      "path": "local/plugin-creator",
+      "reason": "Scaffolds Codex plugin directories and marketplace metadata.",
+      "trigger_keywords": ["plugin", "插件", "marketplace", "codex-plugin"]
+    },
+    {
+      "name": "skill-creator",
+      "source_group": "local",
+      "path": "local/skill-creator",
+      "reason": "Guides creation and update of effective Codex skills.",
+      "trigger_keywords": ["skill", "技能", "creator", "SKILL.md"]
+    },
+    {
+      "name": "skill-installer",
+      "source_group": "local",
+      "path": "local/skill-installer",
+      "reason": "Lists and installs skills from curated or GitHub sources when explicitly requested.",
+      "trigger_keywords": ["skill", "skills", "技能", "install", "安装"]
     }
   ]
 }

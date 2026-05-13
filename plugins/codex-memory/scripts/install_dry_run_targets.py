@@ -105,6 +105,8 @@ def bundled_skills_plan(plugin_root: Path) -> dict[str, Any]:
     for item in status["skills"]:
         if not item["source_exists"]:
             action = "blocked_missing_source"
+        elif item.get("stale_existing"):
+            action = "stale_existing_needs_update"
         elif item["target_has_skill_md"]:
             action = "no_change"
         elif item["target_exists"]:
@@ -116,8 +118,8 @@ def bundled_skills_plan(plugin_root: Path) -> dict[str, Any]:
                 **item,
                 "action": action,
                 "would_write": action == "install",
-                "blocked": action == "blocked_missing_source",
-                "reason": "missing bundled skill source" if action == "blocked_missing_source" else "",
+                "blocked": action in {"blocked_missing_source", "stale_existing_needs_update"},
+                "reason": skill_action_reason(action),
             }
         )
     return {
@@ -125,10 +127,21 @@ def bundled_skills_plan(plugin_root: Path) -> dict[str, Any]:
         "category": "bundled_skills",
         "action": "install_missing_skills",
         "would_write": any(item["would_write"] for item in skills),
-        "blocked": any(item["action"] == "blocked_missing_source" for item in skills),
+        "blocked": any(item["blocked"] for item in skills),
         "skills": skills,
         "planned_install_count": sum(1 for item in skills if item["action"] == "install"),
+        "stale_existing_count": sum(
+            1 for item in skills if item["action"] == "stale_existing_needs_update"
+        ),
     }
+
+
+def skill_action_reason(action: str) -> str:
+    if action == "blocked_missing_source":
+        return "missing bundled skill source"
+    if action == "stale_existing_needs_update":
+        return "installed bundled skill differs from packaged source; update or reinstall the skill before relying on it"
+    return ""
 
 
 def home_skipped_targets(reason: str) -> dict[str, Any]:

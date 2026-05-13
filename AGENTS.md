@@ -13,6 +13,10 @@
 - 如果 review 本次提交发现阻断问题，必须修复后创建新的本地提交（或在尚未 push 前重做候选提交），再 review 新提交本身；重复“提交 -> review 该提交 -> 修复 -> 再提交 -> review 新提交”，直到 review 没有新的阻断问题后才允许 push。若工作树包含用户无关改动，必须只提交本轮相关文件或先说明无法安全提交。
 - 用户明确选择 SubAgent、分角色或并行代理，任务属于复杂/应用级/多阶段实现，项目 `.codex/harness/project_profile.json` / `.codex/harness/workspace-routing.json` 的 `subagent_runtime_policy` 授权正式 implementation 任务，或通用 planner 基于 `task_intent/task_type/risk_level/complexity` 判定需要派发时，主 Agent 必须读取 `metadata.workspace_routing.subagent_runtime` 与 `subagent_dispatch_plan.host_spawn_requests`；当 `host_dispatch_allowed=true` 且宿主提供 SubAgent 工具时，按请求派发宿主 SubAgent，否则记录降级原因并由主 Agent 串行执行。
 - 涉及任务编排、待办、里程碑和状态跟踪时优先使用 `shrimp-task-manager`；当前环境不可用时，明确降级到本地 Markdown。
+- 默认采用 skill-first 工作流：任务开始先按 `docs/SKILL_ROUTING_AND_DEFAULT_GOVERNANCE.md` 匹配可用技能；需求/策划文档用 `grill-me` 风格提出不确定、逻辑混乱和逻辑错误清单，能通过本地代码和文档自答的先补齐，不能自答的反馈用户；创建接口、协议、schema、CLI 或跨模块契约前优先用 `design-an-interface` 形成多个接口方向。
+- 需求被拆成多任务时，先分析依赖、决策、环境、接口和验证卡点；除非所有任务都被同一类阻塞卡住，否则按依赖关系使用多 SubAgent 并行推进。每个 SubAgent 必须有明确 scope、cwd、规则、验收和 forbidden paths，并按 harness checkpoint 回写结果。
+- 策划需求默认进入完整性审查：目标、状态、边界、异常、验收、多语言、多平台、WebGL/小游戏、性能、包体、安全、迁移和回滚缺口都要列出。技术选择默认支持多语言和全平台，重点考虑 WebGL/小游戏兼容、性能和包体；优先现有约定和官方库，但如果官方方案在关键指标上比第三方稳定方案差约 20% 以上且第三方 license/安全/维护可接受，应优先第三方。避免为抽象而过度封装，模块要可拆卸、可选择性编译和容易裁剪。
+- 游戏/客户端资源管理默认限制依赖扩散：一个业务预制体优先只依赖本模块 AB 包，最多再依赖一个公共 AB 包；跨模块公共资源必须有 owner、版本、影响范围和回滚策略。
 - 代码文件理想 200-300 行，硬上限 500 行；超过上限必须拆分。
 - 默认正确性优先于兼容性。必要时直接替换旧接口，但必须在文档中说明迁移方式。
 

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Scaffold Exercises"
+  short_description: "Create exercise directory structures with sections, problems,..."
+  default_prompt: "Use $scaffold-exercises to help with this task."

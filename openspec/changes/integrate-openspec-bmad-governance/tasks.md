@@ -41,11 +41,11 @@
 
 ## 5. Future Implementation
 
-- [ ] Prototype OpenSpec command or artifact adapter without rewriting upstream
+- [x] Prototype OpenSpec command or artifact adapter without rewriting upstream
   core logic.
-- [ ] Prototype BMAD upstream planning adapter without claiming local automatic
+- [x] Prototype BMAD upstream planning adapter without claiming local automatic
   multi-agent execution.
-- [ ] Extend existing `requirements_gate.py` or add a stricter companion module
+- [x] Extend existing `requirements_gate.py` or add a stricter companion module
   for logical consistency, acceptance gaps, and implementation/spec conflicts.
 - [x] Fix docs/tooling governance tasks that mention adapter work being
   misclassified as product `feature_story` tasks.
@@ -53,7 +53,7 @@
   release routing.
 - [x] Add tests for `passed`, `needs_clarification`, `needs_bmad_upstream`, and
   `blocked_by_conflict` outputs.
-- [ ] Connect final verification and review evidence to spec sync/archive.
+- [x] Connect final verification and review evidence to spec sync/archive.
 
 ## 6. Verification for This Slice
 

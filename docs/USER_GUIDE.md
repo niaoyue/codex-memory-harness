@@ -37,17 +37,13 @@ sh ./install.sh --install-python
 
 安装器还会修复必要的官方 Codex 配置，确保 `$CODEX_HOME/config.toml` 中存在 `[features] hooks = true`，让插件 hooks 走官方生命周期。
 
-安装器会默认离线安装随包附带的 openai/skills curated 技能和本项目 release gate 技能到 `~/.agents/skills/<skill-name>`，包括：
-
-- `security-best-practices`
-- `security-threat-model`
-- `cli-creator`
-- `migrate-to-codex`
-- `gh-fix-ci`
-- `gh-address-comments`
-- `harness-release-gate`
+安装器会默认离线安装 `plugins/codex-memory/skills/bundled-skills.json` 登记的所有随包技能到 `~/.agents/skills/<skill-name>`。当前 manifest 覆盖 security、GitHub、CLI、迁移、release gate、需求澄清、接口设计、TDD、提交、review、PRD、重构、文档、图像、OpenAI docs、plugin/skill 创建等场景。
 
 这些技能已经 vendor 在发布包里，安装时不会联网拉取 GitHub。如果目标技能目录已存在，安装器会保留用户已有版本并跳过，不会覆盖。若只想安装 memory/harness 接入、不安装 bundled skills，可运行：
+
+任务执行时还会按 skill-first 规则匹配当前可用技能。需求或策划文档不清时按 `grill-me` 风格列出问题；创建接口、协议、schema、CLI 或跨模块契约前优先使用 `design-an-interface` 比较多个方案；PRD、TDD、代码 review、Git 提交、安全审查和 GitHub CI 等场景按技能路由表触发。完整规则见：
+
+- `docs/SKILL_ROUTING_AND_DEFAULT_GOVERNANCE.md`
 
 ```powershell
 .\install.bat --skip-skills
@@ -90,6 +86,10 @@ codex
 - `codex memory doctor`：诊断当前项目 memory/harness 状态，并检查官方 `features.hooks`、sandbox/approval、AGENTS.override、官方 Memories 和插件 hook 覆盖情况。
 - `codex memory init`：初始化缺失的项目 `.codex` memory/harness 配置。
 - `codex memory install/update/check-install`：安装、更新或检查插件接入。
+- `codex memory mine status|run`：查看或执行自动历史记忆挖掘。
+- `codex memory candidates list|accept|reject|deprecate`：治理自动挖掘出的记忆候选。
+- `codex memory retention status|cleanup --task-id <task-id> [--confirm]`：查看记忆规模，或按任务精确归档/清理；默认 dry-run，只有 `--confirm` 执行写入。
+- `codex memory eval create|list|run`：把失败或高价值 artifact 转为本地 deterministic eval replay，并执行无网络安全检查。
 - `codex harness ...`：运行 harness 任务生命周期命令。
 - `codex harness verify ...`：运行当前项目配置化验证。
 - `codex review preflight/status/plan`：在最终 xhigh review 前执行确定性 preflight、查看 diff fingerprint 和 reviewable slices。
@@ -395,7 +395,7 @@ docs/WORKSPACE_ROUTING_MIGRATION.md
 - `after_tool` 根据 touched paths 重算 route/bindings，并执行 scope guard；多项目时会按 specialist assigned scope 分发路径，避免误报未触达 specialist。
 - `before_response` 输出 `workspace_routing_review`，报告低置信路由、routing 降级、verification gap 和 scope gap。
 
-当前软集成只把 route plan、bindings、scope guard 和 runtime decision 写入 task metadata / artifact；不会自动把 workspace summary 与子项目事实分层写入 `.codex/shared` 或长期 memory。自动分层写入已进入计划列表，现阶段仍需通过 summary 与 `codex memory promote` 做人工审查式提升。
+当前软集成会把 route plan、bindings、scope guard 和 runtime decision 写入 task metadata / artifact，并在任务完成时按 `memory_plan` 自动生成 `.codex/shared` proposed 草稿，区分 workspace summary 与子项目 facts。proposed 草稿不是 accepted 团队事实；仍需要人工 review、脱敏和 validate 后才能提升为共享事实。
 
 生命周期 metadata 还会写入 `workspace_routing.subagent_runtime`，并在 `workspace_routing_review.subagent_runtime` 中回显当前决策：单项目串行、建议但未启动、用户要求但未启动，或已经观察到 route-bound/SubAgent-style artifact。该字段用于解释主 agent 直接执行或未启动 SubAgent 的原因。
 

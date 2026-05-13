@@ -7,6 +7,11 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Iterable
 
+try:
+    from semantic_retrieval import create_semantic_provider
+except ImportError:  # pragma: no cover - exercised when optional module is absent in older installs.
+    create_semantic_provider = None  # type: ignore[assignment]
+
 
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 WORKSPACE_ROOT = PLUGIN_ROOT.parent.parent
@@ -50,7 +55,7 @@ RETRIEVAL_MODES = {
     "auto": "Combine exact and full-text retrieval, preferring exact matches first.",
     "exact": "Prefer exact path and exact content matches.",
     "fulltext": "Search textual content with smart case matching.",
-    "semantic": "Placeholder mode reserved for future embedding retrieval.",
+    "semantic": "Search optional local semantic provider when available, with deterministic fallback.",
 }
 
 
@@ -177,8 +182,11 @@ def _snippet(text: str, limit: int = 220) -> str:
 
 
 class RetrievalEngine:
-    def __init__(self, workspace_root: Path = WORKSPACE_ROOT) -> None:
+    def __init__(self, workspace_root: Path = WORKSPACE_ROOT, semantic_provider: str = "disabled") -> None:
         self.workspace_root = workspace_root
+        self.semantic_provider_name = semantic_provider
+        self._semantic_provider: Any | None = None
+        self._semantic_status: dict[str, Any] | None = None
 
     def _list_workspace_files(self) -> list[str]:
         result = _run_rg(["--files"])
@@ -271,11 +279,29 @@ class RetrievalEngine:
         return items[:limit]
 
     def semantic_placeholder(self, query: str) -> dict[str, Any]:
-        return {
-            "query": _clean_query(query),
-            "available": False,
-            "reason": "Semantic retrieval is not implemented in the local MVP. Add embeddings later.",
-        }
+        return self._semantic_status_dict(_clean_query(query))
+
+    def search_semantic(self, query: str, limit: int = 10) -> tuple[list[EvidenceItem], dict[str, Any]]:
+        normalized_query = _clean_query(query)
+        provider = self._get_semantic_provider()
+        status = self._semantic_status_dict(normalized_query)
+        if not status["available"]:
+            return [], status
+
+        matches = provider.search(normalized_query, limit=limit)
+        items = [
+            EvidenceItem(
+                title=Path(match.path).name,
+                path=match.path,
+                match_type="semantic",
+                query=normalized_query,
+                score=82.0 + float(match.score),
+                line=match.line,
+                snippet=match.snippet,
+            )
+            for match in matches
+        ]
+        return self._dedupe_and_sort(items)[:limit], status
 
     def search(self, query: str, mode: str = "auto", limit: int = 10) -> dict[str, Any]:
         normalized_query = _clean_query(query)
@@ -292,15 +318,21 @@ class RetrievalEngine:
             items = self.search_fulltext(normalized_query, limit=limit)
             semantic = self.semantic_placeholder(normalized_query)
         elif normalized_mode == "semantic":
-            items = []
-            semantic = self.semantic_placeholder(normalized_query)
+            items, semantic = self.search_semantic(normalized_query, limit=limit)
+            if not semantic["available"]:
+                fallback = self.search_exact(normalized_query, limit=limit) + self.search_fulltext(
+                    normalized_query,
+                    limit=limit,
+                )
+                items = self._dedupe_and_sort(fallback)[:limit]
         else:
             combined = self.search_exact(normalized_query, limit=limit) + self.search_fulltext(
                 normalized_query,
                 limit=limit,
             )
+            semantic_items, semantic = self.search_semantic(normalized_query, limit=limit)
+            combined.extend(semantic_items)
             items = self._dedupe_and_sort(combined)[:limit]
-            semantic = self.semantic_placeholder(normalized_query)
 
         return {
             "query": normalized_query,
@@ -321,3 +353,56 @@ class RetrievalEngine:
             deduped.values(),
             key=lambda item: (-item.score, item.path, item.line or 0, item.match_type),
         )
+
+    def _get_semantic_provider(self) -> Any:
+        if self._semantic_provider is not None:
+            return self._semantic_provider
+
+        if create_semantic_provider is None:
+            self._semantic_provider = _UnavailableSemanticProvider(
+                "semantic provider module is unavailable",
+            )
+            self._semantic_status = self._semantic_provider.status().to_dict()
+            return self._semantic_provider
+
+        provider = create_semantic_provider(self.semantic_provider_name, self.workspace_root)
+        status = provider.rebuild(self._list_workspace_files())
+        self._semantic_provider = provider
+        self._semantic_status = status.to_dict()
+        return provider
+
+    def _semantic_status_dict(self, query: str) -> dict[str, Any]:
+        self._get_semantic_provider()
+        status = dict(self._semantic_status or {})
+        status["query"] = query
+        status.setdefault("available", False)
+        status.setdefault("provider", str(self.semantic_provider_name or "auto"))
+        status.setdefault("reason", "semantic provider unavailable")
+        return status
+
+
+class _UnavailableSemanticStatus:
+    def __init__(self, reason: str) -> None:
+        self.reason = reason
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "available": False,
+            "provider": "unavailable",
+            "reason": self.reason,
+            "indexed_items": 0,
+        }
+
+
+class _UnavailableSemanticProvider:
+    def __init__(self, reason: str) -> None:
+        self._status = _UnavailableSemanticStatus(reason)
+
+    def rebuild(self, relative_paths: Iterable[str]) -> _UnavailableSemanticStatus:
+        return self._status
+
+    def search(self, query: str, limit: int = 10) -> list[Any]:
+        return []
+
+    def status(self) -> _UnavailableSemanticStatus:
+        return self._status
