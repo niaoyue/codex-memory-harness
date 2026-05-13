@@ -9,6 +9,7 @@ from typing import Any
 from context_builder import ContextBuilder
 from distillation_store import DistillationStore
 from hook_runner_cleanup import cleanup_demo_task
+from hook_runner_write_guard import run_before_first_write
 from hook_runner_utils import (
     HOOK_EVENTS,
     _build_fallback_context,
@@ -40,7 +41,6 @@ TRANSIENT_ROUTING_FIELDS = (
     "review_gate_running",
     "xhigh_review_dispatch_disabled",
 )
-
 
 class HookRunner:
     def __init__(
@@ -75,6 +75,8 @@ class HookRunner:
                 result = self._on_session_start(payload)
             elif event == "before_task":
                 result = self._before_task(task_id or _default_task_id(), payload)
+            elif event == "before_first_write":
+                result = run_before_first_write(task_id, payload)
             elif event == "after_tool":
                 result = self._after_tool(task_id, payload)
             elif event == "before_response":
@@ -418,7 +420,6 @@ class HookRunner:
         except Exception as exc:
             return {"ok": False, "degraded": True, "reason": f"{type(exc).__name__}: {exc}"}
 
-
 def _copy_transient_routing_fields(source: dict[str, Any], target: dict[str, Any]) -> dict[str, Any]:
     for field in TRANSIENT_ROUTING_FIELDS:
         if field in source:
@@ -448,7 +449,6 @@ def _without_paths(paths: list[str], excluded: list[str]) -> list[str]:
 
 def _has_explicit_scope(payload: dict[str, Any]) -> bool:
     return any(_string(payload.get(key)) for key in ("binding_id", "subagent_id", "project_id"))
-
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run Codex Memory plugin hooks.")

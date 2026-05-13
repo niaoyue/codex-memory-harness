@@ -72,7 +72,7 @@
 | T52 | 18 | 实现 workspace lifecycle 软集成 | hook lifecycle 写入 route plan/bindings、scope guard 和 routing review | T37,T41,T42 | done |
 | T53 | 18 | 实现 SubAgent dispatch plan | `subagent_scheduler.py` 与 `codex workspace schedule` | T42,T52 | done |
 | T54 | 18 | 实现游戏客户端 profile 模板生成器 | `game_client_profiles.py` 与 `codex workspace game-client init/template` | T34,T52 | done |
-| T55 | 19 | 实现发布级完整验证平台 | 已有 release profile/evidence gate 与 `release_profile_gate.py --manifest-file` manifest gate；完整渠道包、热更、平台构建和回滚材料 gate 依赖业务项目与 CI 材料，继续拆分推进 | T50,T54 | doing |
+| T55 | 19 | 实现发布级完整验证平台 | 已有 release profile/evidence gate 与 `release_profile_gate.py --manifest-file` manifest gate；manifest 已本地校验 artifact kind/platform/sha256/size、evidence report_path 和未知 gate status；完整渠道包、热更、平台构建和回滚材料 gate 依赖业务项目与 CI 材料，继续拆分推进 | T50,T54 | doing |
 | T56 | 19 | 补服务器/后台/文档/美术业务模板 | `workspace_business_templates.py` 与 `codex workspace project-template init/template` | T54,WR-26,WR-27,WR-28 | done |
 | T57 | 19 | 补 workspace routing 发布与迁移说明 | `docs/WORKSPACE_ROUTING_MIGRATION.md` 说明普通 harness 到 workspace routing 的升级说明和兼容边界 | T52,WR-30 | done |
 | T58 | 20 | 实现 workspace memory 自动分层写入 | 根据 `memory_plan` 写入 workspace summary 与子项目 fact | T43,WR-34 | done |
@@ -98,9 +98,9 @@
 | T78 | 23 | 设计 session-worktree 绑定方案 | `docs/SESSION_WORKTREE_BINDING.md`，明确 lease、heartbeat、stale、cleanup、多 session 同 task | T52,T53 | done |
 | T79 | 23 | 实现 binding registry | 用户私有 registry、project_key、session_id、task_id、binding_id、file lock 和 heartbeat | T78 | done |
 | T80 | 23 | 实现 worktree allocator | 单 session 绑定 primary checkout，并发写同项目时创建 managed worktree 和 session branch | T79 | done |
-| T81 | 23 | 集成 session binding lifecycle | 最小 `write-guard` 已落地；完整 before_task/before_first_write/after_tool/before_response/on_task_complete 强制接入仍需后续 hook/宿主支持 | T80,T52 | doing |
+| T81 | 23 | 集成 session binding lifecycle | 最小 `write-guard` 已落地；`hook_runner` 已支持 `before_first_write` 软事件并复用 `workspace_session.write_guard()`；真正宿主级写入前强制拦截与完整 lifecycle enforcement 仍需宿主 hook 支持 | T80,T52 | doing |
 | T82 | 23 | 实现 stale 与 cleanup 治理 | `worktree list` 已展示 stale/dirty orphan/prunable/pruned，`worktree prune --dry-run` 已输出候选，`worktree prune --confirm` 已重新校验并清理 clean managed worktree，`worktree recover <binding-id>` 已能恢复 clean at base 的 managed stale/prunable binding 并阻断 dirty/pruned/非 managed 场景 | T81,T65 | done |
-| T83 | 23 | 支持多 session 同 task 协作 | 已具备 binding、scope guard、coordinator summary 和 `subagent_receipts.py` integration readiness report；自动合并 specialist branches 与 integration worktree final gate 依赖 T59/T81 强制接入 | T81,T53,T74 | blocked |
+| T83 | 23 | 支持多 session 同 task 协作 | 已具备 binding、scope guard、coordinator summary 和 `subagent_receipts.py` integration readiness report；ready/successful specialist receipt 缺少 branch/effective_cwd/base_head/head/candidate_commit 时继续 blocked，集成计划仅输出 candidate_branches 与手动 merge preflight/worktree 要求；自动合并 specialist branches 与 integration worktree final gate 仍依赖 T59/T81 强制接入 | T81,T53,T74 | blocked |
 | T84 | 24 | 引入 OpenSpec change contract 与需求完整性门禁 | `openspec/` profile、`change-governance` spec、OpenSpec/BMAD 集成 proposal/design/tasks/spec delta；本切片仅落地文档，不实现 runtime | T24,T76,T81 | done |
 | T85 | 24 | 定义 BMAD upstream planning policy | 明确何时进入 Product Brief/PRFAQ/PRD/Architecture/Epic/Story/Readiness，何时直接进入 OpenSpec change contract | T84 | done |
 | T86 | 24 | 调研并适配 OpenSpec/BMAD 上游核心代码复用 | 已核对 license、版本、entrypoint、依赖、telemetry、storage 和安全边界；决策为先做命令/插件 adapter，vendoring 仅在 adapter 不足时按 pinned source + LICENSE/NOTICE 执行，不重写上游 core | T84,T85 | done |
@@ -538,11 +538,11 @@
 - Step 30 已完成：本仓库 dogfood workspace routing 配置与发布迁移说明
 - Step 31 已完成：workspace memory 自动分层写入会在任务完成时根据 route plan `memory_plan` 写入 `.codex/shared` proposed 草稿，并可用 `workspace_memory_writer.py` 进行 dry-run/confirm。
 - Step 32 受阻：真实 SubAgent 自动执行器仍依赖宿主 SubAgent API；当前仓库已能生成 `host_spawn_requests` 和调度计划，并通过 `subagent_receipts.py` 导入宿主执行回执与 readiness report。
-- Step 33 进行中：release profile/evidence gate、release manifest gate 与 eval replay 已完成；完整发布级验证平台仍依赖业务项目渠道包、热更、平台构建、CI 和回滚材料。
+- Step 33 进行中：release profile/evidence gate、release manifest gate 与 eval replay 已完成；release manifest gate 已本地校验 artifact kind/platform/sha256/size、evidence report_path 和未知 gate status；完整发布级验证平台仍依赖业务项目渠道包、热更、平台构建、CI 和回滚材料。
 - Step 34 已完成：安装器 dry-run、旧全局 memory marker 迁移工具、custom agents 模板、memory archive/cleanup 与可选本地语义检索 provider 均已落地。
 - Step 35 已完成：自动历史记忆挖掘 runtime 已落地事件账本、候选挖掘、accepted context 注入和治理命令；低风险偏好可进入 accepted context，高风险或冲突候选保留为可审查状态。
 - Step 36 已完成：review gate 优化 runtime 已提供 `codex review status/preflight/plan/record/findings/ledger`，最终语义改为先创建 candidate commit，再用 `codex xhigh review --commit <commit-sha>` 审核被审提交；通过 preflight、commit fingerprint、review ledger、runner 恢复记录和 slice planner 降低长耗时与重复失败。
-- Step 37 进行中：最小 session-worktree write guard 已提供 `codex workspace session ...`、`codex workspace worktree list` 和 `codex workspace write-guard ...`；当前能在 dirty primary checkout 或已有其他 active write lease 时创建 managed worktree 并返回 `effective_cwd`。后续还需把 before_first_write 做成宿主/Hook 强制拦截，并补 stale cleanup 与多 session 合并。
+- Step 37 进行中：最小 session-worktree write guard 已提供 `codex workspace session ...`、`codex workspace worktree list` 和 `codex workspace write-guard ...`；当前能在 dirty primary checkout 或已有其他 active write lease 时创建 managed worktree 并返回 `effective_cwd`。`hook_runner` 已新增 `before_first_write` 软事件并调用同一 write guard；后续还需宿主原生写入前强制拦截和多 session 自动合并。
 - Step 38 已完成：stale/cleanup 治理已完成只读、dry-run、confirm 清理和 recover 切片；`codex workspace worktree list` 会展示 active、stale、dirty orphan、prunable、pruned 和 needs_user_review，`codex workspace worktree prune --dry-run` 只输出 released 且 clean at base 的 managed worktree 候选，不执行删除，`codex workspace worktree prune --confirm` 会重新校验 Git 状态和 managed worktree 容器路径后执行 `git worktree remove` 并把 binding 标记为 `pruned`，`codex workspace worktree recover <binding-id>` 只恢复 clean at base 的 managed stale/prunable binding。多 session 合并继续由 T83 跟进。
 - Step 39 已完成：skill-first governance runtime 已完成 T89-T97；bundled skills 改为 manifest-driven 全量可用技能，hook lifecycle 输出 skill routing audit，Requirements Gate 扩展治理字段，SubAgent dispatch 前输出 blocker/scope matrix，release profile 原型覆盖小游戏/WebGL/AB/包体/性能证据，OpenSpec/BMAD governance adapter 连接 verification 与 commit-based review evidence。
 - Step 40 已完成：bundled skill 安装状态按技能名去重；随包 `harness-release-gate` 已是 candidate commit + `codex xhigh review --commit <commit-sha>` 流程。若用户本机已安装同名技能，安装器保留用户版本并跳过 bundled copy，`install --dry-run` 报告 `already_exists_deduped`，不要求覆盖或更新。

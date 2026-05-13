@@ -10,7 +10,8 @@ import workspace_subagents
 
 
 TERMINAL_FAILURES = {"failed", "blocked", "cancelled"}
-SUCCESS_STATUSES = {"completed", "succeeded", "success"}
+SUCCESS_STATUSES = {"completed", "succeeded", "success", "ready", "ready_for_integration"}
+CANDIDATE_METADATA_FIELDS = ("branch", "effective_cwd", "base_head", "head", "candidate_commit")
 
 
 def summarize(
@@ -38,10 +39,17 @@ def summarize(
         if binding.get("binding_id") in by_binding
     ]
     conflicts = workspace_subagents.conflict_report(normalized, project_root=project_root)
+    metadata_gaps = [
+        gap
+        for binding in specialists
+        if binding.get("binding_id") in by_binding
+        for gap in candidate_metadata_gap(binding, by_binding[str(binding.get("binding_id"))])
+    ]
     blockers = []
     blockers.extend({"type": "missing_receipt", **item} for item in missing)
     blockers.extend({"type": "terminal_failure", "binding_id": item.get("binding_id"), "status": item["status"]} for item in failures)
     blockers.extend({"type": "incomplete_receipt", "binding_id": item.get("binding_id"), "status": item["status"]} for item in incomplete)
+    blockers.extend(metadata_gaps)
     blockers.extend({"type": "scope_violation", **violation} for item in scope_guard for violation in item.get("violations", []))
     blockers.extend({"type": "path_conflict", **item} for item in conflicts)
     return {
@@ -55,11 +63,15 @@ def summarize(
         "incomplete_receipts": incomplete,
         "scope_guard": scope_guard,
         "conflicts": conflicts,
+        "receipt_metadata_gaps": metadata_gaps,
         "blocking_gaps": blockers,
         "integration_plan": {
             "publish_order": workspace_subagents.publish_order(bindings),
+            "candidate_branches": candidate_branches(specialists, by_binding),
             "final_gate": "create candidate commit, then run codex xhigh review --commit <commit-sha>",
             "auto_merge": False,
+            "merge_preflight_required": True,
+            "integration_worktree_required": True,
         },
     }
 
@@ -74,6 +86,57 @@ def normalize_receipt(receipt: dict[str, Any]) -> dict[str, Any]:
         "subagent_id": str(receipt.get("subagent_id") or "").strip(),
         "touched_paths": touched_paths(receipt),
     }
+
+
+def candidate_metadata_gap(binding: dict[str, Any], receipt: dict[str, Any]) -> list[dict[str, Any]]:
+    if receipt.get("status") not in {"completed"}:
+        return []
+    missing = [field for field in CANDIDATE_METADATA_FIELDS if not candidate_metadata_value(receipt, field)]
+    if not missing:
+        return []
+    return [
+        {
+            "type": "receipt_metadata",
+            "binding_id": binding.get("binding_id"),
+            "subagent_id": receipt.get("subagent_id"),
+            "project_id": binding.get("project_id"),
+            "status": receipt.get("status"),
+            "missing_fields": missing,
+            "reason": "ready or successful specialist receipt is missing candidate commit metadata",
+        }
+    ]
+
+
+def candidate_branches(bindings: list[dict[str, Any]], receipts_by_binding: dict[str, dict[str, Any]]) -> list[dict[str, str]]:
+    branches = []
+    for binding in bindings:
+        receipt = receipts_by_binding.get(str(binding.get("binding_id")))
+        if not receipt or receipt.get("status") != "completed":
+            continue
+        metadata = {field: candidate_metadata_value(receipt, field) for field in CANDIDATE_METADATA_FIELDS}
+        if not all(metadata.values()):
+            continue
+        branches.append(
+            {
+                "binding_id": str(binding.get("binding_id") or ""),
+                "project_id": str(binding.get("project_id") or ""),
+                **metadata,
+            }
+        )
+    return branches
+
+
+def candidate_metadata_value(receipt: dict[str, Any], field: str) -> str:
+    value = receipt.get(field)
+    if not value:
+        metadata = receipt.get("metadata")
+        if isinstance(metadata, dict):
+            value = metadata.get(field)
+    if not value:
+        candidate = receipt.get("candidate")
+        if isinstance(candidate, dict):
+            value = candidate.get(field)
+    return str(value or "").strip()
 
 
 def touched_paths(receipt: dict[str, Any] | None) -> list[str]:

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +17,19 @@ RELEASE_GATE_KEYS = (
     "package_budget",
     "performance_budget",
 )
+ARTIFACT_KINDS = {
+    "package",
+    "hot_update_manifest",
+    "rollback_package",
+    "build_report",
+    "performance_report",
+    "asset_manifest",
+    "symbol_file",
+    "other",
+}
+GATE_PASSING_STATUSES = {"passed", "skipped"}
+GATE_KNOWN_STATUSES = {*GATE_PASSING_STATUSES, "manual_required", "failed", "blocked"}
+SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
 
 def evaluate_release_profile(route_plan: dict[str, Any]) -> dict[str, Any]:
@@ -71,23 +86,115 @@ def _manifest_evidence_gates(manifest: dict[str, Any]) -> dict[str, Any]:
 
 def _manifest_gaps(project_root: Path, manifest: dict[str, Any], gates: dict[str, Any]) -> list[dict[str, Any]]:
     gaps: list[dict[str, Any]] = []
+    target_platforms = set(string_list(manifest.get("platforms")))
     if not str(manifest.get("release_id") or "").strip():
         gaps.append({"type": "release_id", "reason": "release manifest is missing release_id"})
-    if not string_list(manifest.get("platforms")):
+    if not target_platforms:
         gaps.append({"type": "platforms", "reason": "release manifest is missing target platforms"})
     if not _has_rollback_plan(manifest.get("rollback_plan")):
         gaps.append({"type": "rollback_plan", "reason": "release manifest is missing rollback plan"})
     artifacts = list_items(manifest.get("artifacts"))
     if not artifacts:
         gaps.append({"type": "artifacts", "reason": "release manifest is missing build artifacts"})
-    for artifact in artifacts:
-        path = str(artifact.get("path") or "").strip()
-        if path and not (project_root / path).exists():
-            gaps.append({"type": "artifact", "path": path, "reason": "artifact path does not exist"})
+    covered_platforms: set[str] = set()
+    for index, artifact in enumerate(artifacts):
+        artifact_gaps, platforms = _artifact_gaps(project_root, artifact, target_platforms, index)
+        gaps.extend(artifact_gaps)
+        covered_platforms.update(platforms)
+    missing_platforms = sorted(target_platforms - covered_platforms)
+    if artifacts and missing_platforms:
+        gaps.append({
+            "type": "artifact_platform_coverage",
+            "platforms": missing_platforms,
+            "reason": "target platform is not covered by any valid artifact",
+        })
+    gaps.extend(_evidence_report_gaps(project_root, manifest))
     for key, gate_value in gates.items():
-        if gate_value.get("blocking") and gate_value.get("status") not in {"passed", "skipped"}:
+        status = str(gate_value.get("status") or "").strip()
+        if status and status not in GATE_KNOWN_STATUSES:
+            gaps.append({"type": "release_gate_status", "gate": key, "status": status, "reason": "unknown release evidence status"})
+        if gate_value.get("blocking") and status not in GATE_PASSING_STATUSES:
             gaps.append({"type": "release_gate", "gate": key, "reason": gate_value.get("summary")})
     return gaps
+
+
+def _artifact_gaps(
+    project_root: Path,
+    artifact: dict[str, Any],
+    target_platforms: set[str],
+    index: int,
+) -> tuple[list[dict[str, Any]], set[str]]:
+    gaps: list[dict[str, Any]] = []
+    kind = str(artifact.get("kind") or "").strip()
+    if kind not in ARTIFACT_KINDS:
+        gaps.append({"type": "artifact_kind", "index": index, "kind": kind, "reason": "artifact kind is missing or unsupported"})
+
+    path = str(artifact.get("path") or "").strip()
+    artifact_path = _resolve_manifest_path(project_root, path)
+    if not path or artifact_path is None:
+        gaps.append({"type": "artifact_path", "index": index, "path": path, "reason": "artifact path is missing or outside project root"})
+    elif not artifact_path.exists():
+        gaps.append({"type": "artifact", "index": index, "path": path, "reason": "artifact path does not exist"})
+    else:
+        gaps.extend(_artifact_integrity_gaps(artifact, artifact_path, index, path))
+
+    platforms = set(string_list(artifact.get("platforms")))
+    if target_platforms:
+        if not platforms:
+            gaps.append({"type": "artifact_platform", "index": index, "reason": "artifact is missing target platform mapping"})
+        unsupported = sorted(platforms - target_platforms)
+        if unsupported:
+            gaps.append({"type": "artifact_platform", "index": index, "platforms": unsupported, "reason": "artifact declares platforms outside release target matrix"})
+    valid_path = bool(path and artifact_path is not None and artifact_path.exists())
+    return gaps, platforms if valid_path else set()
+
+
+def _artifact_integrity_gaps(
+    artifact: dict[str, Any],
+    artifact_path: Path,
+    index: int,
+    manifest_path: str,
+) -> list[dict[str, Any]]:
+    gaps: list[dict[str, Any]] = []
+    expected_sha = str(artifact.get("sha256") or "").strip().lower()
+    if expected_sha:
+        actual_sha = hashlib.sha256(artifact_path.read_bytes()).hexdigest()
+        if not SHA256_PATTERN.match(expected_sha) or actual_sha != expected_sha:
+            gaps.append({"type": "artifact_checksum", "index": index, "path": manifest_path, "reason": "artifact sha256 does not match local file"})
+    if "size_bytes" in artifact:
+        expected_size = artifact.get("size_bytes")
+        if not isinstance(expected_size, int) or expected_size < 0 or artifact_path.stat().st_size != expected_size:
+            gaps.append({"type": "artifact_size", "index": index, "path": manifest_path, "reason": "artifact size_bytes does not match local file"})
+    return gaps
+
+
+def _evidence_report_gaps(project_root: Path, manifest: dict[str, Any]) -> list[dict[str, Any]]:
+    evidence = manifest.get("evidence") if isinstance(manifest.get("evidence"), dict) else {}
+    gaps: list[dict[str, Any]] = []
+    for key, value in evidence.items():
+        if not isinstance(value, dict):
+            continue
+        report_path = str(value.get("report_path") or "").strip()
+        if not report_path:
+            continue
+        resolved = _resolve_manifest_path(project_root, report_path)
+        if resolved is None or not resolved.exists():
+            gaps.append({"type": "evidence_report", "gate": key, "path": report_path, "reason": "evidence report_path does not exist"})
+    return gaps
+
+
+def _resolve_manifest_path(project_root: Path, value: str) -> Path | None:
+    if not value:
+        return None
+    candidate = Path(value)
+    if not candidate.is_absolute():
+        candidate = project_root / candidate
+    resolved = candidate.resolve(strict=False)
+    try:
+        resolved.relative_to(project_root.resolve(strict=False))
+        return resolved
+    except ValueError:
+        return None
 
 
 def _has_rollback_plan(value: Any) -> bool:
@@ -102,7 +209,7 @@ def evidence_gate(key: str, value: Any, policy: dict[str, Any]) -> dict[str, Any
     if value is True:
         return gate("passed", bool(policy["blocking"]), f"{key} evidence passed.", [])
     if isinstance(value, dict):
-        status = str(value.get("status") or "").strip() or ("passed" if value.get("ok") else "manual_required")
+        status = str(value.get("status") or "").strip().lower() or ("passed" if value.get("ok") else "manual_required")
         findings = value.get("findings") if isinstance(value.get("findings"), list) else []
         summary = str(value.get("summary") or f"{key} evidence status is {status}.")
         return gate(status, bool(policy["blocking"]), summary, findings)

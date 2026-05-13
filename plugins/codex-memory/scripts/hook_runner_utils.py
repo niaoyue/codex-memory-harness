@@ -11,6 +11,7 @@ from sensitive_scan import sanitized_payload
 HOOK_EVENTS = [
     "on_session_start",
     "before_task",
+    "before_first_write",
     "after_tool",
     "before_response",
     "on_task_complete",
