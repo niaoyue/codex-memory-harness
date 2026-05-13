@@ -15,7 +15,7 @@ The initial spec is:
       tasks.md
 ```
 
-This mirrors the observed Kiro-like pattern from `H:\dev\company\GPTProxy\.kiro\specs\chatgpt-account-portal\`, while adapting the root from `.kiro/specs` to `.codex/specs`.
+This mirrors a Kiro-like pattern under `.kiro/specs/<feature-slug>/`, while adapting the root from `.kiro/specs` to `.codex/specs`.
 
 ## Architecture
 

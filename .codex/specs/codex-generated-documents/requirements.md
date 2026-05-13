@@ -21,7 +21,7 @@ The project will use a Kiro-like specs layout under `.codex/specs/<feature-slug>
 The requirements review found no blocking question that must be sent back to the user before implementation.
 
 - **Resolved from user request:** Codex-generated requirements, designs, and task documents must be moved under `.codex`.
-- **Resolved from reference project:** `H:\dev\company\GPTProxy\.kiro\specs` uses one feature directory with `requirements.md`, `design.md`, and `tasks.md`.
+- **Resolved from Kiro-style reference layout:** `.kiro/specs/<feature-slug>/` uses one feature directory with `requirements.md`, `design.md`, and `tasks.md`.
 - **Resolved from this repository:** `.gitignore` currently ignores `.codex/*`, so `.codex/specs/**` must be explicitly allowed if these specs are intended to be committed.
 - **Resolved from existing governance:** `.codex/memories/`, `.codex/harness/tasks/`, and database/event artifacts remain runtime-only and must not be mixed with specs.
 

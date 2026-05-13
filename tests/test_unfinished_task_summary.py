@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sys
 import unittest
 from pathlib import Path
@@ -107,3 +108,45 @@ class UnfinishedTaskSummaryTests(unittest.TestCase):
         self.assertTrue(
             result["result"]["unfinished_task_summary_markdown"].startswith("# Unfinished Task Progress Summary")
         )
+
+    def test_default_store_uses_supplied_project_root(self) -> None:
+        with MemoryEnv() as first_dir, MemoryEnv() as second_dir:
+            first_root = Path(first_dir)
+            second_root = Path(second_dir)
+            task_list = first_root / "docs" / "codex-memory-plugin-task-list.md"
+            task_list.parent.mkdir(parents=True)
+            task_list.write_text(TASK_LIST, encoding="utf-8")
+
+            old_cwd = os.environ.get("CODEX_MEMORY_CWD")
+            try:
+                os.environ["CODEX_MEMORY_CWD"] = str(first_root)
+                memory_store.MemoryStore().upsert_task_state(
+                    "T03",
+                    {
+                        "objective": "Wire response hook",
+                        "status": "open",
+                        "recent_findings": ["from first project"],
+                        "next_step": "Continue first project",
+                    },
+                )
+                os.environ["CODEX_MEMORY_CWD"] = str(second_root)
+
+                summary = unfinished_task_summary.build_unfinished_task_summary(project_root=first_root)
+            finally:
+                if old_cwd is None:
+                    os.environ.pop("CODEX_MEMORY_CWD", None)
+                else:
+                    os.environ["CODEX_MEMORY_CWD"] = old_cwd
+
+        tasks = {item["task_id"]: item for item in summary["tasks"]}
+        self.assertIn("from first project", tasks["T03"]["completed_acceptance"])
+        self.assertEqual(tasks["T03"]["next_step"], "Continue first project")
+
+    def test_markdown_renders_warnings_when_task_list_is_missing(self) -> None:
+        with MemoryEnv() as temp_dir:
+            summary = unfinished_task_summary.build_unfinished_task_summary(project_root=Path(temp_dir))
+
+        rendered = unfinished_task_summary.render_markdown(summary)
+        self.assertIn("## Warnings", rendered)
+        self.assertIn("task list not found", rendered)
+        self.assertIn("No unfinished tasks found.", rendered)

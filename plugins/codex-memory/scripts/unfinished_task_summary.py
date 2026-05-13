@@ -7,6 +7,7 @@ import re
 from pathlib import Path
 from typing import Any
 
+import init_storage
 from memory_store import MemoryStore
 from sensitive_scan import sanitized_payload
 from task_spec import task_dir, task_spec_path
@@ -144,6 +145,11 @@ def _state_exists(state: dict[str, Any] | None) -> bool:
     return bool(state and (state.get("updated_at") or state.get("objective") or state.get("recent_findings")))
 
 
+def _project_memory_store(project_root: Path) -> MemoryStore:
+    paths = init_storage.ensure_storage_layout(scope="project", cwd=project_root)
+    return MemoryStore(db_path=Path(paths["db_path"]))
+
+
 def _safe_list(value: Any) -> list[str]:
     return _string_list(sanitized_payload(value, context="unfinished_task_summary"))
 
@@ -161,7 +167,7 @@ def build_unfinished_task_summary(
     rows, step_by_task, warnings = parse_task_list(resolved_task_list)
     if selected_ids:
         rows = [row for row in rows if row["task_id"] in selected_ids]
-    memory = store or MemoryStore()
+    memory = store or _project_memory_store(root)
     tasks = [
         _build_task_progress(root, resolved_task_list, row, step_by_task.get(row["task_id"], ""), memory)
         for row in rows
@@ -243,6 +249,12 @@ def _build_task_progress(
 def render_markdown(summary: dict[str, Any]) -> str:
     lines = ["# Unfinished Task Progress Summary", ""]
     tasks = summary.get("tasks") if isinstance(summary.get("tasks"), list) else []
+    warnings = _string_list(summary.get("warnings"))
+    if warnings:
+        lines.append("## Warnings")
+        for warning in warnings:
+            lines.append(f"- {warning}")
+        lines.append("")
     if not tasks:
         lines.append("No unfinished tasks found.")
         return "\n".join(lines)
