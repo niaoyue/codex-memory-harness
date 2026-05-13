@@ -594,7 +594,7 @@ workspace routing 会先形成 project inventory，再为当前任务生成 rout
 详细任务拆分和进度见：
 
 ```text
-docs/WORKSPACE_ROUTING_TASK_LIST.md
+.codex/specs/backlog-governance/workspace-routing-tasks.md
 ```
 
 ## 20. 完整开发流程图

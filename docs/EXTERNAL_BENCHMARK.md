@@ -65,8 +65,8 @@
 - `docs/SUBAGENT_WORKFLOW.md`：定义 SubAgent 角色分工、artifact 协议和未来落地路线。
 - `docs/GAME_CLIENT_WORKFLOW.md`：定义 Unity、LayaBox/LayaAir、Cocos Creator 客户端专项流程。
 - `docs/WORKSPACE_ADAPTIVE_ROUTING.md`：定义多项目 workspace 的自动识别、路由、SubAgent 绑定和验证聚合设计。
-- `docs/WORKSPACE_ROUTING_TASK_LIST.md`：把 workspace routing 设计拆成带状态的实现任务。
-- `README.md`、`docs/USER_GUIDE.md`、`docs/codex-memory-harness-system-summary.md`、`docs/codex-memory-plugin-task-list.md`：补充上述入口和状态说明。
+- `.codex/specs/backlog-governance/workspace-routing-tasks.md`：把 workspace routing 设计拆成带状态的实现任务；旧 `docs/WORKSPACE_ROUTING_TASK_LIST.md` 只保留兼容 stub。
+- `.codex/specs/backlog-governance/tasks.md`、`README.md`、`docs/USER_GUIDE.md`、`docs/codex-memory-harness-system-summary.md`：补充上述入口和状态说明；旧 `docs/codex-memory-plugin-task-list.md` 只保留兼容 stub。
 
 ## 6. 后续路线建议
 

@@ -80,7 +80,7 @@ The requirements review found no blocking question that must be sent back to the
 1. WHEN Codex outputs an unfinished Task summary, THE summary SHALL include each task's status, recent checkpoint or update time, completed acceptance work, remaining acceptance work, blockers, next step, and evidence source.
 2. IF progress evidence is missing, THEN THE summary SHALL mark the missing field as unknown rather than inventing a percentage.
 3. WHEN a spec `tasks.md` contains unfinished work, THE unfinished item SHALL include enough local progress context for the next agent to resume.
-4. WHEN task progress is represented in `docs/codex-memory-plugin-task-list.md`, THE spec SHALL keep task IDs and step references aligned with that list.
+4. WHEN task progress is represented in `.codex/specs/backlog-governance/tasks.md`, THE spec SHALL keep task IDs and step references aligned with that list; `docs/codex-memory-plugin-task-list.md` SHALL be treated only as a compatibility stub.
 
 ### Requirement 6 - Rule propagation
 

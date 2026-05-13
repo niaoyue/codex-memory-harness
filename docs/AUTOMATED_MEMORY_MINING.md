@@ -282,7 +282,7 @@ doctor 应展示：
 
 ## 验收标准
 
-本节校正依据（2026-05-08 本地只读核对）：当前项目验证闭环、任务清单和 grounded docs 检查入口见 `scripts/verify_project.py`、`docs/codex-memory-plugin-task-list.md`、`scripts/verify_grounded_docs.py`。
+本节校正依据（2026-05-08 本地只读核对，2026-05-13 specs 迁移后更新）：当前项目验证闭环、任务清单和 grounded docs 检查入口见 `scripts/verify_project.py`、`.codex/specs/backlog-governance/tasks.md`、`scripts/verify_grounded_docs.py`。
 
 自动记忆挖掘能力完成时，至少满足：
 

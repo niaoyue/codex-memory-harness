@@ -15,6 +15,19 @@ from task_spec import task_dir, task_spec_path
 
 UNFINISHED_STATUSES = {"todo", "doing", "blocked", "open", "in_progress", "executing", "verifying"}
 UNKNOWN = "unknown"
+DEFAULT_TASK_LIST_PATHS = (
+    Path(".codex/specs/backlog-governance/tasks.md"),
+    Path("docs/codex-memory-plugin-task-list.md"),
+)
+PROGRESS_SNAPSHOT_KEYS = {
+    "status",
+    "recent_checkpoint_or_update",
+    "completed_acceptance",
+    "remaining_acceptance",
+    "blockers",
+    "next_step",
+    "evidence_sources",
+}
 
 
 def _string(value: Any) -> str:
@@ -78,10 +91,10 @@ def _normalize_header(value: str) -> str:
     return re.sub(r"[\s`*_]+", "", value).lower()
 
 
-def _task_list_path(project_root: Path, task_list_path: Path | None) -> Path:
+def _candidate_task_list_paths(project_root: Path, task_list_path: Path | None) -> list[Path]:
     if task_list_path:
-        return task_list_path if task_list_path.is_absolute() else project_root / task_list_path
-    return project_root / "docs" / "codex-memory-plugin-task-list.md"
+        return [task_list_path if task_list_path.is_absolute() else project_root / task_list_path]
+    return [project_root / path for path in DEFAULT_TASK_LIST_PATHS]
 
 
 def parse_task_list(path: Path) -> tuple[list[dict[str, str]], dict[str, str], list[str]]:
@@ -93,6 +106,7 @@ def parse_task_list(path: Path) -> tuple[list[dict[str, str]], dict[str, str], l
     step_by_task: dict[str, str] = {}
     headers: list[str] = []
     header_map: dict[str, int] = {}
+    saw_task_table = False
 
     for index, line in enumerate(lines, start=1):
         stripped = line.strip()
@@ -102,6 +116,7 @@ def parse_task_list(path: Path) -> tuple[list[dict[str, str]], dict[str, str], l
             if "id" in normalized and ("状态" in normalized or "status" in normalized):
                 headers = normalized
                 header_map = {name: pos for pos, name in enumerate(headers)}
+                saw_task_table = True
                 continue
             if set(normalized) <= {"", "---", ":---", "---:", ":---:"}:
                 continue
@@ -131,7 +146,53 @@ def parse_task_list(path: Path) -> tuple[list[dict[str, str]], dict[str, str], l
         if step_match:
             step_by_task[step_match.group(2)] = step_match.group(1)
 
+    if not saw_task_table:
+        warnings.append(f"task list has no task table: {path}")
     return tasks, step_by_task, warnings
+
+
+def _parse_default_task_list(candidates: list[Path]) -> tuple[Path, list[dict[str, str]], dict[str, str], list[str]]:
+    warnings: list[str] = []
+    fallback: tuple[Path, list[dict[str, str]], dict[str, str], list[str]] | None = None
+    for index, candidate in enumerate(candidates):
+        rows, step_by_task, candidate_warnings = parse_task_list(candidate)
+        has_no_table = any("has no task table" in warning for warning in candidate_warnings)
+        if candidate.exists() and not has_no_table:
+            warnings.extend(candidate_warnings)
+            return candidate, rows, step_by_task, warnings
+        warnings.extend(candidate_warnings)
+        if index == 0:
+            fallback = (candidate, rows, step_by_task, candidate_warnings)
+    if fallback:
+        selected, rows, step_by_task, _ = fallback
+    else:
+        selected, rows, step_by_task = candidates[0], [], {}
+    return selected, rows, step_by_task, list(dict.fromkeys(warnings))
+
+
+def _parse_progress_snapshots(path: Path) -> dict[str, dict[str, str]]:
+    if not path.exists():
+        return {}
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return {}
+    snapshots: dict[str, dict[str, str]] = {}
+    current_task_id = ""
+    for line in lines:
+        stripped = line.strip()
+        heading = re.match(r"^#{2,6}\s+(T\d+)\b", stripped)
+        if heading:
+            current_task_id = heading.group(1)
+            snapshots.setdefault(current_task_id, {})
+            continue
+        if not current_task_id or not stripped.startswith("- ") or ":" not in stripped:
+            continue
+        key, value = stripped[2:].split(":", 1)
+        normalized_key = key.strip().lower()
+        if normalized_key in PROGRESS_SNAPSHOT_KEYS:
+            snapshots[current_task_id][normalized_key] = value.strip()
+    return snapshots
 
 
 def _latest_artifact(project_root: Path, task_id: str) -> dict[str, Any]:
@@ -163,17 +224,26 @@ def build_unfinished_task_summary(
 ) -> dict[str, Any]:
     root = Path(project_root)
     selected_ids = {item for item in (task_ids or []) if item}
-    resolved_task_list = _task_list_path(root, Path(task_list_path) if task_list_path else None)
-    rows, step_by_task, warnings = parse_task_list(resolved_task_list)
+    candidate_task_lists = _candidate_task_list_paths(root, Path(task_list_path) if task_list_path else None)
+    resolved_task_list, rows, step_by_task, warnings = _parse_default_task_list(candidate_task_lists)
+    progress_snapshots = _parse_progress_snapshots(resolved_task_list)
     if selected_ids:
         rows = [row for row in rows if row["task_id"] in selected_ids]
     memory = store or _project_memory_store(root)
     tasks = [
-        _build_task_progress(root, resolved_task_list, row, step_by_task.get(row["task_id"], ""), memory)
+        _build_task_progress(
+            root,
+            resolved_task_list,
+            row,
+            step_by_task.get(row["task_id"], ""),
+            memory,
+            progress_snapshots.get(row["task_id"], {}),
+        )
         for row in rows
     ]
     return {
         "task_list_path": str(resolved_task_list),
+        "task_list_candidates": [str(path) for path in candidate_task_lists],
         "tasks": tasks,
         "warnings": warnings,
     }
@@ -185,6 +255,7 @@ def _build_task_progress(
     row: dict[str, str],
     step_text: str,
     store: MemoryStore,
+    progress_snapshot: dict[str, str],
 ) -> dict[str, Any]:
     task_id = row["task_id"]
     state = store.get_task_state(task_id)
@@ -204,21 +275,31 @@ def _build_task_progress(
         evidence.append(f"harness_run_state:{task_id}")
     if artifact:
         evidence.append(f"harness_artifact:{task_id}")
+    if progress_snapshot:
+        evidence.append(f"progress_snapshot:{task_list}:{row['line']}")
+        evidence.extend(_safe_list(progress_snapshot.get("evidence_sources")))
 
     recent = (
         _string(artifact.get("recorded_at"))
         or _string(run_state.get("updated_at"))
         or _string(state.get("updated_at") if state else "")
         or _string(summary.get("updated_at") if summary else "")
+        or _string(progress_snapshot.get("recent_checkpoint_or_update"))
         or UNKNOWN
     )
     recent_findings = _safe_list((state or {}).get("recent_findings"))[:5]
     if not recent_findings and artifact:
         recent_findings = _safe_list(artifact.get("summary"))[:3]
+    if not recent_findings:
+        recent_findings = _safe_list(progress_snapshot.get("completed_acceptance"))
     completed = _unknown_if_empty(recent_findings)
 
     metadata = (state or {}).get("metadata") if isinstance((state or {}).get("metadata"), dict) else {}
-    remaining = _safe_list((spec or {}).get("acceptance")) or _safe_list(metadata.get("acceptance"))
+    remaining = (
+        _safe_list((spec or {}).get("acceptance"))
+        or _safe_list(metadata.get("acceptance"))
+        or _safe_list(progress_snapshot.get("remaining_acceptance"))
+    )
     if not remaining:
         output = row.get("output") or row.get("title")
         if step_text:
@@ -227,12 +308,12 @@ def _build_task_progress(
             remaining = [output]
     remaining = _unknown_if_empty(remaining)
 
-    blockers = _safe_list((state or {}).get("open_questions"))
-    if row["status"] == "blocked" and row.get("output"):
+    blockers = _safe_list((state or {}).get("open_questions")) or _safe_list(progress_snapshot.get("blockers"))
+    if not blockers and row["status"] == "blocked" and row.get("output"):
         blockers = blockers + [row["output"]]
     blockers = _unknown_if_empty(blockers)
 
-    next_step = _string((state or {}).get("next_step")) or step_text or UNKNOWN
+    next_step = _string((state or {}).get("next_step")) or _string(progress_snapshot.get("next_step")) or step_text or UNKNOWN
     return {
         "task_id": task_id,
         "title": row.get("title") or UNKNOWN,

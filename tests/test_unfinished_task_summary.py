@@ -20,6 +20,9 @@ import unfinished_task_summary
 from workspace_test_helpers import MemoryEnv
 
 
+CANONICAL_TASK_LIST = Path(".codex/specs/backlog-governance/tasks.md")
+LEGACY_TASK_LIST = Path("docs/codex-memory-plugin-task-list.md")
+
 TASK_LIST = """# Tasks
 
 | ID | 阶段 | 任务 | 产出物 | 依赖 | 状态 |
@@ -35,14 +38,41 @@ TASK_LIST = """# Tasks
 - Step 43 进行中：实现 T03。当前已完成 parser，剩余 before_response 接入。
 """
 
+LEGACY_ONLY_TASK_LIST = """# Legacy Tasks
+
+| ID | 阶段 | 任务 | 产出物 | 依赖 | 状态 |
+|---|---|---|---|---|---|
+| T90 | 1 | Legacy fallback task | `legacy.md` | 无 | todo |
+"""
+
+TASK_LIST_WITH_PROGRESS = TASK_LIST + """
+
+## Current Progress
+
+### T02 - Build progress reporter
+
+- status: todo
+- recent_checkpoint_or_update: 2026-05-13T09:57:14+00:00
+- completed_acceptance: parser reads canonical task rows
+- remaining_acceptance: before_response should include progress fields
+- blockers: waiting for final review
+- next_step: run targeted tests
+- evidence_sources: tests/test_unfinished_task_summary.py
+"""
+
+
+def write_task_list(project_root: Path, relative_path: Path, content: str = TASK_LIST) -> Path:
+    task_list = project_root / relative_path
+    task_list.parent.mkdir(parents=True, exist_ok=True)
+    task_list.write_text(content, encoding="utf-8")
+    return task_list
+
 
 class UnfinishedTaskSummaryTests(unittest.TestCase):
     def test_build_unfinished_progress_summary_uses_evidence_and_unknowns(self) -> None:
         with MemoryEnv() as temp_dir:
             project_root = Path(temp_dir)
-            task_list = project_root / "docs" / "codex-memory-plugin-task-list.md"
-            task_list.parent.mkdir(parents=True)
-            task_list.write_text(TASK_LIST, encoding="utf-8")
+            task_list = write_task_list(project_root, LEGACY_TASK_LIST)
 
             store = memory_store.MemoryStore()
             store.upsert_task_state(
@@ -65,6 +95,7 @@ class UnfinishedTaskSummaryTests(unittest.TestCase):
 
         tasks = {item["task_id"]: item for item in summary["tasks"]}
         self.assertEqual(set(tasks), {"T02", "T03", "T04"})
+        self.assertEqual(summary["task_list_path"], str(task_list))
         self.assertEqual(tasks["T02"]["status"], "todo")
         self.assertEqual(tasks["T02"]["recent_checkpoint_or_update"], "unknown")
         self.assertEqual(tasks["T02"]["completed_acceptance"], ["unknown"])
@@ -85,12 +116,52 @@ class UnfinishedTaskSummaryTests(unittest.TestCase):
         self.assertIn("unknown", rendered)
         self.assertNotIn("%", rendered)
 
+    def test_default_task_list_prefers_codex_specs_backlog_governance(self) -> None:
+        with MemoryEnv() as temp_dir:
+            project_root = Path(temp_dir)
+            canonical = write_task_list(project_root, CANONICAL_TASK_LIST)
+            write_task_list(project_root, LEGACY_TASK_LIST, LEGACY_ONLY_TASK_LIST)
+
+            summary = unfinished_task_summary.build_unfinished_task_summary(project_root=project_root)
+
+        self.assertEqual(summary["task_list_path"], str(canonical))
+        self.assertEqual([item["task_id"] for item in summary["tasks"]], ["T02", "T03", "T04"])
+        self.assertIn(str(project_root / CANONICAL_TASK_LIST), summary["task_list_candidates"])
+        self.assertIn(str(project_root / LEGACY_TASK_LIST), summary["task_list_candidates"])
+
+    def test_default_task_list_falls_back_to_legacy_docs_path(self) -> None:
+        with MemoryEnv() as temp_dir:
+            project_root = Path(temp_dir)
+            legacy = write_task_list(project_root, LEGACY_TASK_LIST, LEGACY_ONLY_TASK_LIST)
+
+            summary = unfinished_task_summary.build_unfinished_task_summary(project_root=project_root)
+
+        self.assertEqual(summary["task_list_path"], str(legacy))
+        self.assertEqual([item["task_id"] for item in summary["tasks"]], ["T90"])
+        self.assertTrue(any("task list not found" in warning for warning in summary["warnings"]))
+
+    def test_task_progress_uses_snapshot_fields_from_canonical_task_list(self) -> None:
+        with MemoryEnv() as temp_dir:
+            project_root = Path(temp_dir)
+            write_task_list(project_root, CANONICAL_TASK_LIST, TASK_LIST_WITH_PROGRESS)
+
+            summary = unfinished_task_summary.build_unfinished_task_summary(
+                project_root=project_root,
+                task_ids=["T02"],
+            )
+
+        task = summary["tasks"][0]
+        self.assertEqual(task["recent_checkpoint_or_update"], "2026-05-13T09:57:14+00:00")
+        self.assertEqual(task["completed_acceptance"], ["parser reads canonical task rows"])
+        self.assertEqual(task["remaining_acceptance"], ["before_response should include progress fields"])
+        self.assertEqual(task["blockers"], ["waiting for final review"])
+        self.assertEqual(task["next_step"], "run targeted tests")
+        self.assertTrue(any(source.startswith("progress_snapshot:") for source in task["evidence_sources"]))
+
     def test_before_response_can_include_unfinished_task_summary(self) -> None:
         with MemoryEnv() as temp_dir:
             project_root = Path(temp_dir)
-            task_list = project_root / "docs" / "codex-memory-plugin-task-list.md"
-            task_list.parent.mkdir(parents=True)
-            task_list.write_text(TASK_LIST, encoding="utf-8")
+            write_task_list(project_root, CANONICAL_TASK_LIST)
 
             runner = hook_runner.HookRunner(memory_store=memory_store.MemoryStore())
             runner.run_event("before_task", {"task_id": "current", "objective": "Summarize unfinished tasks"})
@@ -113,9 +184,7 @@ class UnfinishedTaskSummaryTests(unittest.TestCase):
         with MemoryEnv() as first_dir, MemoryEnv() as second_dir:
             first_root = Path(first_dir)
             second_root = Path(second_dir)
-            task_list = first_root / "docs" / "codex-memory-plugin-task-list.md"
-            task_list.parent.mkdir(parents=True)
-            task_list.write_text(TASK_LIST, encoding="utf-8")
+            write_task_list(first_root, CANONICAL_TASK_LIST)
 
             old_cwd = os.environ.get("CODEX_MEMORY_CWD")
             try:
@@ -149,4 +218,5 @@ class UnfinishedTaskSummaryTests(unittest.TestCase):
         rendered = unfinished_task_summary.render_markdown(summary)
         self.assertIn("## Warnings", rendered)
         self.assertIn("task list not found", rendered)
+        self.assertIn(".codex", rendered)
         self.assertIn("No unfinished tasks found.", rendered)

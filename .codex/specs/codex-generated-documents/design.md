@@ -111,7 +111,7 @@ CodexSpec {
   tasks: "tasks.md"
   status: planned | doing | done | superseded
   source_request: short summary
-  related_task_ids: list of docs/codex-memory-plugin-task-list IDs
+  related_task_ids: list of .codex/specs/backlog-governance/tasks.md IDs
 }
 ```
 
@@ -148,7 +148,7 @@ TaskProgressSummary {
 
 - **Dependency:** `.gitignore` must allow `.codex/specs/**`; otherwise the new specs are invisible to normal Git tracking.
 - **Decision:** The canonical current spec slug is `codex-generated-documents`.
-- **Environment blocker:** `shrimp-task-manager` is not exposed in this runtime, so task tracking falls back to `docs/codex-memory-plugin-task-list.md`.
+- **Environment blocker:** `shrimp-task-manager` is not exposed in this runtime, so task tracking falls back to the repository-local Markdown task list at `.codex/specs/backlog-governance/tasks.md`.
 - **Interface blocker:** None. This task does not define a new API, CLI, schema, or cross-module contract, so `design-an-interface` is not required for this slice.
 - **Verification blocker:** Full release verification is unnecessary for a docs/rule-only change; targeted diff, ignore, and Python syntax checks are sufficient unless committing triggers the full review gate.
 

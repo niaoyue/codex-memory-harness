@@ -428,7 +428,7 @@ docs/WORKSPACE_ROUTING_MIGRATION.md
 Workspace routing 的实现拆分和当前进度见：
 
 ```text
-docs/WORKSPACE_ROUTING_TASK_LIST.md
+.codex/specs/backlog-governance/workspace-routing-tasks.md
 ```
 
 ## 打包给别人
