@@ -413,7 +413,7 @@ docs/WORKSPACE_ROUTING_MIGRATION.md
 }
 ```
 
-当 route plan 命中该 policy 时，lifecycle 会写入 `host_dispatch_allowed=true`、`dispatch_plan_required=true` 和 `main_agent_action=read_dispatch_plan_and_call_host_subagents`。这解决“单项目单 specialist 被默认 main_agent_serial 压住”的问题，但仍受宿主层 `spawn_agent` 规则约束。
+当 route plan 命中该 policy 时，lifecycle 会写入 `host_dispatch_allowed=true`、`dispatch_plan_required=true` 和 `main_agent_action=read_dispatch_plan_and_call_host_subagents`。这解决“单项目单 specialist 被默认 main_agent_serial 压住”的问题，但实际派发仍取决于当前 Codex 会话是否允许或提供 SubAgent 能力；这不是插件内建子进程，也不是 T59 需要等待的额外 API。
 
 没有项目 policy 时，runtime 也会做通用自动判断。planner 会综合：
 

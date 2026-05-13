@@ -19,7 +19,7 @@
 
 当用户明确选择 SubAgent、分角色或并行代理，任务属于复杂/应用级/多阶段实现，或项目持久化 `subagent_runtime_policy` 授权当前 route 时，主 agent 可以消费 lifecycle 写入的 `metadata.workspace_routing.subagent_dispatch_plan.host_spawn_requests` 来派发 Codex SubAgent。这个动作发生在主 agent 和 Codex 宿主运行时之间，不是 Python 插件自行启动子进程或远程 agent。
 
-所有 SubAgent 都不得设置固定总时长。宿主 `wait_agent`、命令执行器 timeout 或类似 API 的时间参数只能作为单次观察窗口；窗口到期后继续观察或读取最新输出，不得仅因观察窗口到期就中断、关闭或判失败。只要 SubAgent 有 stdout/stderr、checkpoint、状态更新或其他可见进度，就视为仍在运行。
+所有 SubAgent 都不得设置固定总时长。Codex SubAgent 的观察窗口、`wait_agent` 类观察参数或命令执行器 timeout 只能作为单次观察窗口；窗口到期后继续观察或读取最新输出，不得仅因观察窗口到期就中断、关闭或判失败。只要 SubAgent 有 stdout/stderr、checkpoint、状态更新或其他可见进度，就视为仍在运行。
 
 ## 2. 为什么需要 SubAgent 分工
 
@@ -182,7 +182,7 @@ codex harness complete --task-id <task-id> --summary-file summary.md
 
 如果 XHigh Review Runner 遇到模型容量、429、5xx 或超时类基础设施错误，恢复顺序是先续跑、后重开。主 agent 或宿主仍持有活跃 runner session 时，应按故障类型退避后对同一 session 发送继续指令，让它复用已有 transcript、审查进度和已读上下文：容量/429 退避 20 秒且只要 session 活跃就可继续，5xx/超时退避 2 秒且最多续跑一次。只有 runner session 已关闭、无句柄、不可恢复，或 review 期间 diff 已变化时，才重新启动同一个 review gate。无论续跑还是重开，只要 xhigh review 没有完整返回 clean 或 findings，就不能视为通过。
 
-如果 xhigh review 返回 findings，主 agent 修复后必须创建新的本地提交或在未 push 前重做候选提交，再 review 新提交本身，直到没有新的阻断问题。SubAgent 发生 idle timeout、wrapper 失败或宿主不支持 SubAgent 时，必须记录失败原因，并由主 agent 直接运行 `codex-raw -- review -c model_reasoning_effort="xhigh" --commit <commit-sha>` 或原生 Codex review 命令兜底。
+如果 xhigh review 返回 findings，主 agent 修复后必须创建新的本地提交或在未 push 前重做候选提交，再 review 新提交本身，直到没有新的阻断问题。当前 Codex 会话无法派发 SubAgent、runner idle timeout 或 wrapper 失败时，必须记录失败原因，并由主 agent 直接运行 `codex-raw -- review -c model_reasoning_effort="xhigh" --commit <commit-sha>` 或原生 Codex review 命令兜底。
 
 candidate commit 只应包含本轮相关文件；如果工作树里混有用户无关改动，必须先隔离提交范围，无法安全隔离时在最终答复说明未提交原因。每个候选提交或修复提交 review 无新阻断问题后才允许 push。
 
@@ -190,8 +190,8 @@ candidate commit 只应包含本轮相关文件；如果工作树里混有用户
 
 当前落地方式是使用 Codex SubAgent 作为执行通道，同时保持插件侧只负责计划、scope guard 和 receipt 汇总：
 
-- 主 agent 使用 Codex 宿主提供的 SubAgent 能力时，按本文件定义角色和 artifact。
-- lifecycle 会在显式、route policy、复杂/应用级任务、xhigh review gate 或通用自动判断命中时写入 `subagent_runtime` 和 `subagent_dispatch_plan`。`route policy` 可来自 `.codex/harness/project_profile.json` 或 `.codex/harness/workspace-routing.json` 的 `subagent_runtime_policy`，用于把正式 implementation 任务的授权持久化。通用 planner 会综合 `task_intent`、`task_type`、`risk_level`、route 数量、scope 大小、复杂度和 review gate：功能 story、系统改动、发布 gate、高风险或复杂应用级任务会允许宿主派发；普通低风险小修仍保持主 Agent 串行。只有当 `subagent_runtime.host_dispatch_allowed=true` 时，主 agent 才应按 `host_spawn_requests` 调用宿主 SubAgent；推荐但未允许派发时只记录计划，等待用户或宿主确认。
+- 主 agent 使用当前 Codex 会话提供的 SubAgent 能力时，按本文件定义角色和 artifact。
+- lifecycle 会在显式、route policy、复杂/应用级任务、xhigh review gate 或通用自动判断命中时写入 `subagent_runtime` 和 `subagent_dispatch_plan`。`route policy` 可来自 `.codex/harness/project_profile.json` 或 `.codex/harness/workspace-routing.json` 的 `subagent_runtime_policy`，用于把正式 implementation 任务的授权持久化。通用 planner 会综合 `task_intent`、`task_type`、`risk_level`、route 数量、scope 大小、复杂度和 review gate：功能 story、系统改动、发布 gate、高风险或复杂应用级任务会允许派发；普通低风险小修仍保持主 Agent 串行。只有当 `subagent_runtime.host_dispatch_allowed=true` 时，主 agent 才应按 `host_spawn_requests` 调用当前 Codex SubAgent 能力；推荐但未允许派发时只记录计划，等待用户选择、项目 policy 授权或当前 Codex 会话允许派发。
 - 当 planner 判定实现任务需要旁路审查时，dispatch plan 会在 route specialist 之外加入 `Route Review Specialist`。它只做限定 scope 的风险和测试覆盖审查，不替代最终 commit-based 的 `codex xhigh review --commit <commit-sha>` gate。
 - 如果 Codex SubAgent 调用失败或 scope 冲突，主 agent 必须记录降级原因，并按同一个 dispatch plan 串行执行或回到普通主 Agent 流程。
 - 主 agent 可以派发 XHigh Review Runner 执行 `codex xhigh review --commit <commit-sha>`；这属于使用 Codex SubAgent 能力，不代表本仓库内建了独立执行器。

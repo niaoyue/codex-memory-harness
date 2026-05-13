@@ -21,7 +21,7 @@ The user corrected the target location from `.codex/harness/specs/` to `.codex/s
 - **Resolved from repository rules:** `.codex/harness` is runtime harness state; durable generated specs belong under `.codex/specs`.
 - **Resolved from existing spec:** `.codex/specs/codex-generated-documents/` already establishes the Kiro-like `requirements.md`, `design.md`, `tasks.md` convention.
 - **Resolved from code search:** `unfinished_task_summary.py` currently defaults to `docs/codex-memory-plugin-task-list.md`, so migration must update the default reader or preserve a full legacy task list in `docs/`. The correct fix is to prefer the new canonical task list and fall back to the legacy path.
-- **Resolved from HarnessTest dogfood:** T59, T81, T83, and T87 have locally verified adapter evidence, but host-native SubAgent execution, host-native write interception, automatic branch integration, and real BMAD upstream execution must not be claimed complete.
+- **Resolved from HarnessTest dogfood and user clarification:** T59 uses the Codex SubAgent channel; it does not wait for an extra host SubAgent API. The repository must still avoid claiming plugin-owned independent SubAgent process management, and T59 remains visible until the Codex SubAgent dispatch/observation/checkpoint/receipt dogfood is documented as a repeatable workflow. T81, T83, and T87 still have host hook, branch integration, or upstream BMAD work that must not be claimed complete.
 
 No user-facing open question blocks this migration.
 
@@ -47,7 +47,8 @@ No user-facing open question blocks this migration.
 1. WHEN no explicit task list path is supplied, THE unfinished task summary reader SHALL prefer `.codex/specs/backlog-governance/tasks.md`.
 2. IF the canonical task list does not exist, THEN the reader SHALL fall back to `docs/codex-memory-plugin-task-list.md`.
 3. WHEN `tasks.md` lists unfinished tasks, EACH unfinished task SHALL include status, recent progress or checkpoint, remaining acceptance, blocker, next step, and evidence source when available.
-4. WHEN T59, T81, T83, or T87 are summarized, THE document SHALL distinguish locally verified adapter behavior from host-native or upstream work that remains blocked.
+4. WHEN T59 is summarized, THE document SHALL distinguish the supported Codex SubAgent dispatch channel from unsupported plugin-owned independent agent process management, and SHALL keep T59 unfinished until repeatable dispatch/observation/checkpoint/receipt dogfood is documented.
+5. WHEN T81, T83, or T87 are summarized, THE document SHALL distinguish locally verified adapter behavior from host-native hook, integration branch, or upstream BMAD work that remains blocked.
 
 ### Requirement 3 - Migrated document mapping
 

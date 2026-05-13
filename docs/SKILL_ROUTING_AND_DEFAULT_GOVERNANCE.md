@@ -143,7 +143,7 @@ OpenSpec/BMAD 这类治理集成属于专项例外：已有决策是 upstream-co
 - 在 SubAgent 运行时处理不改变其 scope 的本地任务。
 - 汇总 checkpoint、scope guard、验证结果、冲突和下一步。
 
-如果宿主不支持 SubAgent、scope 冲突或所有任务共享同一阻塞，主 Agent 记录降级原因后串行执行。
+如果当前 Codex 会话无法使用 SubAgent、scope 冲突或所有任务共享同一阻塞，主 Agent 记录降级原因后串行执行。
 
 ## 8. 代码 Review 规则
 

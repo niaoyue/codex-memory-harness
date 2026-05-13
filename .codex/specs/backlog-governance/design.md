@@ -42,11 +42,11 @@ The fallback preserves compatibility for external projects or tests that still u
 
 ## Progress Evidence Model
 
-The canonical task list records HarnessTest dogfood evidence for the currently unfinished high-risk items and the completed Codex SubAgent execution-channel correction:
+The canonical task list records HarnessTest dogfood evidence for the currently unfinished high-risk items, including the Codex SubAgent execution-channel correction that is usable but still needs a repeatable dispatch/observation/checkpoint/receipt runbook:
 
 | Task | Local evidence | Remaining blocker |
 |---|---|---|
-| T59 | Generated SubAgent binding, one host spawn request, Codex SubAgent read-only audit, and receipt summary `ready_for_integration` | Completed; no separate host API blocker |
+| T59 | Generated SubAgent binding, one host spawn request, Codex SubAgent read-only audit, and receipt summary `ready_for_integration` | No separate host API blocker; remaining work is repeatable Codex SubAgent dispatch/observation/checkpoint/receipt dogfood documentation |
 | T81 | `before_first_write` soft event returned `switch_to_effective_cwd` | Host-native pre-write interception and full lifecycle enforcement |
 | T83 | Receipt readiness report returned `ready_for_integration`, `auto_merge=false`, with branch metadata | T81 plus automatic specialist branch integration and final gate |
 | T87 | Governance adapter collected OpenSpec, BMAD planning, verification, and clean review evidence with `safe_to_archive=true` | Real BMAD upstream execution or user planning material |

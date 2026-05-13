@@ -78,7 +78,7 @@
 | T56 | 19 | 补服务器/后台/文档/美术业务模板 | `workspace_business_templates.py` 与 `codex workspace project-template init/template` | T54,WR-26,WR-27,WR-28 | done |
 | T57 | 19 | 补 workspace routing 发布与迁移说明 | `docs/WORKSPACE_ROUTING_MIGRATION.md` 说明普通 harness 到 workspace routing 的升级说明和兼容边界 | T52,WR-30 | done |
 | T58 | 20 | 实现 workspace memory 自动分层写入 | 根据 `memory_plan` 写入 workspace summary 与子项目 fact | T43,WR-34 | done |
-| T59 | 20 | 接入 Codex SubAgent 执行通道 | 当前已生成 `host_spawn_requests` 与调度计划，`subagent_receipts.py` 已支持执行回执/status 汇总；2026-05-13 HarnessTest 已验证生成 1 个 binding 和 1 个 host spawn request；2026-05-13 本任务已用 Codex SubAgent 做只读引用核对，并用 receipt 汇总得到 `ready_for_integration`，确认正式执行通道是主 Agent 按计划调用 Codex SubAgent 并回写 receipt | T53 | done |
+| T59 | 20 | 接入 Codex SubAgent 执行通道 | 当前已生成 `host_spawn_requests` 与调度计划，`subagent_receipts.py` 已支持执行回执/status 汇总；2026-05-13 HarnessTest 已验证生成 1 个 binding 和 1 个 host spawn request；2026-05-13 本任务已用 Codex SubAgent 做只读引用核对，并用 receipt 汇总得到 `ready_for_integration`，确认正式执行通道是主 Agent 按计划调用 Codex SubAgent 并回写 receipt；剩余工作是把派发、观察、checkpoint、receipt 和 readiness 的完整 dogfood 固化为可重复 runbook | T53 | doing |
 | T60 | 20 | 补本仓库 dogfood workspace routing 配置 | 当前仓库根 `.codex/harness/workspace-routing.json` 与源码布局对齐 | WR-33 | done |
 | T61 | 20 | 实现安装器 dry-run | 安装前输出将写入的 profile、AGENTS、marketplace、skills 和 Codex config 变更 | T20 | done |
 | T62 | 20 | 实现旧全局 memory marker 迁移工具 | `migrate-legacy-global --dry-run/--confirm`，含 manifest、checksum 和回滚说明 | T21 | done |
@@ -111,7 +111,7 @@
 | T89 | 25 | 扩展 bundled skills 清单 | `bundled-skills.json` 已改为 manifest-driven 全量可用技能清单，安装验证按 manifest 期望数量计算；安装仍不覆盖用户已有技能目录 | T20,T88,T31 | done |
 | T90 | 25 | 实现 skill routing audit runtime | `skill_routing_audit.py` 已接入 hook before_task/after_tool/before_response，输出 matched/used/skipped、原因、checkpoint signal 和最终 brief | T88,T52 | done |
 | T91 | 25 | 扩展 Requirements Gate 默认治理字段 | Requirements Gate schema 已纳入策划问题、技术选择依据、测试计划缺口、性能/包体/WebGL/小游戏/资源 AB 约束字段 | T24,T85,T87,T88 | done |
-| T92 | 25 | 强化多任务 SubAgent 卡点分析 | `subagent_blocker_plan.py` 已在 dispatch plan 前输出依赖/决策/环境/接口/验证卡点、scope matrix，并阻断非 disjoint 并行派发；真正跨 session 合并仍由 T59/T83 后续能力扩展 | T53,T81,T88 | done |
+| T92 | 25 | 强化多任务 SubAgent 卡点分析 | `subagent_blocker_plan.py` 已在 dispatch plan 前输出依赖/决策/环境/接口/验证卡点、scope matrix，并阻断非 disjoint 并行派发；Codex SubAgent 派发证据由 T59 继续固化，真正跨 session 合并由 T83 后续能力扩展 | T53,T81,T88 | done |
 | T93 | 25 | 扩展发布级验证到小游戏与资源依赖 | release profile gate 原型已覆盖本地化、平台矩阵、WebGL/小游戏、AB 依赖、包体、性能和诊断日志关闭的证据聚合 | T55,T88 | done |
 | T94 | 25 | 治理文档一致性清理 | README、系统总结、skill-first 文档、OpenSpec tasks 与任务清单已同步 manifest skills、commit-based review、workspace memory 分层和治理 adapter 现状 | T58,T72,T84,T88 | done |
 | T95 | 25 | 实现 OpenSpec command/artifact adapter 原型 | `governance_adapter.py` 已连接 OpenSpec change contract、harness task、verification artifact、effective cwd 与证据 bundle，不复制第三方 core | T86,T87,T81 | done |
@@ -135,6 +135,16 @@
 - blockers: 依赖业务项目与 CI 材料，当前仓库不能伪造发布级平台材料
 - next_step: 在真实业务项目或 CI 材料可用后补齐平台构建、渠道包、热更和回滚 gate
 - evidence_sources: `.codex/specs/backlog-governance/tasks.md` T55 row; Step 33; Step 41
+
+### T59 - 接入 Codex SubAgent 执行通道
+
+- status: doing
+- recent_checkpoint_or_update: 2026-05-13 Codex SubAgent read-only audit and receipt summary `ready_for_integration`
+- completed_acceptance: 已生成 route binding、`host_spawn_requests` 和调度计划；`subagent_receipts.py` 已支持执行回执/status 汇总；HarnessTest 已验证 1 个 binding 和 1 个 host spawn request；本任务已实际派发 Codex SubAgent 做只读引用核对，并得到 readiness `ready_for_integration`
+- remaining_acceptance: 完整记录 Codex SubAgent 派发、观察、checkpoint、receipt 和 readiness 的 repeatable dogfood runbook；把多 specialist 执行结果合并路径补成可重复验证流程
+- blockers: none；Codex SubAgent 已是执行通道，不需要额外宿主 API；仓库插件不内建独立 SubAgent 子进程执行器
+- next_step: 用当前 Codex SubAgent 工具补一轮带 observation/checkpoint/receipt/readiness 的完整 dogfood，并固化 runbook
+- evidence_sources: `.codex/specs/backlog-governance/tasks.md` T59 row; Codex SubAgent audit `019e212d-9b27-7720-b510-9ccfb6ceb188`; `subagent_receipts.py` readiness `ready_for_integration`; HarnessTest dogfood checkpoint
 
 ### T81 - 集成 session binding lifecycle
 
@@ -553,7 +563,7 @@
 
 ## 6. 当前状态与下一步
 
-当前已完成至 Step 44，状态如下；其中 Step 37 仍有 hook/宿主强制接入的后续增强项：
+当前主线文档迁移已完成至 Step 44，状态如下；其中 T55、T59、T81、T83 和 T87 仍保留未完成进度，避免把可离线证据误写成完整闭环：
 
 - Step 6 已完成
 - Step 7 已完成
@@ -584,7 +594,7 @@
 - Step 29 已完成：服务器/后台/文档/美术业务模板与 `codex workspace project-template`
 - Step 30 已完成：本仓库 dogfood workspace routing 配置与发布迁移说明
 - Step 31 已完成：workspace memory 自动分层写入会在任务完成时根据 route plan `memory_plan` 写入 `.codex/shared` proposed 草稿，并可用 `workspace_memory_writer.py` 进行 dry-run/confirm。
-- Step 32 已完成：真实执行通道采用 Codex SubAgent，不再等待额外宿主 API；当前仓库已能生成 `host_spawn_requests` 和调度计划，并通过 `subagent_receipts.py` 导入执行回执与 readiness report。2026-05-13 已完成 planner -> Codex SubAgent -> receipt -> `ready_for_integration` dogfood。
+- Step 32 进行中：真实执行通道采用 Codex SubAgent，不再等待额外宿主 API；当前仓库已能生成 `host_spawn_requests` 和调度计划，并通过 `subagent_receipts.py` 导入执行回执与 readiness report。2026-05-13 已完成 planner -> Codex SubAgent -> receipt -> `ready_for_integration` 的最小 dogfood；剩余是把派发、观察、checkpoint、receipt 和 readiness 固化为可重复 runbook。
 - Step 33 进行中：release profile/evidence gate、release manifest gate 与 eval replay 已完成；release manifest gate 已本地校验 artifact kind/platform/sha256/size、evidence report_path 和未知 gate status；完整发布级验证平台仍依赖业务项目渠道包、热更、平台构建、CI 和回滚材料。
 - Step 34 已完成：安装器 dry-run、旧全局 memory marker 迁移工具、custom agents 模板、memory archive/cleanup 与可选本地语义检索 provider 均已落地。
 - Step 35 已完成：自动历史记忆挖掘 runtime 已落地事件账本、候选挖掘、accepted context 注入和治理命令；低风险偏好可进入 accepted context，高风险或冲突候选保留为可审查状态。
@@ -593,7 +603,7 @@
 - Step 38 已完成：stale/cleanup 治理已完成只读、dry-run、confirm 清理和 recover 切片；`codex workspace worktree list` 会展示 active、stale、dirty orphan、prunable、pruned 和 needs_user_review，`codex workspace worktree prune --dry-run` 只输出 released 且 clean at base 的 managed worktree 候选，不执行删除，`codex workspace worktree prune --confirm` 会重新校验 Git 状态和 managed worktree 容器路径后执行 `git worktree remove` 并把 binding 标记为 `pruned`，`codex workspace worktree recover <binding-id>` 只恢复 clean at base 的 managed stale/prunable binding。多 session 合并继续由 T83 跟进。
 - Step 39 已完成：skill-first governance runtime 已完成 T89-T97；bundled skills 改为 manifest-driven 全量可用技能，hook lifecycle 输出 skill routing audit，Requirements Gate 扩展治理字段，SubAgent dispatch 前输出 blocker/scope matrix，release profile 原型覆盖小游戏/WebGL/AB/包体/性能证据，OpenSpec/BMAD governance adapter 连接 verification 与 commit-based review evidence。
 - Step 40 已完成：bundled skill 安装状态按技能名去重；随包 `harness-release-gate` 已是 candidate commit + `codex xhigh review --commit <commit-sha>` 流程。若用户本机已安装同名技能，安装器保留用户版本并跳过 bundled copy，`install --dry-run` 报告 `already_exists_deduped`，不要求覆盖或更新。
-- Step 41 已完成：T33/T64/T65/T67-T71 已完成实现和定向测试；T55/T59/T83/T87 的可离线切片已落地为 release manifest gate、host receipt/readiness report 和 requirements conflict scanner；剩余项明确为宿主、CI、业务构建材料、强制写入 hook 或外部 BMAD 执行依赖，不在仓库内伪造完成状态。
+- Step 41 已完成：T33/T64/T65/T67-T71 已完成实现和定向测试；T55/T59/T83/T87 的可离线切片已落地为 release manifest gate、Codex SubAgent receipt/readiness report 和 requirements conflict scanner；剩余项明确为 CI、业务构建材料、repeatable SubAgent dogfood runbook、强制写入 hook 或外部 BMAD 执行依赖，不在仓库内伪造完成状态。
 - Step 42 已完成：T99 已实现。新增 `unfinished_task_summary.py` 只读聚合器，优先从 task list、`task_state`、task summary、harness task spec、run state 和 artifacts 中提取证据；`before_response` 支持通过 `include_unfinished_tasks` 或 `include_unfinished_task_progress` 显式返回结构化 `unfinished_task_summary` 和 Markdown。输出每个未完成 Task 的状态、最近进展、剩余验收、阻塞点、下一步和证据来源；缺少证据时标记 `unknown`，不生成无依据百分比。
 - Step 43 已完成：T100 已实现。参考 Kiro-like `.kiro/specs/<feature-slug>/` 的 `requirements.md`、`design.md`、`tasks.md` 三件套，已在 `.codex/specs/codex-generated-documents/` 落地本项目自己的 specs 规范；已同步 `.gitignore` 放行 `.codex/specs/**`，并更新仓库规则、安装模板、README 和 skill-first 治理文档，保证后续 Codex 自生成需求、设计和任务文档默认进入 `.codex/specs/<feature-slug>/`。
 - Step 44 已完成：T101 已实现。`docs/codex-memory-plugin-task-list.md`、`docs/codex-memory-plugin-execution-plan.md` 和 `docs/WORKSPACE_ROUTING_TASK_LIST.md` 的规划/任务正本已迁移到 `.codex/specs/backlog-governance/`，旧 `docs/` 文件仅保留兼容 stub；`unfinished_task_summary.py` 默认优先读取 `.codex/specs/backlog-governance/tasks.md`，回退旧 task list，并解析 canonical task list 中的 `### Txx` 进度快照，确保未完成 Task 汇总带上状态、最近 checkpoint、已完成/剩余验收、阻塞点、下一步和证据来源。
