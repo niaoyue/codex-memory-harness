@@ -160,6 +160,35 @@ class ReleaseProfileGateTests(unittest.TestCase):
         self.assertIn("artifact_checksum", gap_types)
         self.assertIn("evidence_report", gap_types)
 
+    def test_release_manifest_reports_directory_integrity_without_crashing(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            artifact_dir = root / "dist"
+            artifact_dir.mkdir()
+            result = release_profile_gate.evaluate_release_manifest(
+                root,
+                {
+                    "release_id": "v1",
+                    "platforms": ["webgl"],
+                    "artifacts": [
+                        {
+                            "kind": "package",
+                            "path": "dist",
+                            "platforms": ["webgl"],
+                            "sha256": "0" * 64,
+                            "size_bytes": 10,
+                        }
+                    ],
+                    "rollback_plan": "restore previous package",
+                    "evidence": {key: True for key in release_profile_gate.RELEASE_GATE_KEYS},
+                },
+            )
+
+        self.assertEqual(result["status"], "blocked")
+        gap_types = {item["type"] for item in result["blocking_gaps"]}
+        self.assertIn("artifact_checksum", gap_types)
+        self.assertIn("artifact_size", gap_types)
+
 
 if __name__ == "__main__":
     unittest.main()

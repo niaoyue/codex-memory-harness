@@ -156,6 +156,12 @@ def _artifact_integrity_gaps(
     manifest_path: str,
 ) -> list[dict[str, Any]]:
     gaps: list[dict[str, Any]] = []
+    if not artifact_path.is_file():
+        if artifact.get("sha256"):
+            gaps.append({"type": "artifact_checksum", "index": index, "path": manifest_path, "reason": "artifact sha256 currently requires a file artifact"})
+        if "size_bytes" in artifact:
+            gaps.append({"type": "artifact_size", "index": index, "path": manifest_path, "reason": "artifact size_bytes currently requires a file artifact"})
+        return gaps
     expected_sha = str(artifact.get("sha256") or "").strip().lower()
     if expected_sha:
         actual_sha = hashlib.sha256(artifact_path.read_bytes()).hexdigest()
