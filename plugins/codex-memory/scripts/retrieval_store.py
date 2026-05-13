@@ -118,11 +118,11 @@ def _rg_base_command() -> list[str]:
     return cmd
 
 
-def _run_rg(args: list[str]) -> subprocess.CompletedProcess[str]:
+def _run_rg(args: list[str], *, cwd: Path = WORKSPACE_ROOT) -> subprocess.CompletedProcess[str]:
     command = _rg_base_command() + args
     result = subprocess.run(
         command,
-        cwd=WORKSPACE_ROOT,
+        cwd=cwd,
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -189,7 +189,7 @@ class RetrievalEngine:
         self._semantic_status: dict[str, Any] | None = None
 
     def _list_workspace_files(self) -> list[str]:
-        result = _run_rg(["--files"])
+        result = _run_rg(["--files"], cwd=self.workspace_root)
         return [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
     def _path_matches(self, query: str) -> list[EvidenceItem]:
@@ -216,7 +216,7 @@ class RetrievalEngine:
         if _is_identifier_query(query):
             args.append("-w")
         args.extend([query, "."])
-        result = _run_rg(args)
+        result = _run_rg(args, cwd=self.workspace_root)
 
         items: list[EvidenceItem] = []
         for event in _iter_json_events(result.stdout):
@@ -252,7 +252,8 @@ class RetrievalEngine:
     def search_fulltext(self, query: str, limit: int = 10) -> list[EvidenceItem]:
         normalized_query = _clean_query(query)
         result = _run_rg(
-            ["--json", "-n", "-F", "-m", "2", "--max-columns", "240", "--smart-case", normalized_query, "."]
+            ["--json", "-n", "-F", "-m", "2", "--max-columns", "240", "--smart-case", normalized_query, "."],
+            cwd=self.workspace_root,
         )
 
         items: list[EvidenceItem] = []

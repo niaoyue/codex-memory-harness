@@ -91,6 +91,28 @@ def _file_sha256(path: Path) -> str:
     return "sha256:" + digest.hexdigest()
 
 
+def _skill_tree_sha256(path: Path) -> str:
+    if not path.exists() or not path.is_dir():
+        return ""
+    digest = hashlib.sha256()
+    files = [
+        item
+        for item in path.rglob("*")
+        if item.is_file()
+        and "__pycache__" not in item.parts
+        and item.suffix.lower() != ".pyc"
+    ]
+    for item in sorted(files, key=lambda value: value.relative_to(path).as_posix()):
+        relative = item.relative_to(path).as_posix()
+        digest.update(relative.encode("utf-8"))
+        digest.update(b"\0")
+        with item.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+        digest.update(b"\0")
+    return "sha256:" + digest.hexdigest()
+
+
 def ensure_bundled_skills(plugin_root: Path) -> dict[str, Any]:
     manifest = load_manifest(plugin_root)
     target_root = user_skills_root()
@@ -151,8 +173,8 @@ def bundled_skills_status(plugin_root: Path) -> dict[str, Any]:
         legacy_dst = legacy_target_root / name
         source_skill = _skill_md(src)
         target_skill = _skill_md(dst)
-        source_digest = _file_sha256(source_skill)
-        target_digest = _file_sha256(target_skill)
+        source_digest = _skill_tree_sha256(src)
+        target_digest = _skill_tree_sha256(dst)
         target_has_skill_md = target_skill.exists()
         source_exists = source_skill.exists()
         target_matches_source = bool(

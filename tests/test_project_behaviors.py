@@ -105,14 +105,20 @@ class DemoCleanupTests(unittest.TestCase):
 class RetrievalStoreTests(unittest.TestCase):
     def test_fulltext_search_treats_glob_patterns_as_literals(self) -> None:
         calls: list[list[str]] = []
+        cwd_calls: list[Path] = []
 
         class EmptyRgResult:
             stdout = ""
             stderr = ""
             returncode = 1
 
-        def fake_run(args: list[str]) -> EmptyRgResult:
+        def fake_run(
+            args: list[str],
+            *,
+            cwd: Path = retrieval_store.WORKSPACE_ROOT,
+        ) -> EmptyRgResult:
             calls.append(args)
+            cwd_calls.append(cwd)
             return EmptyRgResult()
 
         with mock.patch.object(retrieval_store, "_run_rg", side_effect=fake_run):
@@ -121,6 +127,7 @@ class RetrievalStoreTests(unittest.TestCase):
         self.assertEqual(items, [])
         self.assertIn("-F", calls[0])
         self.assertIn("*.md", calls[0])
+        self.assertEqual(retrieval_store.WORKSPACE_ROOT, cwd_calls[0])
 
 
 class SharedMemoryTests(unittest.TestCase):

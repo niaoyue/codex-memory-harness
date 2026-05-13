@@ -72,9 +72,11 @@ def candidate_from_group(key: tuple[str, str, str], events: list[dict[str, Any]]
     support_count = len(events)
     sessions = {str(item.get("session_id") or item.get("task_id") or "") for item in events}
     success_count = sum(1 for item in events if item.get("outcome") in {"succeeded", "accepted"})
+    failure_count = support_count - success_count
     risk = risk_level(intent, command_shape)
     confidence = "high" if support_count >= 3 and len(sessions) >= 2 else "medium"
-    status = "accepted" if confidence == "high" and risk == "low" else "needs_review" if risk != "low" else "observed"
+    can_auto_promote = confidence == "high" and risk == "low" and success_count == support_count
+    status = "accepted" if can_auto_promote else "needs_review" if risk != "low" or failure_count else "observed"
     statement = statement_for(intent, command_shape, support_count)
     return {
         "candidate_id": stable_candidate_id(scope, intent, command_shape),
@@ -90,7 +92,7 @@ def candidate_from_group(key: tuple[str, str, str], events: list[dict[str, Any]]
         "support_count": support_count,
         "unique_session_count": len([item for item in sessions if item]),
         "successful_outcome_count": success_count,
-        "contradiction_count": 0,
+        "contradiction_count": failure_count,
         "last_seen_at": str(events[-1].get("created_at") or ""),
         "status": status,
         "evidence_refs": [str(item.get("event_id") or "") for item in events[-5:]],

@@ -465,6 +465,8 @@ class InstallerTests(unittest.TestCase):
             source = plugin_root / "skills" / "local" / "harness-release-gate"
             source.mkdir(parents=True)
             (source / "SKILL.md").write_text("# packaged candidate commit flow\n", encoding="utf-8")
+            (source / "scripts").mkdir()
+            (source / "scripts" / "runner.py").write_text("print('packaged')\n", encoding="utf-8")
             (plugin_root / "skills" / "bundled-skills.json").write_text(
                 json.dumps(
                     {
@@ -499,6 +501,50 @@ class InstallerTests(unittest.TestCase):
         self.assertTrue(skill["stale_existing"])
         self.assertFalse(skill["target_matches_source"])
         self.assertNotEqual(skill["source_digest"], skill["target_digest"])
+
+    def test_bundled_skills_status_detects_script_drift_when_skill_md_matches(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            plugin_root = temp_root / "plugin"
+            source = plugin_root / "skills" / "local" / "scripted-skill"
+            source.mkdir(parents=True)
+            (source / "SKILL.md").write_text("# same skill text\n", encoding="utf-8")
+            (source / "scripts").mkdir()
+            (source / "scripts" / "tool.py").write_text("print('packaged')\n", encoding="utf-8")
+            (plugin_root / "skills" / "bundled-skills.json").write_text(
+                json.dumps(
+                    {
+                        "version": 1,
+                        "skills": [
+                            {
+                                "name": "scripted-skill",
+                                "source_group": "local",
+                                "path": "local/scripted-skill",
+                            }
+                        ],
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            home = temp_root / "home"
+            target = home / ".agents" / "skills" / "scripted-skill"
+            (target / "scripts").mkdir(parents=True)
+            (target / "SKILL.md").write_text("# same skill text\n", encoding="utf-8")
+            (target / "scripts" / "tool.py").write_text("print('old')\n", encoding="utf-8")
+
+            old_codex_home = os.environ.get("CODEX_HOME")
+            os.environ["CODEX_HOME"] = str(temp_root / "codex-home")
+            try:
+                with mock.patch.object(skill_bundle, "home_root", return_value=home):
+                    status = skill_bundle.bundled_skills_status(plugin_root)
+            finally:
+                _restore_env("CODEX_HOME", old_codex_home)
+
+        skill = status["skills"][0]
+        self.assertEqual(status["stale_count"], 1)
+        self.assertTrue(skill["stale_existing"])
+        self.assertFalse(skill["target_matches_source"])
 
 
 def _restore_env(name: str, value: str | None) -> None:

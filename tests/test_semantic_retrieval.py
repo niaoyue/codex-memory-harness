@@ -17,24 +17,19 @@ import retrieval_store
 
 class SemanticRetrievalTests(unittest.TestCase):
     def test_local_semantic_provider_matches_related_keywords(self) -> None:
-        old_root = retrieval_store.WORKSPACE_ROOT
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
-            try:
-                retrieval_store.WORKSPACE_ROOT = root
-                _write(
-                    root / "notes" / "incidents.md",
-                    "The login bug happens when credential validation fails.\n",
-                )
-                _write(root / "notes" / "billing.md", "Invoice export settings live here.\n")
+            _write(
+                root / "notes" / "incidents.md",
+                "The login bug happens when credential validation fails.\n",
+            )
+            _write(root / "notes" / "billing.md", "Invoice export settings live here.\n")
 
-                result = retrieval_store.RetrievalEngine(root, semantic_provider="local").search(
-                    "auth error",
-                    mode="semantic",
-                    limit=3,
-                )
-            finally:
-                retrieval_store.WORKSPACE_ROOT = old_root
+            result = retrieval_store.RetrievalEngine(root, semantic_provider="local").search(
+                "auth error",
+                mode="semantic",
+                limit=3,
+            )
 
         self.assertTrue(result["semantic"]["available"])
         self.assertEqual(result["semantic"]["provider"], "local")
@@ -42,20 +37,15 @@ class SemanticRetrievalTests(unittest.TestCase):
         self.assertEqual(result["items"][0]["match_type"], "semantic")
 
     def test_auto_mode_degrades_when_semantic_provider_is_disabled(self) -> None:
-        old_root = retrieval_store.WORKSPACE_ROOT
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
-            try:
-                retrieval_store.WORKSPACE_ROOT = root
-                _write(root / "README.md", "fallback-needle remains searchable.\n")
+            _write(root / "README.md", "fallback-needle remains searchable.\n")
 
-                result = retrieval_store.RetrievalEngine(root, semantic_provider="disabled").search(
-                    "fallback-needle",
-                    mode="auto",
-                    limit=5,
-                )
-            finally:
-                retrieval_store.WORKSPACE_ROOT = old_root
+            result = retrieval_store.RetrievalEngine(root, semantic_provider="disabled").search(
+                "fallback-needle",
+                mode="auto",
+                limit=5,
+            )
 
         self.assertFalse(result["semantic"]["available"])
         self.assertIn("disabled", result["semantic"]["reason"])

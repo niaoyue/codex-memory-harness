@@ -68,6 +68,30 @@ class MemoryMiningTests(unittest.TestCase):
         self.assertEqual(accepted[0]["confidence"], "high")
         self.assertIn("tests/test_memory_mining.py", accepted[0]["statement"])
 
+    def test_failed_repeated_events_are_not_auto_promoted(self) -> None:
+        for index in range(3):
+            memory_mining.append_history_event(
+                "after_tool",
+                {
+                    "task_id": "mine-task",
+                    "session_id": f"session-{index}",
+                    "project_id": "plugin-runtime",
+                    "scope": "project",
+                    "summary": "verification tests failed",
+                    "command": "py -X utf8 -m unittest tests/test_memory_mining.py",
+                    "ok": False,
+                },
+            )
+
+        result = memory_mining.mine_candidates()
+        candidates = memory_mining.list_candidates()["candidates"]
+
+        self.assertEqual(result["accepted"], 0)
+        self.assertEqual(candidates[0]["status"], "needs_review")
+        self.assertFalse(candidates[0]["auto_promoted"])
+        self.assertEqual(candidates[0]["successful_outcome_count"], 0)
+        self.assertEqual(candidates[0]["contradiction_count"], 3)
+
     def test_candidate_status_update_rewrites_accepted_context(self) -> None:
         self._append_repeated_verification_events()
         memory_mining.mine_candidates()
