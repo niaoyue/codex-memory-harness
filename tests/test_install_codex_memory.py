@@ -184,6 +184,38 @@ class InstallerTests(unittest.TestCase):
             "Codex Memory\n"
             "openspec/changes/<change-id>/proposal.md\n"
             "candidate commit\n"
+            "subagent_dispatch_plan.host_spawn_requests\n"
+            "subagent_runtime.recommended=true\n"
+            "host_dispatch_allowed=true\n"
+            "spawn_agent\n"
+            "actual_subagents=0\n"
+            "downgrade_reason\n"
+            "dispatch_id\n"
+        )
+        with (
+            mock.patch.object(install_status, "read_text", return_value=agents_text),
+            mock.patch.object(install_status, "home_agents_path", return_value=Path("AGENTS.md")),
+            mock.patch.object(install_status, "profile_statuses", return_value=[]),
+            mock.patch.object(install_status, "posix_profile_statuses", return_value=[]),
+            mock.patch.object(install_status, "inspect_codex_config", return_value={}),
+            mock.patch.object(install_status, "bundled_skills_status", return_value={}),
+        ):
+            state = install_status.check_state(
+                plugin_name="codex-memory",
+                repo_marketplace=Path("repo-marketplace.json"),
+                home_marketplace=Path("home-marketplace.json"),
+                plugin_root=Path("plugin"),
+                home_plugin=Path("home-plugin"),
+            )
+
+        self.assertTrue(state["home_agents"]["mentions_required_subagent_dispatch"])
+        self.assertEqual(state["home_agents"]["missing_required_subagent_dispatch_markers"], [])
+
+    def test_check_state_rejects_partial_subagent_dispatch_guidance(self) -> None:
+        agents_text = (
+            "Codex Memory\n"
+            "openspec/changes/<change-id>/proposal.md\n"
+            "candidate commit\n"
             "host_dispatch_allowed=true\n"
             "spawn_agent\n"
             "actual_subagents=0\n"
@@ -204,7 +236,18 @@ class InstallerTests(unittest.TestCase):
                 home_plugin=Path("home-plugin"),
             )
 
-        self.assertTrue(state["home_agents"]["mentions_required_subagent_dispatch"])
+        home_agents = state["home_agents"]
+        self.assertFalse(home_agents["mentions_required_subagent_dispatch"])
+        self.assertIn(
+            "subagent_dispatch_plan.host_spawn_requests",
+            home_agents["missing_required_subagent_dispatch_markers"],
+        )
+        self.assertIn(
+            "subagent_runtime.recommended=true",
+            home_agents["missing_required_subagent_dispatch_markers"],
+        )
+        self.assertIn("downgrade_reason", home_agents["missing_required_subagent_dispatch_markers"])
+        self.assertIn("dispatch_id", home_agents["missing_required_subagent_dispatch_markers"])
 
     def test_dependency_status_accepts_python_launcher_without_py(self) -> None:
         def fake_which(command: str) -> str | None:

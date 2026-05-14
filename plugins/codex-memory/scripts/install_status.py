@@ -18,6 +18,21 @@ from install_support import (
 from skill_bundle import bundled_skills_status
 
 
+REQUIRED_SUBAGENT_DISPATCH_MARKERS = (
+    "subagent_dispatch_plan.host_spawn_requests",
+    "subagent_runtime.recommended=true",
+    "host_dispatch_allowed=true",
+    "spawn_agent",
+    "actual_subagents=0",
+    "downgrade_reason",
+    "dispatch_id",
+)
+
+
+def missing_required_subagent_dispatch_markers(agents_text: str) -> list[str]:
+    return [marker for marker in REQUIRED_SUBAGENT_DISPATCH_MARKERS if marker not in agents_text]
+
+
 def check_state(
     *,
     plugin_name: str,
@@ -29,6 +44,7 @@ def check_state(
     dependencies = dependency_status()
     codex_config = inspect_codex_config(home=home_root(), plugin_root=plugin_root)
     agents_text = read_text(home_agents_path())
+    missing_dispatch_markers = missing_required_subagent_dispatch_markers(agents_text)
 
     return {
         "plugin_root": str(plugin_root),
@@ -51,8 +67,8 @@ def check_state(
             "mentions_current_openspec_layout": "openspec/changes/" in agents_text,
             "mentions_candidate_review_gate": "candidate commit" in agents_text
             or "候选提交" in agents_text,
-            "mentions_required_subagent_dispatch": "spawn_agent" in agents_text
-            and "actual_subagents=0" in agents_text,
+            "mentions_required_subagent_dispatch": not missing_dispatch_markers,
+            "missing_required_subagent_dispatch_markers": missing_dispatch_markers,
         },
         "powershell_profiles": profile_statuses("all"),
         "posix_profiles": posix_profile_statuses(),
