@@ -93,6 +93,7 @@ codex
 - `codex harness ...`：运行 harness 任务生命周期命令。
 - `codex harness verify ...`：运行当前项目配置化验证。
 - `codex review preflight/status/plan`：在最终 xhigh review 前执行确定性 preflight、查看 diff fingerprint 和 reviewable slices。
+- `codex openspec upstream status|verify|sync`：查看、校验或刷新官方 OpenSpec schema/templates/license/package metadata 的 pinned upstream snapshot。
 - `codex package build/verify`：维护者打包和项目健康检查入口。
 - `codex-memory-doctor`：只检查当前窗口接入状态，不启动 Codex。
 - `codex-raw`：绕过 memory wrapper，直接启动真实 Codex。
@@ -428,7 +429,7 @@ docs/WORKSPACE_ROUTING_MIGRATION.md
 Workspace routing 的实现拆分和当前进度见：
 
 ```text
-.codex/specs/backlog-governance/workspace-routing-tasks.md
+.codex/harness/backlog/workspace-routing-tasks.md
 ```
 
 ## 打包给别人

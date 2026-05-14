@@ -232,13 +232,15 @@ class WorkspaceScannerTests(unittest.TestCase):
 
     def test_launcher_exposes_workspace_dispatcher(self) -> None:
         launcher = (PLUGIN_SCRIPTS_DIR / "codexm.ps1").read_text(encoding="utf-8")
+        workspace_helper = (PLUGIN_SCRIPTS_DIR / "codexm_workspace.ps1").read_text(encoding="utf-8")
+        dispatch = launcher + "\n" + workspace_helper
 
-        self.assertIn("function Invoke-WorkspaceCommand", launcher)
+        self.assertIn("function Invoke-WorkspaceCommand", workspace_helper)
         self.assertIn('"workspace"', launcher)
-        self.assertIn("workspace_scanner.py", launcher)
-        self.assertIn("workspace_router.py", launcher)
-        self.assertIn("workspace_verifier.py", launcher)
-        self.assertIn("workspace_subagents.py", launcher)
+        self.assertIn("workspace_scanner.py", dispatch)
+        self.assertIn("workspace_router.py", dispatch)
+        self.assertIn("workspace_verifier.py", dispatch)
+        self.assertIn("workspace_subagents.py", dispatch)
 
     def test_cli_accepts_max_depth_after_workspace_subcommands(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

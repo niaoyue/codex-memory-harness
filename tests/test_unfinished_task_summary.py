@@ -20,7 +20,7 @@ import unfinished_task_summary
 from workspace_test_helpers import MemoryEnv
 
 
-CANONICAL_TASK_LIST = Path(".codex/specs/backlog-governance/tasks.md")
+CANONICAL_TASK_LIST = Path(".codex/harness/backlog/tasks.md")
 LEGACY_TASK_LIST = Path("docs/codex-memory-plugin-task-list.md")
 
 TASK_LIST = """# Tasks
@@ -116,7 +116,7 @@ class UnfinishedTaskSummaryTests(unittest.TestCase):
         self.assertIn("unknown", rendered)
         self.assertNotIn("%", rendered)
 
-    def test_default_task_list_prefers_codex_specs_backlog_governance(self) -> None:
+    def test_default_task_list_prefers_harness_backlog(self) -> None:
         with MemoryEnv() as temp_dir:
             project_root = Path(temp_dir)
             canonical = write_task_list(project_root, CANONICAL_TASK_LIST)

@@ -176,8 +176,8 @@ For the next implementation slice, do not copy source code yet.
 Implement a small read-only resolver and decision record check first:
 
 1. `codex openspec upstream status`
-2. `codex openspec upstream verify --tool openspec`
-3. `codex openspec upstream verify --tool bmad`
+2. `codex openspec upstream verify`
+3. `codex openspec upstream sync --version <pinned-version>`
 
 Only after those commands can report pinned version, license source, executable,
 telemetry policy, and install mode should the project add write-capable adapters.

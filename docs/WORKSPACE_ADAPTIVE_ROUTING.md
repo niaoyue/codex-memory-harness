@@ -585,7 +585,7 @@ codex workspace game-client init --engine unity --project-cwd client
 ### 阶段 A：文档和 schema
 
 - 新增 `docs/WORKSPACE_ADAPTIVE_ROUTING.md`。
-- 新增 `.codex/specs/backlog-governance/workspace-routing-tasks.md`；旧 `docs/WORKSPACE_ROUTING_TASK_LIST.md` 仅保留兼容 stub。
+- 新增 `.codex/harness/backlog/workspace-routing-tasks.md`；旧 `docs/WORKSPACE_ROUTING_TASK_LIST.md` 仅保留兼容 stub。
 - 定义 `.codex/harness/workspace-routing.json` schema。
 - 定义 route plan、SubAgent route binding 和 verification aggregation schema。
 

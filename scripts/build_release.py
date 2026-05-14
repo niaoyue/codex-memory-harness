@@ -32,9 +32,7 @@ EXCLUDED_NAMES = {
 EXCLUDED_PATH_PREFIXES = (
     ("dist",),
 )
-INCLUDED_CODEX_PATH_PREFIXES = (
-    (".codex", "specs"),
-)
+INCLUDED_CODEX_PATH_PREFIXES: tuple[tuple[str, ...], ...] = ()
 
 
 def version() -> str:

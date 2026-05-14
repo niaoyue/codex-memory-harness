@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "harness_task_id": "align-openspec-spec-layer",
+  "risk_level": "high",
+  "working_set": [
+    "openspec/**",
+    ".codex/harness/backlog/**",
+    "AGENTS.md",
+    "README.md",
+    "docs/**",
+    "plugins/codex-memory/scripts/governance_adapter.py",
+    "plugins/codex-memory/scripts/unfinished_task_summary.py",
+    "plugins/codex-memory/scripts/install_support.py",
+    "tests/**"
+  ],
+  "openspec_upstream": {
+    "package": "@fission-ai/openspec",
+    "version": "1.3.1",
+    "schema": "spec-driven",
+    "manifest": "openspec/upstream/openspec/manifest.json",
+    "update_command": "codex openspec upstream sync --version 1.3.1"
+  },
+  "verification_profile_ids": [
+    "primary"
+  ],
+  "review_gate": {
+    "type": "codex_xhigh_review_commit",
+    "required": true
+  },
+  "memory_policy": {
+    "scope": "project",
+    "write_shared_summary": false
+  },
+  "archive_gate": {
+    "requires_passed_verification": true,
+    "requires_clean_review": true,
+    "requires_openspec_validate": true,
+    "requires_explicit_archive": true
+  }
+}

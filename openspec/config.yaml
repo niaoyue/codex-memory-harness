@@ -1,0 +1,19 @@
+schema: spec-driven
+
+context: |
+  This repository is Codex Memory Harness. OpenSpec owns durable specs and
+  change contracts. Harness owns task lifecycle, memory safety, workspace
+  routing, verification, review gates, and archive-readiness evidence.
+
+rules:
+  proposal:
+    - List capabilities explicitly and keep Harness runtime behavior out of
+      OpenSpec core artifacts unless it is expressed as a Harness extension.
+  specs:
+    - Use normative MUST or SHALL requirements with #### Scenario blocks.
+  design:
+    - Prefer official upstream OpenSpec commands and pinned upstream snapshots
+      over local rewrites of OpenSpec core behavior.
+  tasks:
+    - Include verification steps for OpenSpec strict validation and Harness
+      adapter evidence.

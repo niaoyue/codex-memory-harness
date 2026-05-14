@@ -1,6 +1,6 @@
 # Workspace Routing 任务拆分与进度
 
-> Canonical planning source: this Codex-generated workspace routing task document was migrated from `docs/WORKSPACE_ROUTING_TASK_LIST.md` to `.codex/specs/backlog-governance/workspace-routing-tasks.md`. The old `docs/` path is now only a compatibility stub.
+> Canonical planning source: this Codex-generated workspace routing task document was migrated from `docs/WORKSPACE_ROUTING_TASK_LIST.md` to `.codex/harness/backlog/workspace-routing-tasks.md`. The old `docs/` path is now only a compatibility stub.
 
 ## 1. 目的
 
@@ -38,7 +38,7 @@
 | WR-01 | 定义 workspace routing 总设计 | `docs/WORKSPACE_ADAPTIVE_ROUTING.md` | WR-00 | done |
 | WR-02 | 定义游戏客户端 domain 关系 | `docs/GAME_CLIENT_WORKFLOW.md` 中说明 `game_client` 是 workspace domain | WR-00 | done |
 | WR-03 | 定义 SubAgent route binding | `docs/SUBAGENT_WORKFLOW.md` route binding 章节 | WR-00 | done |
-| WR-04 | 建立任务拆分与进度表 | `.codex/specs/backlog-governance/workspace-routing-tasks.md`，旧 `docs/WORKSPACE_ROUTING_TASK_LIST.md` 仅保留兼容 stub | WR-01 | done |
+| WR-04 | 建立任务拆分与进度表 | `.codex/harness/backlog/workspace-routing-tasks.md`，旧 `docs/WORKSPACE_ROUTING_TASK_LIST.md` 仅保留兼容 stub | WR-01 | done |
 | WR-04A | 同步隐私与检索边界 | `docs/PRIVACY.md`、`docs/MEMORY_RETRIEVAL_STRATEGY.md` 说明 workspace/project/domain scope | WR-01 | done |
 | WR-05 | 定义 project inventory schema | `schemas/workspace_project_inventory.schema.json` | WR-01 | done |
 | WR-06 | 定义 route plan schema | `schemas/workspace_route_plan.schema.json` | WR-05 | done |

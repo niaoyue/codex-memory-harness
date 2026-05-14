@@ -6,11 +6,14 @@ import os
 from pathlib import Path
 from typing import Any
 
+import openspec_upstream
 from task_spec import task_spec_path
 
 
 EVIDENCE_KINDS = {
     "openspec_contract",
+    "openspec_upstream",
+    "harness_binding",
     "bmad_planning",
     "harness_task",
     "verification_artifact",
@@ -32,7 +35,9 @@ def prepare(
 ) -> dict[str, Any]:
     context = context_payload(project_root, task_id, change_id, release_profile_id, effective_cwd, "", bmad_artifact_dir, dry_run)
     evidence = [
+        openspec_upstream_evidence(project_root),
         openspec_evidence(project_root, change_id),
+        harness_binding_evidence(project_root, change_id, task_id),
         bmad_evidence(project_root, bmad_artifact_dir),
         harness_task_evidence(project_root, task_id),
     ]
@@ -54,7 +59,9 @@ def collect(
 ) -> dict[str, Any]:
     context = context_payload(project_root, task_id, change_id, release_profile_id, effective_cwd, commit_ref, bmad_artifact_dir, dry_run)
     evidence = [
+        openspec_upstream_evidence(project_root),
         openspec_evidence(project_root, change_id),
+        harness_binding_evidence(project_root, change_id, task_id),
         bmad_evidence(project_root, bmad_artifact_dir),
         harness_task_evidence(project_root, task_id),
     ]
@@ -121,6 +128,9 @@ def openspec_evidence(project_root: Path, change_id: str) -> dict[str, Any]:
     change_dir = project_root / "openspec" / "changes" / change_id
     required = ["proposal.md", "design.md", "tasks.md"]
     missing = [name for name in required if not (change_dir / name).exists()]
+    has_delta_specs = any((change_dir / "specs").rglob("spec.md")) if (change_dir / "specs").exists() else False
+    if not has_delta_specs:
+        missing.append("specs/<capability>/spec.md")
     status = "passed" if change_dir.exists() and not missing else "missing"
     return evidence_ref(
         "openspec_contract",
@@ -129,6 +139,57 @@ def openspec_evidence(project_root: Path, change_id: str) -> dict[str, Any]:
         status=status,
         summary="OpenSpec change contract is present." if status == "passed" else f"OpenSpec contract missing: {', '.join(missing) or change_id}",
     )
+
+
+def openspec_upstream_evidence(project_root: Path) -> dict[str, Any]:
+    target = project_root / "openspec" / "upstream" / "openspec"
+    manifest_path = target / "manifest.json"
+    result = openspec_upstream.verify_project(project_root)
+    payload = load_json_path(project_root, relative_path(project_root, manifest_path)) if manifest_path.exists() else {}
+    failures = result.get("failures") if isinstance(result.get("failures"), list) else []
+    status = "passed" if result.get("ok") else str(result.get("status") or "invalid")
+    summary = (
+        f"OpenSpec upstream snapshot is pinned to {result.get('resolved_version')}."
+        if status == "passed"
+        else f"OpenSpec upstream snapshot invalid: {', '.join(failures)}"
+    )
+    return evidence_ref(
+        "openspec_upstream",
+        str(result.get("resolved_version") or payload.get("resolved_version") or "@fission-ai/openspec"),
+        path=relative_path(project_root, manifest_path),
+        status=status,
+        summary=summary,
+        fingerprint=str(payload.get("integrity") or ""),
+    )
+
+
+def harness_binding_evidence(project_root: Path, change_id: str, task_id: str) -> dict[str, Any]:
+    path = project_root / "openspec" / "changes" / change_id / "harness.json"
+    if not path.exists():
+        return evidence_ref("harness_binding", change_id, path=relative_path(project_root, path), status="missing", summary="Harness binding is missing.")
+    payload = load_json_path(project_root, relative_path(project_root, path))
+    required = [
+        "version",
+        "harness_task_id",
+        "risk_level",
+        "working_set",
+        "openspec_upstream",
+        "verification_profile_ids",
+        "review_gate",
+        "memory_policy",
+        "archive_gate",
+    ]
+    missing = [key for key in required if key not in payload]
+    bound_task_id = str(payload.get("harness_task_id") or "")
+    if bound_task_id != task_id:
+        missing.append("harness_task_id")
+    status = "passed" if not missing else "invalid"
+    summary = (
+        "Harness binding is present."
+        if status == "passed"
+        else f"Harness binding invalid: {', '.join(missing)}"
+    )
+    return evidence_ref("harness_binding", change_id, path=relative_path(project_root, path), status=status, summary=summary)
 
 
 def bmad_evidence(project_root: Path, bmad_artifact_dir: str) -> dict[str, Any]:
@@ -171,9 +232,70 @@ def review_evidence(project_root: Path, review_result: str, commit_ref: str) -> 
         return [evidence_ref("xhigh_review", review_result, path=review_result, status="missing")]
     latest = entries[-1]
     status = str(latest.get("status") or "missing")
-    reviewed_commit = str(latest.get("commit_ref") or latest.get("review_commit_ref") or commit_ref)
+    reviewed_commit = review_commit_ref(latest)
+    if status == "clean" and not commit_ref:
+        return [
+            evidence_ref(
+                "xhigh_review",
+                reviewed_commit or review_result,
+                path=review_result,
+                status="invalid",
+                summary="Clean review evidence requires the requested commit.",
+                fingerprint=review_fingerprint(latest),
+            )
+        ]
+    if status == "clean" and not reviewed_commit:
+        return [
+            evidence_ref(
+                "xhigh_review",
+                review_result,
+                path=review_result,
+                status="invalid",
+                summary="Clean review evidence does not identify the reviewed commit.",
+                fingerprint=review_fingerprint(latest),
+            )
+        ]
+    if commit_ref and not commit_refs_match(commit_ref, reviewed_commit):
+        return [
+            evidence_ref(
+                "xhigh_review",
+                reviewed_commit,
+                path=review_result,
+                status="mismatch",
+                summary=f"Review evidence targets {reviewed_commit}, not requested commit {commit_ref}.",
+                fingerprint=review_fingerprint(latest),
+            )
+        ]
     summary = "Commit-based xhigh review is clean." if status == "clean" else f"xhigh review status is {status}."
-    return [evidence_ref("xhigh_review", reviewed_commit or review_result, path=review_result, status=status, summary=summary, fingerprint=str((latest.get("diff_fingerprint") or {}).get("fingerprint") or ""))]
+    ident = reviewed_commit or review_result
+    fingerprint = review_fingerprint(latest)
+    return [evidence_ref("xhigh_review", ident, path=review_result, status=status, summary=summary, fingerprint=fingerprint)]
+
+
+def review_commit_ref(entry: dict[str, Any]) -> str:
+    for key in ("commit_ref", "review_commit_ref", "commit_sha", "commit"):
+        value = str(entry.get(key) or "").strip()
+        if value:
+            return value
+    return ""
+
+
+def review_fingerprint(entry: dict[str, Any]) -> str:
+    fingerprint = entry.get("diff_fingerprint")
+    if isinstance(fingerprint, dict):
+        return str(fingerprint.get("fingerprint") or "")
+    return str(fingerprint or "")
+
+
+def commit_refs_match(expected: str, actual: str) -> bool:
+    lhs = expected.strip()
+    rhs = actual.strip()
+    if not lhs or not rhs:
+        return False
+    if lhs == rhs:
+        return True
+    min_length = min(len(lhs), len(rhs))
+    return min_length >= 7 and (lhs.startswith(rhs) or rhs.startswith(lhs))
 
 
 def blocking_gaps(evidence: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -203,7 +325,10 @@ def load_json_path(project_root: Path, path: str) -> dict[str, Any]:
     resolved = project_root / path
     if not resolved.exists():
         return {"status": "missing"}
-    value = json.loads(resolved.read_text(encoding="utf-8"))
+    try:
+        value = json.loads(resolved.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {"status": "invalid"}
     return value if isinstance(value, dict) else {"status": "invalid"}
 
 

@@ -40,7 +40,10 @@ class BuildReleaseTests(unittest.TestCase):
 
         self.assertNotIn(".codex/harness/commands.json", names)
         self.assertNotIn(".codex/harness/project_profile.json", names)
-        self.assertIn(".codex/specs/backlog-governance/tasks.md", names)
+        self.assertIn("openspec/project.md", names)
+        self.assertIn("openspec/upstream/openspec/manifest.json", names)
+        self.assertIn("openspec/upstream/openspec/schemas/spec-driven/schema.yaml", names)
+        self.assertFalse(any(name.startswith(".codex/") for name in names))
         self.assertFalse(any(name.startswith(".codex/harness/") for name in names))
         self.assertFalse(any(name.startswith(".codex/memories/") for name in names))
         self.assertFalse(any(name.startswith(".codex/shared/") for name in names))

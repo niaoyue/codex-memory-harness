@@ -16,7 +16,7 @@ from task_spec import task_dir, task_spec_path
 UNFINISHED_STATUSES = {"todo", "doing", "blocked", "open", "in_progress", "executing", "verifying"}
 UNKNOWN = "unknown"
 DEFAULT_TASK_LIST_PATHS = (
-    Path(".codex/specs/backlog-governance/tasks.md"),
+    Path(".codex/harness/backlog/tasks.md"),
     Path("docs/codex-memory-plugin-task-list.md"),
 )
 PROGRESS_SNAPSHOT_KEYS = {

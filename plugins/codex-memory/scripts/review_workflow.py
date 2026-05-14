@@ -3,6 +3,8 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -23,6 +25,7 @@ import xhigh_review_dispatch
 
 REVIEW_DIR = ".codex/harness/review"
 TRANSIENT_FAILURE_WORDS = ("429", "rate limit", "5xx", "timeout", "timed out", "capacity")
+FULL_COMMIT_SHA_RE = re.compile(r"^[0-9a-fA-F]{40}$")
 
 
 def preflight(project_root: Path, *, mode: str = "uncommitted", task_id: str = "review") -> dict[str, Any]:
@@ -68,12 +71,22 @@ def plan(project_root: Path, *, mode: str = "uncommitted") -> dict[str, Any]:
     }
 
 
-def record_review(project_root: Path, payload: dict[str, Any], *, task_id: str = "review", mode: str = "uncommitted") -> dict[str, Any]:
+def record_review(
+    project_root: Path,
+    payload: dict[str, Any],
+    *,
+    task_id: str = "review",
+    mode: str = "uncommitted",
+    commit_ref: str = "",
+) -> dict[str, Any]:
     current_fingerprint = diff_fingerprint(project_root, mode=mode)
     reviewed_fingerprint = reviewed_diff_fingerprint(payload, project_root=project_root)
+    raw_reviewed_commit = reviewed_commit_ref(payload, explicit_commit_ref=commit_ref)
+    reviewed_commit = resolve_commit_ref(project_root, raw_reviewed_commit)
     status_value = review_status(payload)
-    fingerprint_issue = fingerprint_validation_issue(reviewed_fingerprint, current_fingerprint)
-    if status_value == "clean" and fingerprint_issue:
+    commit_ref_issue = commit_ref_validation_issue(raw_reviewed_commit, reviewed_commit)
+    fingerprint_issue = None if reviewed_commit else fingerprint_validation_issue(reviewed_fingerprint, current_fingerprint)
+    if status_value == "clean" and (commit_ref_issue or fingerprint_issue):
         status_value = "invalidated"
     runner_state = runner_status(payload)
     entry = {
@@ -88,6 +101,10 @@ def record_review(project_root: Path, payload: dict[str, Any], *, task_id: str =
         "findings": normalize_findings(payload),
         "recorded_at": utc_now(),
     }
+    if reviewed_commit:
+        entry["review_commit_ref"] = reviewed_commit
+    if commit_ref_issue:
+        entry["commit_ref_validation"] = commit_ref_issue
     if fingerprint_issue:
         entry["fingerprint_validation"] = fingerprint_issue
     if runner_state == "infra_failed":
@@ -178,6 +195,59 @@ def reviewed_diff_fingerprint(payload: dict[str, Any], *, project_root: Path | N
     ):
         if isinstance(value, dict) and isinstance(value.get("fingerprint"), str):
             return dict(value)
+    return None
+
+
+def reviewed_commit_ref(payload: dict[str, Any], *, explicit_commit_ref: str = "") -> str:
+    explicit = explicit_commit_ref.strip()
+    if explicit:
+        return explicit
+    for key in ("review_commit_ref", "commit_ref", "commit_sha", "commit"):
+        value = str(payload.get(key) or "").strip()
+        if value:
+            return value
+    command = payload.get("command")
+    if isinstance(command, list):
+        return commit_ref_from_command([str(item) for item in command])
+    if isinstance(command, str):
+        return commit_ref_from_command(command.split())
+    return ""
+
+
+def commit_ref_from_command(command: list[str]) -> str:
+    for index, item in enumerate(command):
+        if item == "--commit" and index + 1 < len(command):
+            return command[index + 1].strip()
+        if item.startswith("--commit="):
+            return item.split("=", 1)[1].strip()
+    return ""
+
+
+def resolve_commit_ref(project_root: Path, ref: str) -> str:
+    value = ref.strip()
+    if not value:
+        return ""
+    if value.startswith("-"):
+        return ""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--verify", "--end-of-options", f"{value}^{{commit}}"],
+            cwd=project_root,
+            text=True,
+            capture_output=True,
+            encoding="utf-8",
+            shell=False,
+            timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    resolved = result.stdout.strip()
+    return resolved.lower() if result.returncode == 0 and FULL_COMMIT_SHA_RE.fullmatch(resolved) else ""
+
+
+def commit_ref_validation_issue(raw_ref: str, resolved_ref: str) -> dict[str, Any] | None:
+    if raw_ref and not resolved_ref:
+        return {"ok": False, "reason": "unresolved_review_commit_ref", "review_commit_ref": raw_ref}
     return None
 
 
@@ -346,6 +416,7 @@ def main() -> int:
     add_mode_flags(record)
     record.add_argument("--result-file")
     record.add_argument("--payload-json")
+    record.add_argument("--commit", default="", help="Commit SHA/ref reviewed by the result payload.")
     findings = sub.add_parser("findings")
     findings_sub = findings.add_subparsers(dest="findings_command", required=True)
     findings_sub.add_parser("list")
@@ -367,7 +438,7 @@ def main() -> int:
         result = plan(root, mode=mode)
     elif args.command == "record":
         payload = load_payload(args.result_file, args.payload_json)
-        result = record_review(root, payload, task_id=args.task_id, mode=mode)
+        result = record_review(root, payload, task_id=args.task_id, mode=mode, commit_ref=args.commit)
     elif args.command == "findings" and args.findings_command == "list":
         result = findings_list(root)
     elif args.command == "findings" and args.findings_command == "resolve":

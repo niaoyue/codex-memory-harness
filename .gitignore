@@ -9,12 +9,12 @@ dist/
 build/
 *.egg-info/
 /.codex/*
-!/.codex/specs/
-!/.codex/specs/**
 !/.codex/shared/
 !/.codex/shared/**
 !/.codex/harness/
 /.codex/harness/*
+!/.codex/harness/backlog/
+!/.codex/harness/backlog/**
 !/.codex/harness/workspace-routing.json
 /.codex/memories/
 /.codex/harness/tasks/

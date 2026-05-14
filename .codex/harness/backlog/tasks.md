@@ -1,6 +1,6 @@
 # Codex 外脑插件任务清单
 
-> Canonical planning source: this Codex-generated task and progress document was migrated from `docs/codex-memory-plugin-task-list.md` to `.codex/specs/backlog-governance/tasks.md`. The old `docs/` path is now only a compatibility stub.
+> Canonical planning source: this Codex-generated task and progress document was migrated from `docs/codex-memory-plugin-task-list.md` to `.codex/harness/backlog/tasks.md`. The old `docs/` path is now only a compatibility stub.
 
 ## 1. 使用说明
 
@@ -59,7 +59,7 @@
 | T37 | 16 | 实现 workspace scanner | project inventory、子项目识别、置信度和信号输出 | T36 | done |
 | T38 | 16 | 实现 route plan schema | task route、subagent route binding、verification aggregation | T36 | done |
 | T39 | 17 | 审查并修正 Workspace 路由文档设计 | 文档一致性修正、runtime 差距说明、memory/cwd 策略 | T36 | done |
-| T40 | 17 | 拆分 Workspace 路由实现任务 | `.codex/specs/backlog-governance/workspace-routing-tasks.md`，旧 `docs/WORKSPACE_ROUTING_TASK_LIST.md` 仅保留兼容 stub | T39 | done |
+| T40 | 17 | 拆分 Workspace 路由实现任务 | `.codex/harness/backlog/workspace-routing-tasks.md`，旧 `docs/WORKSPACE_ROUTING_TASK_LIST.md` 仅保留兼容 stub | T39 | done |
 | T44 | 17 | 同步 workspace 隐私与检索设计边界 | `docs/PRIVACY.md`、`docs/MEMORY_RETRIEVAL_STRATEGY.md` | T39 | done |
 | T45 | 17 | 修复 working set glob 触发检索降级 | fulltext 检索按 literal 处理 `*.md` 等模式 | T39 | done |
 | T41 | 18 | 实现 verification command cwd | 支持每个子项目独立 cwd/profile 聚合执行 | T38 | done |
@@ -119,8 +119,9 @@
 | T97 | 25 | 连接最终验证/review 证据到 spec sync/archive | `governance_adapter.py` 已把 verification、release gate、commit-based xhigh review ledger 与 sync/archive readiness 串成可审计 evidence bundle | T72,T76,T84,T95,T96 | done |
 | T98 | 25 | Bundled skill 安装按名称去重 | `skill_bundle.py` 已按 manifest skill name 去重；目标同名技能存在时保留用户版本并跳过 bundled copy，`install --dry-run` 报告 `already_exists_deduped`，不要求覆盖或更新 | T89,T72 | done |
 | T99 | 26 | 未完成 Task 汇总携带进度 | `unfinished_task_summary.py` 已提供可调用的未完成任务进度汇总器，`before_response` 显式请求时返回结构化 summary 和 Markdown；每个未完成 Task 输出状态、最近 checkpoint 或更新时间、验收进度、阻塞点、下一步和证据来源，缺证据标记 `unknown` 且不猜测百分比 | T05,T22,T24,T65 | done |
-| T100 | 26 | 规范化 Codex 自生成文档到 `.codex/specs` | 建立 Kiro-like specs 三件套规范，要求 Codex 自己生成的需求、设计、任务、PRD、RFC 和计划类持久文档默认写入 `.codex/specs/<feature-slug>/`，并同步 `.gitignore`、仓库规则与安装模板 | T84,T88,T99 | done |
-| T101 | 26 | 迁移 docs 规划/任务正本到 `.codex/specs` | `.codex/specs/backlog-governance/{requirements.md,design.md,tasks.md,execution-plan.md,workspace-routing-tasks.md}` 成为规划/任务正本，旧 `docs/` 文件保留兼容 stub，`unfinished_task_summary.py` 默认优先读取 canonical task list 并回退旧路径；已补测试覆盖 canonical 优先、旧路径回退、显式路径覆盖和进度快照解析 | T100,T99 | done |
+| T100 | 26 | 规范化 Codex 自生成文档到 `.codex/specs` | 历史方案：曾建立 Kiro-like specs 三件套规范；已被 T102 的 OpenSpec 对齐方案取代，`.codex/specs` 不再作为正式 spec 层 | T84,T88,T99 | done |
+| T101 | 26 | 迁移 docs 规划/任务正本到 `.codex/specs` | 历史方案：曾把规划/任务正本迁移到 `.codex/specs/backlog-governance/`；已被 T102 取代，当前 Harness backlog 位于 `.codex/harness/backlog/`，正式规格位于 `openspec/` | T100,T99 | done |
+| T102 | 27 | 将 Harness spec 层对齐 OpenSpec 最新结构 | `openspec/changes/align-harness-spec-layer-with-openspec/` 按 `@fission-ai/openspec@1.3.1` `spec-driven` 流程建立 proposal/specs/design/tasks，并新增 `harness.json` / `harness.md` 衔接；`.codex/specs` 退役，Harness backlog 迁移到 `.codex/harness/backlog/`；官方 schema/templates/license/package metadata 通过 `codex openspec upstream sync` 同步到 `openspec/upstream/openspec/`，adapter/tests/docs 已接入 upstream manifest 证据 | T84,T87,T100,T101 | doing |
 
 ## 2.1 当前未完成 Task 进度快照
 
@@ -134,7 +135,7 @@
 - remaining_acceptance: 完整渠道包、热更、平台构建、CI 和回滚材料 gate
 - blockers: 依赖业务项目与 CI 材料，当前仓库不能伪造发布级平台材料
 - next_step: 在真实业务项目或 CI 材料可用后补齐平台构建、渠道包、热更和回滚 gate
-- evidence_sources: `.codex/specs/backlog-governance/tasks.md` T55 row; Step 33; Step 41
+- evidence_sources: `.codex/harness/backlog/tasks.md` T55 row; Step 33; Step 41
 
 ### T59 - 接入 Codex SubAgent 执行通道
 
@@ -144,7 +145,7 @@
 - remaining_acceptance: 完整记录 Codex SubAgent 派发、观察、checkpoint、receipt 和 readiness 的 repeatable dogfood runbook；把多 specialist 执行结果合并路径补成可重复验证流程
 - blockers: none；Codex SubAgent 已是执行通道，不需要额外宿主 API；仓库插件不内建独立 SubAgent 子进程执行器
 - next_step: 用当前 Codex SubAgent 工具补一轮带 observation/checkpoint/receipt/readiness 的完整 dogfood，并固化 runbook
-- evidence_sources: `.codex/specs/backlog-governance/tasks.md` T59 row; Codex SubAgent audit `019e212d-9b27-7720-b510-9ccfb6ceb188`; `subagent_receipts.py` readiness `ready_for_integration`; HarnessTest dogfood checkpoint
+- evidence_sources: `.codex/harness/backlog/tasks.md` T59 row; Codex SubAgent audit `019e212d-9b27-7720-b510-9ccfb6ceb188`; `subagent_receipts.py` readiness `ready_for_integration`; HarnessTest dogfood checkpoint
 
 ### T81 - 集成 session binding lifecycle
 
@@ -367,7 +368,7 @@
   - `docs/MEMORY_RETRIEVAL_STRATEGY.md` 补齐 workspace/project/domain/scope/task_id 等未来检索 metadata。
   - `docs/MEMORY_LAYERING.md` 说明用户全局层、项目私有层、项目共享层分别放什么，以及共享层冲突处理。
   - `retrieval_store.py` 修复 working set 中 `*.md` 这类 glob 派生检索词导致 `rg` 正则报错的问题。
-  - `.codex/specs/backlog-governance/workspace-routing-tasks.md` 拆分 workspace routing 实现任务并同步当前进度；旧 `docs/WORKSPACE_ROUTING_TASK_LIST.md` 仅保留兼容 stub。
+  - `.codex/harness/backlog/workspace-routing-tasks.md` 拆分 workspace routing 实现任务并同步当前进度；旧 `docs/WORKSPACE_ROUTING_TASK_LIST.md` 仅保留兼容 stub。
   - README、用户指南、系统总结和本任务清单有对应入口。
 
 ### Step 17A（已完成）
@@ -605,5 +606,6 @@
 - Step 40 已完成：bundled skill 安装状态按技能名去重；随包 `harness-release-gate` 已是 candidate commit + `codex xhigh review --commit <commit-sha>` 流程。若用户本机已安装同名技能，安装器保留用户版本并跳过 bundled copy，`install --dry-run` 报告 `already_exists_deduped`，不要求覆盖或更新。
 - Step 41 已完成：T33/T64/T65/T67-T71 已完成实现和定向测试；T55/T59/T83/T87 的可离线切片已落地为 release manifest gate、Codex SubAgent receipt/readiness report 和 requirements conflict scanner；剩余项明确为 CI、业务构建材料、repeatable SubAgent dogfood runbook、强制写入 hook 或外部 BMAD 执行依赖，不在仓库内伪造完成状态。
 - Step 42 已完成：T99 已实现。新增 `unfinished_task_summary.py` 只读聚合器，优先从 task list、`task_state`、task summary、harness task spec、run state 和 artifacts 中提取证据；`before_response` 支持通过 `include_unfinished_tasks` 或 `include_unfinished_task_progress` 显式返回结构化 `unfinished_task_summary` 和 Markdown。输出每个未完成 Task 的状态、最近进展、剩余验收、阻塞点、下一步和证据来源；缺少证据时标记 `unknown`，不生成无依据百分比。
-- Step 43 已完成：T100 已实现。参考 Kiro-like `.kiro/specs/<feature-slug>/` 的 `requirements.md`、`design.md`、`tasks.md` 三件套，已在 `.codex/specs/codex-generated-documents/` 落地本项目自己的 specs 规范；已同步 `.gitignore` 放行 `.codex/specs/**`，并更新仓库规则、安装模板、README 和 skill-first 治理文档，保证后续 Codex 自生成需求、设计和任务文档默认进入 `.codex/specs/<feature-slug>/`。
-- Step 44 已完成：T101 已实现。`docs/codex-memory-plugin-task-list.md`、`docs/codex-memory-plugin-execution-plan.md` 和 `docs/WORKSPACE_ROUTING_TASK_LIST.md` 的规划/任务正本已迁移到 `.codex/specs/backlog-governance/`，旧 `docs/` 文件仅保留兼容 stub；`unfinished_task_summary.py` 默认优先读取 `.codex/specs/backlog-governance/tasks.md`，回退旧 task list，并解析 canonical task list 中的 `### Txx` 进度快照，确保未完成 Task 汇总带上状态、最近 checkpoint、已完成/剩余验收、阻塞点、下一步和证据来源。
+- Step 43 已完成：T100 已实现但已被 T102 取代。Kiro-like `.codex/specs/codex-generated-documents/` 方案已退役，正式规格层改为 OpenSpec。
+- Step 44 已完成：T101 已实现但已被 T102 取代。规划/任务正本不再位于 `.codex/specs/backlog-governance/`；当前 Harness backlog 位于 `.codex/harness/backlog/`，正式规格与 change contract 位于 `openspec/`。
+- Step 45 进行中：T102 正在执行。已按 `@fission-ai/openspec@1.3.1` 创建 `align-harness-spec-layer-with-openspec` change contract，完成 proposal/specs/design/tasks、Harness extension、`openspec/config.yaml` 和 `openspec/upstream/openspec/` pinned upstream snapshot；后续以 OpenSpec validate、targeted tests、project verification 和 review gate 收口。

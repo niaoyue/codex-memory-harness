@@ -32,6 +32,7 @@ $ReviewWorkflowScript = Join-Path $ScriptRoot "review_workflow.py"
 $GameClientProfilesScript = Join-Path $ScriptRoot "game_client_profiles.py"
 $WorkspaceBusinessTemplatesScript = Join-Path $ScriptRoot "workspace_business_templates.py"
 $HookBridgeScript = Join-Path $ScriptRoot "hook_bridge.py"
+$OpenSpecUpstreamScript = Join-Path $ScriptRoot "openspec_upstream.py"
 $RequiredPythonMajor = 3
 $RequiredPythonMinor = 11
 $ReviewGateIdleSeconds = 1800
@@ -139,7 +140,7 @@ Codex Memory 命令：
   codex memory retention status|cleanup --task-id <task-id> [--confirm]
   codex memory eval create|list|run
   codex memory migrate-legacy-global [--dry-run|--confirm]
-兼容别名：codex harness/package/workspace ...；codex xhigh review --commit <commit-sha>；codex-memory-doctor；codexm memory ...
+兼容别名：codex harness/package/workspace/openspec ...；codex xhigh review --commit <commit-sha>；codex-memory-doctor；codexm memory ...
 常用：codex workspace schedule；codex workspace game-client
 "@
 }
@@ -184,6 +185,21 @@ Codex Workspace 命令：
   game-client init --engine unity|laya|cocos
   project-template init --domain game_server|backoffice_web|design_docs|art_pipeline
 "@
+}
+
+function Invoke-OpenSpecCommand {
+    param([string[]]$Arguments = @())
+    $cwd = (Get-Location).ProviderPath
+    if ($Arguments.Count -eq 0 -or $Arguments[0] -in @("help", "-h", "--help")) {
+        Write-Output "Codex OpenSpec 命令：upstream status|verify|sync --version <version>"
+        exit 0
+    }
+    if ($Arguments[0].ToLowerInvariant() -ne "upstream") {
+        Write-Error "未知 Codex OpenSpec 命令：$($Arguments[0])。运行 'codex openspec help' 查看可用命令。"
+        exit 64
+    }
+    $remaining = if ($Arguments.Count -gt 1) { $Arguments[1..($Arguments.Count - 1)] } else { @("status") }
+    Invoke-PythonScriptAndExit -ScriptPath $OpenSpecUpstreamScript -Arguments (@("--project-root", $cwd) + $remaining)
 }
 
 function Invoke-MemoryCommand {
@@ -332,49 +348,7 @@ function Invoke-PackageCommand {
         }
     }
 }
-function Invoke-WorkspaceCommand {
-    param([string[]]$Arguments = @())
-    $cwd = (Get-Location).ProviderPath
-    if ($Arguments.Count -eq 0 -or $Arguments[0] -in @("help", "-h", "--help")) {
-        Write-WorkspaceHelp
-        exit 0
-    }
-    $command = $Arguments[0].ToLowerInvariant()
-    $remaining = if ($Arguments.Count -gt 1) { $Arguments[1..($Arguments.Count - 1)] } else { @() }
-    switch ($command) {
-        "doctor" {
-            Invoke-PythonScriptAndExit -ScriptPath $WorkspaceScript -Arguments (@("--workspace-root", $cwd, "doctor") + $remaining)
-        }
-        "scan" {
-            Invoke-PythonScriptAndExit -ScriptPath $WorkspaceScript -Arguments (@("--workspace-root", $cwd, "scan") + $remaining)
-        }
-        "route" {
-            Invoke-PythonScriptAndExit -ScriptPath $WorkspaceRouterScript -Arguments (@("--workspace-root", $cwd) + $remaining)
-        }
-        "verify" {
-            Invoke-PythonScriptAndExit -ScriptPath $WorkspaceVerifierScript -Arguments (@("--project-root", $cwd) + $remaining)
-        }
-        "bind" {
-            Invoke-PythonScriptAndExit -ScriptPath $WorkspaceSubagentsScript -Arguments (@("--project-root", $cwd, "bind") + $remaining)
-        }
-        "schedule" { Invoke-PythonScriptAndExit -ScriptPath $SubagentSchedulerScript -Arguments (@("--project-root", $cwd) + $remaining) }
-        "session" { Invoke-PythonScriptAndExit -ScriptPath $WorkspaceSessionScript -Arguments (@("--project-root", $cwd, $command) + $remaining) }
-        "worktree" { Invoke-PythonScriptAndExit -ScriptPath $WorkspaceSessionScript -Arguments (@("--project-root", $cwd, $command) + $remaining) }
-        "write-guard" { Invoke-PythonScriptAndExit -ScriptPath $WorkspaceSessionScript -Arguments (@("--project-root", $cwd, $command) + $remaining) }
-        "game-client" { Invoke-PythonScriptAndExit -ScriptPath $GameClientProfilesScript -Arguments (@("--project-root", $cwd) + $remaining) }
-        "project-template" { Invoke-PythonScriptAndExit -ScriptPath $WorkspaceBusinessTemplatesScript -Arguments (@("--project-root", $cwd) + $remaining) }
-        "scope-check" {
-            Invoke-PythonScriptAndExit -ScriptPath $WorkspaceSubagentsScript -Arguments (@("--project-root", $cwd, "scope-check") + $remaining)
-        }
-        "summarize" {
-            Invoke-PythonScriptAndExit -ScriptPath $WorkspaceSubagentsScript -Arguments (@("--project-root", $cwd, "summarize") + $remaining)
-        }
-        default {
-            Write-Error "未知 Codex Workspace 命令：$($Arguments[0])。运行 'codex workspace help' 查看可用命令。"
-            exit 64
-        }
-    }
-}
+. (Join-Path $ScriptRoot "codexm_workspace.ps1")
 
 function Invoke-Bootstrap {
     param([Parameter(Mandatory = $true)][string[]]$Arguments)
@@ -463,6 +437,11 @@ if ($CodexArgs.Count -gt 0 -and $CodexArgs[0].ToLowerInvariant() -eq "package") 
 if ($CodexArgs.Count -gt 0 -and $CodexArgs[0].ToLowerInvariant() -eq "workspace") {
     $workspaceArgs = if ($CodexArgs.Count -gt 1) { $CodexArgs[1..($CodexArgs.Count - 1)] } else { @() }
     Invoke-WorkspaceCommand -Arguments $workspaceArgs
+}
+
+if ($CodexArgs.Count -gt 0 -and $CodexArgs[0].ToLowerInvariant() -eq "openspec") {
+    $openspecArgs = if ($CodexArgs.Count -gt 1) { $CodexArgs[1..($CodexArgs.Count - 1)] } else { @() }
+    Invoke-OpenSpecCommand -Arguments $openspecArgs
 }
 
 if ($CodexArgs.Count -gt 0 -and $CodexArgs[0].ToLowerInvariant() -eq "review" -and (Is-HarnessReviewCommand -Arguments $CodexArgs)) {

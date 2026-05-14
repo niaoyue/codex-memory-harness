@@ -22,6 +22,7 @@ REVIEW_WORKFLOW_SCRIPT="$SCRIPT_DIR/review_workflow.py"
 GAME_CLIENT_PROFILES_SCRIPT="$SCRIPT_DIR/game_client_profiles.py"
 WORKSPACE_BUSINESS_TEMPLATES_SCRIPT="$SCRIPT_DIR/workspace_business_templates.py"
 HOOK_BRIDGE_SCRIPT="$SCRIPT_DIR/hook_bridge.py"
+OPENSPEC_UPSTREAM_SCRIPT="$SCRIPT_DIR/openspec_upstream.py"
 REVIEW_GATE_IDLE_SECONDS=1800
 SKIP_BOOTSTRAP=0
 DOCTOR_ONLY=0
@@ -220,6 +221,13 @@ Codex Memory commands:
 EOF
 }
 
+write_openspec_help() {
+    cat <<'EOF'
+Codex OpenSpec commands:
+  upstream status|verify|sync --version <version>
+EOF
+}
+
 write_harness_help() {
     cat <<'EOF'
 Codex Harness commands:
@@ -347,6 +355,22 @@ invoke_workspace() {
     esac
 }
 
+invoke_openspec() {
+    cwd=$(pwd)
+    command_name=${1:-help}
+    [ "$#" -gt 0 ] && shift
+    case "$command_name" in
+        help|-h|--help) write_openspec_help; exit 0 ;;
+        upstream)
+            if [ "$#" -eq 0 ]; then
+                run_py "$OPENSPEC_UPSTREAM_SCRIPT" --project-root "$cwd" status
+            fi
+            run_py "$OPENSPEC_UPSTREAM_SCRIPT" --project-root "$cwd" "$@"
+            ;;
+        *) echo "Unknown Codex OpenSpec command: $command_name. Run 'codex openspec help' for usage." >&2; exit 64 ;;
+    esac
+}
+
 invoke_review() {
     cwd=$(pwd)
     command_name=${1:-help}
@@ -411,6 +435,7 @@ case "${1:-}" in
     harness) shift; invoke_harness "$@" ;;
     package) shift; invoke_package "$@" ;;
     workspace) shift; invoke_workspace "$@" ;;
+    openspec) shift; invoke_openspec "$@" ;;
     review)
         if is_harness_review_command "$@"; then
             shift

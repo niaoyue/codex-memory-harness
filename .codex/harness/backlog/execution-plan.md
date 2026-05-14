@@ -1,6 +1,6 @@
 # Codex 外脑插件执行文档
 
-> 历史设计说明：本文是项目早期从 0 到 1 的执行方案，用于保留架构来龙去脉。当前真实进度、下一步和 workspace routing 拆分，以 `.codex/specs/backlog-governance/tasks.md` 与 `.codex/specs/backlog-governance/workspace-routing-tasks.md` 为准。
+> 历史设计说明：本文是项目早期从 0 到 1 的执行方案，用于保留架构来龙去脉。当前真实进度、下一步和 workspace routing 拆分，以 `.codex/harness/backlog/tasks.md` 与 `.codex/harness/backlog/workspace-routing-tasks.md` 为准。
 
 ## 1. 文档目的
 

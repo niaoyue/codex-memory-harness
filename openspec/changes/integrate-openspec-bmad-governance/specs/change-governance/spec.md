@@ -104,11 +104,19 @@ or command entrypoints over local rewrites.
 - AND harness-specific behavior MUST live in adapters rather than direct local
   modifications to upstream core logic
 
+#### Scenario: OpenSpec upstream assets are synchronized
+
+- GIVEN Harness needs local OpenSpec schema, template, license, or package
+  metadata files
+- WHEN those files are used by adapters or release packaging
+- THEN they MUST come from a pinned official `@fission-ai/openspec` snapshot
+- AND the snapshot MUST include manifest hashes and an update command
+
 ## MODIFIED Requirements
 
 ### Requirement: Harness Execution Boundary
 
-OpenSpec and BMAD artifacts extend the existing harness workflow but do not
+OpenSpec and BMAD artifacts MUST extend the existing harness workflow but do not
 replace task lifecycle, workspace routing, session worktree governance,
 verification runner, memory safety, or final review gate.
 
@@ -117,4 +125,4 @@ verification runner, memory safety, or final review gate.
 - GIVEN requirements have passed the integrity gate
 - WHEN implementation begins
 - THEN existing harness execution gates remain authoritative
-- AND the OpenSpec change id SHOULD be recorded in harness task metadata
+- AND the OpenSpec change id MUST be recorded in harness task metadata

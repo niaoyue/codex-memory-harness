@@ -13,12 +13,25 @@ change before implementation begins.
 Default development flow:
 
 1. Requirements Integrity Gate
-2. OpenSpec change contract
+2. OpenSpec change contract using the latest supported `spec-driven` artifact
+   order: `proposal -> specs -> design -> tasks`
 3. Harness task lifecycle
 4. Workspace routing and session worktree guard
 5. Implementation or documentation update
 6. Verification runner and review gate
 7. Spec sync and archive
+
+`openspec/` is the canonical durable spec and change-contract root. Stable
+behavior specs live in `openspec/specs/<capability>/spec.md`; active changes
+live in `openspec/changes/<change-id>/`. Harness runtime bindings for executed
+changes live beside the OpenSpec artifacts as `harness.json` and `harness.md`.
+Official OpenSpec schema and template assets that must be available locally live
+under `openspec/upstream/openspec/` and are refreshed from the pinned
+`@fission-ai/openspec` npm package through the Harness upstream sync command.
+
+`.codex/specs` is retired and MUST NOT be used as the formal spec layer for new
+work. Harness backlog/progress sources may live under `.codex/harness/backlog`,
+but they are not OpenSpec specs.
 
 BMAD is an upstream planning method, not the default implementation runtime.
 Use BMAD-style analysis, PRD, architecture, epic, story, or readiness checks
@@ -49,6 +62,8 @@ The preferred integration approach is adapter-first and upstream-core-first:
   storage, security, and packaging boundaries are verified.
 - Prefer wrapping upstream commands or vendoring a pinned upstream copy with
   attribution over forking logic into harness modules.
+- Keep synced OpenSpec schema/templates pinned, attributed, hash-verified, and
+  updateable through `codex openspec upstream sync`.
 - Keep harness-specific code in adapters that translate between upstream
   artifacts and existing harness task, routing, memory, verification, and
   review contracts.

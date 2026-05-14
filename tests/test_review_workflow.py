@@ -191,6 +191,89 @@ class ReviewWorkflowTests(unittest.TestCase):
         self.assertEqual(entry["runner_status"], "completed")
         self.assertNotIn("recoverable_failure_policy", entry)
 
+    def test_record_persists_explicit_review_commit_ref(self) -> None:
+        with temp_repo() as root:
+            commit = _head_commit(root)
+            fingerprint = review_workflow.diff_fingerprint(root)
+            result = review_workflow.record_review(
+                root,
+                {"ok": True, "diff_fingerprint": fingerprint},
+                task_id="review-task",
+                commit_ref=commit,
+            )
+
+        self.assertTrue(result["ok"], result)
+        self.assertEqual(result["entry"]["review_commit_ref"], commit)
+
+    def test_record_extracts_review_commit_ref_from_runner_command(self) -> None:
+        with temp_repo() as root:
+            commit = _head_commit(root)
+            fingerprint = review_workflow.diff_fingerprint(root)
+            result = review_workflow.record_review(
+                root,
+                {
+                    "ok": True,
+                    "diff_fingerprint": fingerprint,
+                    "command": ["codex", "review", "--commit", commit],
+                },
+                task_id="review-task",
+            )
+
+        self.assertTrue(result["ok"], result)
+        self.assertEqual(result["entry"]["review_commit_ref"], commit)
+
+    def test_record_clean_commit_review_does_not_require_diff_fingerprint(self) -> None:
+        with temp_repo() as root:
+            commit = _head_commit(root)
+            result = review_workflow.record_review(
+                root,
+                {"ok": True, "command": ["codex", "review", "--commit", commit]},
+                task_id="review-task",
+            )
+
+        self.assertTrue(result["ok"], result)
+        self.assertEqual(result["entry"]["status"], "clean")
+        self.assertEqual(result["entry"]["review_commit_ref"], commit)
+        self.assertNotIn("fingerprint_validation", result["entry"])
+
+    def test_record_resolves_mutable_review_commit_ref(self) -> None:
+        with temp_repo() as root:
+            commit = _head_commit(root)
+            result = review_workflow.record_review(
+                root,
+                {"ok": True, "command": ["codex", "review", "--commit", "HEAD"]},
+                task_id="review-task",
+            )
+
+        self.assertTrue(result["ok"], result)
+        self.assertEqual(result["entry"]["review_commit_ref"], commit)
+
+    def test_record_rejects_unresolved_review_commit_ref(self) -> None:
+        with temp_repo() as root:
+            result = review_workflow.record_review(
+                root,
+                {"ok": True, "command": ["codex", "review", "--commit", "not-a-ref"]},
+                task_id="review-task",
+            )
+
+        self.assertFalse(result["ok"], result)
+        self.assertEqual(result["entry"]["status"], "invalidated")
+        self.assertEqual(result["entry"]["commit_ref_validation"]["reason"], "unresolved_review_commit_ref")
+        self.assertNotIn("review_commit_ref", result["entry"])
+
+    def test_record_rejects_nonexistent_full_review_commit_ref(self) -> None:
+        with temp_repo() as root:
+            result = review_workflow.record_review(
+                root,
+                {"ok": True, "command": ["codex", "review", "--commit", "f" * 40]},
+                task_id="review-task",
+            )
+
+        self.assertFalse(result["ok"], result)
+        self.assertEqual(result["entry"]["status"], "invalidated")
+        self.assertEqual(result["entry"]["commit_ref_validation"]["reason"], "unresolved_review_commit_ref")
+        self.assertNotIn("review_commit_ref", result["entry"])
+
     def test_record_structured_runner_findings_without_tails(self) -> None:
         with temp_repo() as root:
             fingerprint = review_workflow.diff_fingerprint(root)
@@ -396,6 +479,10 @@ class temp_repo:
 def _write(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
+
+
+def _head_commit(root: Path) -> str:
+    return subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True, encoding="utf-8").strip()
 
 
 if __name__ == "__main__":

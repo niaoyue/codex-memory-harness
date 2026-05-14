@@ -36,7 +36,7 @@
 | 外部能力点 | 当前实现 | 状态 | 差距与处理 |
 |---|---|---|---|
 | 上下文装载 | `hook_runner.py`、`context_builder.py` 读取 task state、summary、decisions、evidence | 已实现 MVP | 预算固定，后续可按任务类型配置化 |
-| 工具编排 | `codex memory ...`、`codex harness ...`、`codex package ...` 命令入口 | 已实现 | 底层仍是 Python 脚本，但用户入口已收敛为 Codex 风格命令 |
+| 工具编排 | `codex memory ...`、`codex harness ...`、`codex openspec upstream ...`、`codex package ...` 命令入口 | 已实现 | 底层仍是 Python 脚本或官方 upstream CLI/package，但用户入口已收敛为 Codex 风格命令 |
 | 状态机 | `harness_controller.py start/checkpoint/complete` | 已实现 MVP | 当前是单任务线性状态机，不含并发 SubAgent 状态 |
 | 验证闭环 | `verification_runner.py` 读取 `.codex/harness` 配置并 checkpoint | 已实现 MVP | 还不是完整 eval 平台，没有历史失败用例回放 |
 | 记忆沉淀 | SQLite、JSONL、summary、distilled asset | 已实现 MVP | 缺少长期清理、归档和迁移工具 |
@@ -65,8 +65,8 @@
 - `docs/SUBAGENT_WORKFLOW.md`：定义 SubAgent 角色分工、artifact 协议和未来落地路线。
 - `docs/GAME_CLIENT_WORKFLOW.md`：定义 Unity、LayaBox/LayaAir、Cocos Creator 客户端专项流程。
 - `docs/WORKSPACE_ADAPTIVE_ROUTING.md`：定义多项目 workspace 的自动识别、路由、SubAgent 绑定和验证聚合设计。
-- `.codex/specs/backlog-governance/workspace-routing-tasks.md`：把 workspace routing 设计拆成带状态的实现任务；旧 `docs/WORKSPACE_ROUTING_TASK_LIST.md` 只保留兼容 stub。
-- `.codex/specs/backlog-governance/tasks.md`、`README.md`、`docs/USER_GUIDE.md`、`docs/codex-memory-harness-system-summary.md`：补充上述入口和状态说明；旧 `docs/codex-memory-plugin-task-list.md` 只保留兼容 stub。
+- `.codex/harness/backlog/workspace-routing-tasks.md`：把 workspace routing 设计拆成带状态的实现任务；旧 `docs/WORKSPACE_ROUTING_TASK_LIST.md` 只保留兼容 stub。
+- `.codex/harness/backlog/tasks.md`、`README.md`、`docs/USER_GUIDE.md`、`docs/codex-memory-harness-system-summary.md`：补充上述入口和状态说明；旧 `docs/codex-memory-plugin-task-list.md` 只保留兼容 stub。
 
 ## 6. 后续路线建议
 
