@@ -134,41 +134,33 @@ sh ./install.sh
 - 如果希望脚本代为尝试安装 Python，可显式运行 `install.bat --install-python` 或 `sh ./install.sh --install-python`。Windows 会使用 `winget`；POSIX shell 会按可用包管理器尝试 Homebrew、apt、dnf、yum 或 pacman。默认不会静默安装系统环境。
 - `install.sh` 会在 Linux/macOS 默认写入 POSIX hook/MCP launcher，并向 `~/.profile`、`~/.bashrc`、`~/.zshrc` 写入带标记块的 `codex`/`codexm` shell wrapper；在 Windows POSIX shell 中如检测到 `powershell`，默认仍写入 PowerShell launcher。可用 `CODEX_MEMORY_LAUNCHER_FAMILY=posix|powershell` 显式指定。
 - 修复必要的官方 Codex 配置：确保 `$CODEX_HOME/config.toml` 中启用 `[features] hooks = true`。
-- 安装 bundled Codex skills 到 `~/.agents/skills/<skill-name>`：安装器读取 `plugins/codex-memory/skills/bundled-skills.json`，当前包含 security、GitHub、CLI、迁移、release gate、需求澄清、接口设计、TDD、提交、review、PRD、重构、文档、图像、OpenAI docs 等可用技能。技能已随包 vendor，安装时不联网下载；安装计划按技能名去重，如果目标技能目录已存在，会保留用户已有版本并跳过，不要求覆盖或更新。
+- 安装 bundled Codex skills 到 `~/.agents/skills/<skill-name>`：安装器读取 `plugins/codex-memory/skills/bundled-skills.json`，当前包含 security、GitHub、CLI、迁移、release gate、需求澄清、接口设计、TDD、提交、review、PRD、重构、文档、图像、OpenAI docs 等可用技能。技能已随包 vendor，安装时不联网下载；如果目标技能目录已存在且内容不同，会先移动到 `~/.agents/skills/.codex-memory-backups/`，再刷新为当前包版本。
 - 把 `~/plugins/codex-memory` 指向本仓库的 `plugins/codex-memory`。
 - 更新 `~/.agents/plugins/marketplace.json`。
 - 更新当前仓库 `.agents/plugins/marketplace.json`。
 - 向 `~/.codex/AGENTS.md` 写入 Codex Memory 全局使用规则。
 - 向 shell profile 写入 `codex`、`codexm`、`codex-raw`、`codex-memory-doctor` 入口：PowerShell 使用函数，Linux/macOS POSIX shell 使用随包 `codexm.sh` 分流器。
 
-如果已经安装的是当前版本，安装器不会重新安装插件，会返回 `already_installed`，只做必要的 profile、marketplace 和规则修复。
+如果已经安装的是当前版本，安装器不会重新安装插件，会返回 `already_installed`，但仍会刷新 profile、marketplace、全局 AGENTS 规则、home hooks/MCP 和 bundled skills。
 
-如果 `~/plugins/codex-memory` 已经指向其他目录，默认不会覆盖。它会提示已经存在旧安装或其他安装，并建议显式更新：
+如果 `~/plugins/codex-memory` 已经指向其他目录，`install.bat`、`install.ps1`、`install.sh` 和 `codex memory install` 默认按更新处理：旧普通目录会先备份；junction 或 symlink 会移除链接后重新指向当前版本。`--update-existing` / `-UpdateExisting` 仍保留为显式更新写法，`--replace-existing` / `-ReplaceExisting` 仍保留为兼容别名。
+
+如果只想做保守检查、不替换旧 home plugin，可显式传入：
 
 ```bat
-install.bat --update-existing
+install.bat --no-update-existing
 ```
 
 POSIX shell：
 
 ```sh
-sh ./install.sh --update-existing
+sh ./install.sh --no-update-existing
 ```
 
-`--update-existing` 会把旧的 `~/plugins/codex-memory` 迁移到当前包版本。旧目录如果是普通目录，会先备份；如果是 junction 或 symlink，会移除链接后重新指向当前版本。
-
-`--replace-existing` 仍保留为兼容别名。`install.bat` 和 `install.sh` 也兼容旧的 PowerShell 风格参数，例如 `-UpdateExisting`、`-ReplaceExisting`、`-ProfileShells all`。
-
-如果希望同时写入 PowerShell 7 和 Windows PowerShell profile：
+安装默认会同时写入 PowerShell 7 和 Windows PowerShell profile；如需手动指定：
 
 ```bat
 install.bat --profile-shells all
-```
-
-如果旧安装也要更新，并且同时写入两个 profile：
-
-```bat
-install.bat --profile-shells all --update-existing
 ```
 
 如果只想安装插件接入、不写入 bundled skills：
@@ -203,7 +195,7 @@ codex memory install
 codex memory update
 ```
 
-注意：从很老的版本更新时，旧 wrapper 可能还没有 `codex memory update` 命令。此时应使用当前包里的 `install.bat --update-existing`、PowerShell 里的 `.\install.bat --update-existing`，或 `sh ./install.sh --update-existing`。`.\install.ps1 -UpdateExisting` 仍可作为兼容入口使用。
+注意：从很老的版本更新时，旧 wrapper 可能还没有 `codex memory update` 命令。此时直接运行当前包里的 `install.bat`、`.\install.ps1` 或 `sh ./install.sh` 即可；它们默认会把旧 home plugin 更新到当前包版本。
 
 ## 日常使用
 
@@ -365,17 +357,7 @@ sh ./install.sh
 
 `install.sh` 不要求目标环境存在 `powershell` 命令；Linux/macOS 默认使用随包提供的 POSIX hook/MCP launcher 和 `codexm.sh` profile wrapper。Windows POSIX shell 如需沿用 PowerShell launcher，可设置 `CODEX_MEMORY_LAUNCHER_FAMILY=powershell`。
 
-已有旧安装则运行：
-
-```bat
-install.bat --update-existing
-```
-
-POSIX shell：
-
-```sh
-sh ./install.sh --update-existing
-```
+已有旧安装时也运行同一个安装命令；安装器会把 `~/plugins/codex-memory` 更新到当前包版本，并刷新全局规则、hooks、MCP、profiles 和 bundled skills。
 
 ## 卸载
 

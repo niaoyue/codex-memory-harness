@@ -96,7 +96,7 @@ python -X utf8 scripts\verify_project.py
 
 - `bundled_skills.target_root` 指向 `~/.agents/skills`。
 - `harness-release-gate`、安全、迁移、GitHub CI/PR 等技能在状态中可见。
-- 目标已存在时跳过，不覆盖用户版本。
+- 目标已存在且内容不同，应先备份再刷新为当前包版本，避免旧 skill 让新环境继续走旧流程。
 - skill-first 规则随安装写入全局 AGENTS 标记块；后续扩展后的可利用技能也应进入 `bundled-skills.json` 并离线安装。
 - `verify_project.py` 会从 release package 解压后的目录运行隔离 `install.bat --mode copy`，校验普通首次安装的写入路径。
 

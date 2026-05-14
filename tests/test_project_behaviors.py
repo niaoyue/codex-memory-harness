@@ -346,7 +346,7 @@ class BootstrapTests(unittest.TestCase):
 
         self.assertFalse(result["ok"])
         self.assertFalse(result["checks"]["home_plugin_points_to_current"])
-        self.assertTrue(any("--update-existing" in item for item in result["recommendations"]))
+        self.assertTrue(any("默认会让 home plugin 更新" in item for item in result["recommendations"]))
 
     def test_doctor_accepts_codex_memory_cli_guidance(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

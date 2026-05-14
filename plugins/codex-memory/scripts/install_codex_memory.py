@@ -353,7 +353,7 @@ def main() -> int:
     parser.add_argument(
         "--profile-shells",
         choices=PROFILE_SHELL_CHOICES,
-        default="auto",
+        default="all",
         help="PowerShell or POSIX profile(s) to update with codex/codexm functions.",
     )
     parser.add_argument(
@@ -380,6 +380,11 @@ def main() -> int:
         "--update-existing",
         action="store_true",
         help="Update an existing ~/plugins/codex-memory that points at another source.",
+    )
+    parser.add_argument(
+        "--no-update-existing",
+        action="store_true",
+        help="Do not replace an existing ~/plugins/codex-memory that points at another source.",
     )
     parser.add_argument(
         "--mcp-python-command",
@@ -409,6 +414,7 @@ def main() -> int:
         help="With --uninstall, also remove ~/plugins/codex-memory.",
     )
     args = parser.parse_args()
+    update_existing = args.update_existing or args.replace_existing or not args.no_update_existing
 
     if args.check:
         result = {"check": _check_state()}
@@ -418,7 +424,7 @@ def main() -> int:
             args.scope,
             args.profile_shells,
             install_agents=not args.skip_agents,
-            update_existing=args.update_existing or args.replace_existing,
+            update_existing=update_existing,
             install_skills=not args.skip_skills,
             mcp_python_command=args.mcp_python_command,
             mcp_python_prefix_args=args.mcp_python_prefix_arg,
@@ -432,7 +438,7 @@ def main() -> int:
             args.scope,
             args.profile_shells,
             install_agents=not args.skip_agents,
-            update_existing=args.update_existing or args.replace_existing,
+            update_existing=update_existing,
             install_skills=not args.skip_skills,
             mcp_python_command=args.mcp_python_command,
             mcp_python_prefix_args=args.mcp_python_prefix_arg,

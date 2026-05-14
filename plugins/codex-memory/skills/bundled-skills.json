@@ -5,9 +5,9 @@
   "source_path": "skills/.curated plus local/system skills available in the packaging environment",
   "reviewed_curated_skill_count": 38,
   "bundled_skill_count": 32,
-  "selection_policy": "Install every reusable skill available to this package runtime that can be bundled without network access. OpenAI curated skills keep their upstream LICENSE.txt files; local and system skills are vendored under the local source group and are installed only when the target skill directory is missing.",
+  "selection_policy": "Install every reusable skill available to this package runtime that can be bundled without network access. OpenAI curated skills keep their upstream LICENSE.txt files; local and system skills are vendored under the local source group. Package install/update refreshes existing bundled skill directories when their content differs, after first moving the previous directory into a local backup folder.",
   "installed_by_default": true,
-  "overwrite_existing": false,
+  "overwrite_existing": true,
   "skills": [
     {
       "name": "security-best-practices",

@@ -14,6 +14,7 @@ POSIX_PROFILE_START = "# >>> codex-memory posix launcher >>>"
 POSIX_PROFILE_END = "# <<< codex-memory posix launcher <<<"
 AGENTS_START = "<!-- >>> codex-memory-harness global >>> -->"
 AGENTS_END = "<!-- <<< codex-memory-harness global <<< -->"
+LEGACY_AGENTS_HEADING = "## Codex Memory 全局无感使用"
 MIN_PYTHON_VERSION = (3, 11)
 DEFAULT_PY_LAUNCHER_PREFIX_ARGS = ["-3"]
 PYTHON_LAUNCHER_CANDIDATES = (
@@ -216,6 +217,33 @@ def replace_marked_block(
     return normalized_block, "created"
 
 
+def replace_legacy_agents_block(text: str, block: str) -> tuple[str, str]:
+    if AGENTS_START in text or LEGACY_AGENTS_HEADING not in text:
+        return text, "missing"
+
+    lines = text.splitlines(keepends=True)
+    start_index = -1
+    for index, line in enumerate(lines):
+        if line.startswith(LEGACY_AGENTS_HEADING):
+            start_index = index
+            break
+    if start_index == -1:
+        return text, "missing"
+
+    end_index = len(lines)
+    for index in range(start_index + 1, len(lines)):
+        line = lines[index]
+        if line.startswith("## ") or line.startswith("--- project-doc"):
+            end_index = index
+            break
+
+    prefix = "".join(lines[:start_index]).rstrip()
+    suffix = "".join(lines[end_index:]).lstrip()
+    normalized_block = block.strip()
+    parts = [part for part in [prefix, normalized_block, suffix] if part]
+    return "\n\n".join(parts) + "\n", "legacy_unmarked_updated"
+
+
 def agents_block(home_plugin: Path) -> str:
     official_memory = codex_home_root() / "memories"
     global_memory = codex_home_root() / "codex-memory-harness" / "memories"
@@ -352,9 +380,10 @@ def ensure_posix_profile(home_plugin: Path, shells: str = "auto") -> list[dict[s
 def ensure_agents(home_plugin: Path) -> dict[str, Any]:
     path = home_agents_path()
     current = read_text(path)
-    if AGENTS_START not in current and "## Codex Memory 全局无感使用" in current:
-        return {"path": str(path), "status": "existing_unmarked_kept"}
-    updated, status = replace_marked_block(current, AGENTS_START, AGENTS_END, agents_block(home_plugin))
+    block = agents_block(home_plugin)
+    updated, status = replace_legacy_agents_block(current, block)
+    if status == "missing":
+        updated, status = replace_marked_block(current, AGENTS_START, AGENTS_END, block)
     if updated != current:
         write_text(path, updated)
     return {"path": str(path), "status": status}

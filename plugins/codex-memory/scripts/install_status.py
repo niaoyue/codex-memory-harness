@@ -6,6 +6,8 @@ from typing import Any
 
 from codex_config_status import inspect_codex_config
 from install_support import (
+    AGENTS_END,
+    AGENTS_START,
     dependency_status,
     home_agents_path,
     home_root,
@@ -26,6 +28,7 @@ def check_state(
 ) -> dict[str, Any]:
     dependencies = dependency_status()
     codex_config = inspect_codex_config(home=home_root(), plugin_root=plugin_root)
+    agents_text = read_text(home_agents_path())
 
     return {
         "plugin_root": str(plugin_root),
@@ -41,7 +44,13 @@ def check_state(
         "home_agents": {
             "path": str(home_agents_path()),
             "exists": home_agents_path().exists(),
-            "mentions_memory": "Codex Memory" in read_text(home_agents_path()),
+            "mentions_memory": "Codex Memory" in agents_text,
+            "has_marked_block": AGENTS_START in agents_text and AGENTS_END in agents_text,
+            "has_legacy_unmarked_block": AGENTS_START not in agents_text
+            and "## Codex Memory 全局无感使用" in agents_text,
+            "mentions_current_openspec_layout": "openspec/changes/" in agents_text,
+            "mentions_candidate_review_gate": "candidate commit" in agents_text
+            or "候选提交" in agents_text,
         },
         "powershell_profiles": profile_statuses("all"),
         "posix_profiles": posix_profile_statuses(),

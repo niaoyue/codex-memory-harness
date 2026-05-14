@@ -34,6 +34,9 @@ class InstallerTests(unittest.TestCase):
         self.assertIn("& $PythonRuntime.Command", script)
         self.assertIn("[switch]$SkipSkills", script)
         self.assertIn("--skip-skills", script)
+        self.assertIn("[switch]$NoUpdateExisting", script)
+        self.assertIn("--no-update-existing", script)
+        self.assertIn('[string]$ProfileShells = "all"', script)
 
     def test_batch_install_script_checks_python_and_can_offer_winget(self) -> None:
         script = (PROJECT_ROOT / "install.bat").read_text(encoding="utf-8")
@@ -47,6 +50,8 @@ class InstallerTests(unittest.TestCase):
         self.assertIn('call :try_python "python3.12"', script)
         self.assertIn("-UpdateExisting", script)
         self.assertIn("--update-existing", script)
+        self.assertIn("-NoUpdateExisting", script)
+        self.assertIn("--no-update-existing", script)
         self.assertIn("-SkipSkills", script)
         self.assertIn("--skip-skills", script)
 
@@ -74,6 +79,8 @@ class InstallerTests(unittest.TestCase):
         self.assertIn("--mcp-python-prefix-arg", script)
         self.assertIn("-SkipSkills", script)
         self.assertIn("--skip-skills", script)
+        self.assertIn("-NoUpdateExisting", script)
+        self.assertIn("--no-update-existing", script)
 
     def test_install_writes_posix_profile_for_posix_launcher_family(self) -> None:
         with (

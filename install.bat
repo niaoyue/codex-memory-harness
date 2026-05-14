@@ -51,6 +51,11 @@ if /I "%~1"=="-UpdateExisting" (
     shift
     goto :parse_args
 )
+if /I "%~1"=="-NoUpdateExisting" (
+    call :append_arg "--no-update-existing"
+    shift
+    goto :parse_args
+)
 if /I "%~1"=="-ReplaceExisting" (
     call :append_arg "--replace-existing"
     shift

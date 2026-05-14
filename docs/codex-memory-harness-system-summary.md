@@ -110,7 +110,7 @@ Bundled Codex skills：
 ~/.agents/skills/<bundled skill name from plugins/codex-memory/skills/bundled-skills.json>
 ```
 
-当前 manifest 覆盖 security、GitHub、CLI、迁移、release gate、需求澄清、接口设计、TDD、提交、review、PRD、重构、文档、图像、OpenAI docs、plugin/skill 创建等可用技能；安装时不联网下载，按技能名去重，且不覆盖或更新用户已有技能目录。
+当前 manifest 覆盖 security、GitHub、CLI、迁移、release gate、需求澄清、接口设计、TDD、提交、review、PRD、重构、文档、图像、OpenAI docs、plugin/skill 创建等可用技能；安装时不联网下载。目标技能目录已存在且内容不同会先备份到 `~/.agents/skills/.codex-memory-backups/`，再刷新为当前包版本。
 
 全局 marketplace：
 
@@ -379,17 +379,7 @@ POSIX shell：
 sh ./install.sh
 ```
 
-旧安装更新：
-
-```bat
-install.bat --update-existing
-```
-
-POSIX shell：
-
-```sh
-sh ./install.sh --update-existing
-```
+旧安装更新使用同一个入口；`install.bat`、`install.ps1`、`install.sh` 和 `codex memory install` 默认都会把旧 home plugin 更新到当前包版本。
 
 卸载：
 
@@ -406,14 +396,14 @@ sh ./install.sh --uninstall
 安装器行为：
 
 - 默认优先创建 Windows junction。
-- 如果当前版本已经安装，返回 `already_installed`，不重复安装插件。
-- 如果目标已存在且指向其他目录，默认不覆盖；必须显式传入 `--update-existing` 或 `-UpdateExisting`。
-- `--replace-existing` 与 `-ReplaceExisting` 作为兼容别名保留。
-- 默认从发布包内的 `plugins/codex-memory/skills/openai-curated` 和 `plugins/codex-memory/skills/local` 离线复制 bundled skills 到 `~/.agents/skills`；安装计划按技能名去重，目标技能已存在时跳过，不覆盖或更新用户版本。
+- 如果当前版本已经安装，返回 `already_installed`，不重复安装插件，但继续刷新全局 AGENTS、profile、marketplace、home hooks/MCP 和 bundled skills。
+- 如果目标已存在且指向其他目录，默认按更新处理；旧普通目录先备份，junction 或 symlink 重新指向当前版本。
+- `--update-existing` / `-UpdateExisting` 仍可显式写出；`--replace-existing` / `-ReplaceExisting` 作为兼容别名保留；`--no-update-existing` / `-NoUpdateExisting` 用于保守检查时跳过替换旧 home plugin。
+- 默认从发布包内的 `plugins/codex-memory/skills/openai-curated` 和 `plugins/codex-memory/skills/local` 离线复制 bundled skills 到 `~/.agents/skills`；目标技能目录已存在且内容不同会先备份到 `.codex-memory-backups`，再刷新为当前包版本。
 - 可用 `--skip-skills` 或 `-SkipSkills` 跳过 bundled skills 安装。
 - 替换旧普通目录时会备份，不直接删除。
 - profile 和 AGENTS 采用标记块写入，降低误改用户内容的风险。
-- 旧的未标记全局 AGENTS 规则会保留，不强行覆盖。
+- 旧的未标记 Codex Memory 全局 AGENTS 规则会迁移为带标记块的新规则；其他用户章节会保留。
 - 卸载默认不删除 `~/.agents/skills`，避免误删用户自行安装或修改的技能。
 
 ## 13. 打包分发
@@ -638,8 +628,8 @@ docs/AI_DIAGNOSTIC_LOGGING.md
 - 当前已实现项目共享 memory 初始化模板、promote、validate 和索引重建的最小 runtime；严格 JSON Schema 校验和多人冲突自动处理尚未实现。
 - 当前 workspace verifier 已支持每个 route 使用自己的 cwd/profile 聚合执行，并已提供 release profile 与 release manifest 证据聚合原型；完整渠道包/热更/构建产物平台仍由后续 T55 扩展。
 - 当前 eval replay 已支持 `.codex/evals` 本地 deterministic no-network checks；不执行远程沙箱。
-- 全局 AGENTS 的旧未标记规则不会被强行改写。
-- Bundled skills 固定到 manifest 记录的 upstream commit；更新技能需要重新 vendor 并更新 `skills/bundled-skills.json`。
+- 全局 AGENTS 的旧未标记 Codex Memory 规则会在安装/更新时迁移成带标记块的新规则。
+- Bundled skills 固定到 manifest 记录的 upstream commit；更新技能需要重新 vendor 并更新 `skills/bundled-skills.json`，安装/更新时会把目标机器上的同名旧技能备份后刷新。
 
 ## 23. 后续增强
 

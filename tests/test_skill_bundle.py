@@ -34,6 +34,7 @@ class SkillBundleTests(unittest.TestCase):
         manifest = skill_bundle.load_manifest(PROJECT_ROOT / "plugins" / "codex-memory")
         expected_count = len(manifest["skills"])
         self.assertEqual(status["source_ref"], "af9b54f235d0d56c6b4410be54d578b0fda4ddfc")
+        self.assertTrue(status["overwrite_existing"])
         self.assertIn("security-threat-model", names)
         self.assertIn("gh-fix-ci", names)
         self.assertIn("grill-me", names)
@@ -93,6 +94,53 @@ class SkillBundleTests(unittest.TestCase):
             self.assertTrue((home / ".agents" / "skills" / "fresh-skill" / "SKILL.md").exists())
             self.assertEqual((existing / "SKILL.md").read_text(encoding="utf-8"), "# user copy\n")
 
+    def test_ensure_bundled_skills_updates_existing_when_manifest_allows(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            plugin_root = temp_root / "plugin"
+            source = plugin_root / "skills" / "local" / "harness-release-gate"
+            source.mkdir(parents=True)
+            (source / "SKILL.md").write_text("# packaged gate\n", encoding="utf-8")
+            (plugin_root / "skills" / "bundled-skills.json").write_text(
+                json.dumps(
+                    {
+                        "version": 1,
+                        "overwrite_existing": True,
+                        "skills": [
+                            {
+                                "name": "harness-release-gate",
+                                "source_group": "local",
+                                "path": "local/harness-release-gate",
+                            }
+                        ],
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            home = temp_root / "home"
+            existing = home / ".agents" / "skills" / "harness-release-gate"
+            existing.mkdir(parents=True)
+            (existing / "SKILL.md").write_text("# old gate\n", encoding="utf-8")
+
+            old_codex_home = os.environ.get("CODEX_HOME")
+            os.environ["CODEX_HOME"] = str(temp_root / "codex-home")
+            try:
+                with mock.patch.object(skill_bundle, "home_root", return_value=home):
+                    result = skill_bundle.ensure_bundled_skills(plugin_root)
+            finally:
+                _restore_env("CODEX_HOME", old_codex_home)
+
+            backup_root = home / ".agents" / "skills" / ".codex-memory-backups"
+            backups = list(backup_root.glob("harness-release-gate.backup-*"))
+
+            self.assertEqual(result["installed"], 0)
+            self.assertEqual(result["updated"], 1)
+            self.assertEqual(result["skills"][0]["status"], "updated")
+            self.assertEqual((existing / "SKILL.md").read_text(encoding="utf-8"), "# packaged gate\n")
+            self.assertEqual(len(backups), 1)
+            self.assertEqual((backups[0] / "SKILL.md").read_text(encoding="utf-8"), "# old gate\n")
+
     def test_bundled_skills_status_dedupes_existing_skill_drift(self) -> None:
         status = _status_for_existing_skill(
             source_skill="# packaged candidate commit flow\n",
@@ -101,10 +149,10 @@ class SkillBundleTests(unittest.TestCase):
         )
 
         skill = status["skills"][0]
-        self.assertEqual(status["stale_count"], 0)
+        self.assertEqual(status["stale_count"], 1)
         self.assertEqual(status["deduped_existing_count"], 1)
         self.assertEqual(status["content_differs_count"], 1)
-        self.assertFalse(skill["stale_existing"])
+        self.assertTrue(skill["stale_existing"])
         self.assertTrue(skill["deduped_existing"])
         self.assertTrue(skill["content_differs_from_source"])
         self.assertFalse(skill["target_matches_source"])
@@ -119,10 +167,10 @@ class SkillBundleTests(unittest.TestCase):
         )
 
         skill = status["skills"][0]
-        self.assertEqual(status["stale_count"], 0)
+        self.assertEqual(status["stale_count"], 1)
         self.assertEqual(status["deduped_existing_count"], 1)
         self.assertEqual(status["content_differs_count"], 1)
-        self.assertFalse(skill["stale_existing"])
+        self.assertTrue(skill["stale_existing"])
         self.assertTrue(skill["deduped_existing"])
         self.assertTrue(skill["content_differs_from_source"])
         self.assertFalse(skill["target_matches_source"])

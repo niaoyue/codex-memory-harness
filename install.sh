@@ -193,6 +193,9 @@ while [ "$remaining" -gt 0 ]; do
         -UpdateExisting)
             set -- "$@" "--update-existing"
             ;;
+        -NoUpdateExisting)
+            set -- "$@" "--no-update-existing"
+            ;;
         -ReplaceExisting)
             set -- "$@" "--replace-existing"
             ;;

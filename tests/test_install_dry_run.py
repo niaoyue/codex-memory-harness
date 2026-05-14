@@ -17,8 +17,16 @@ if str(PLUGIN_SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(PLUGIN_SCRIPTS_DIR))
 
 import install_codex_memory
-import install_dry_run_targets
-from install_support import AGENTS_END, AGENTS_START, PROFILE_END, PROFILE_START, agents_block, profile_paths, replace_marked_block
+from install_support import (
+    AGENTS_END,
+    AGENTS_START,
+    PROFILE_END,
+    PROFILE_START,
+    agents_block,
+    ensure_agents,
+    profile_paths,
+    replace_marked_block,
+)
 from profile_blocks import profile_block
 
 
@@ -106,6 +114,83 @@ class InstallDryRunTests(unittest.TestCase):
         self.assertTrue(result["targets"]["codex_config"]["would_write"])
         self.assertEqual(result["targets"]["home_agents"]["reason"], "installed_elsewhere")
 
+    def test_install_cli_dry_run_updates_existing_home_plugin_by_default(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            home_root = Path(temp_dir)
+            installed_elsewhere = home_root / "plugins" / "codex-memory"
+            installed_elsewhere.mkdir(parents=True)
+            (installed_elsewhere / ".codex-plugin").mkdir()
+            env = os.environ.copy()
+            env["CODEX_MEMORY_HOME"] = str(home_root)
+            env["CODEX_HOME"] = str(home_root / ".codex")
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "-X",
+                    "utf8",
+                    str(PLUGIN_SCRIPTS_DIR / "install_codex_memory.py"),
+                    "--dry-run",
+                    "--scope",
+                    "home",
+                    "--mode",
+                    "copy",
+                    "--profile-shells",
+                    "none",
+                    "--skip-skills",
+                    "--mcp-python-command",
+                    "python",
+                ],
+                cwd=PROJECT_ROOT,
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+        payload = json.loads(completed.stdout)
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertTrue(payload["update_existing"])
+        self.assertEqual(payload["targets"]["home_plugin"]["status"], "would_replace_existing")
+        self.assertNotIn("home_plugin:installed_elsewhere", json.dumps(payload["blocked"]))
+        self.assertNotEqual(payload["targets"]["home_agents"].get("reason"), "installed_elsewhere")
+
+    def test_install_cli_dry_run_can_preserve_existing_home_plugin_when_requested(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            home_root = Path(temp_dir)
+            installed_elsewhere = home_root / "plugins" / "codex-memory"
+            installed_elsewhere.mkdir(parents=True)
+            env = os.environ.copy()
+            env["CODEX_MEMORY_HOME"] = str(home_root)
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "-X",
+                    "utf8",
+                    str(PLUGIN_SCRIPTS_DIR / "install_codex_memory.py"),
+                    "--dry-run",
+                    "--scope",
+                    "home",
+                    "--mode",
+                    "copy",
+                    "--profile-shells",
+                    "none",
+                    "--skip-skills",
+                    "--no-update-existing",
+                    "--mcp-python-command",
+                    "python",
+                ],
+                cwd=PROJECT_ROOT,
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+        payload = json.loads(completed.stdout)
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertFalse(payload["update_existing"])
+        self.assertEqual(payload["targets"]["home_plugin"]["status"], "installed_elsewhere")
+
     def test_install_dry_run_cli_does_not_write_to_isolated_home(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             env = os.environ.copy()
@@ -141,6 +226,37 @@ class InstallDryRunTests(unittest.TestCase):
         self.assertFalse((home_root / "plugins" / "codex-memory").exists())
         self.assertFalse((home_root / ".agents" / "plugins" / "marketplace.json").exists())
         self.assertFalse((home_root / ".codex" / "AGENTS.md").exists())
+
+    def test_ensure_agents_replaces_legacy_unmarked_memory_section(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            home_root = Path(temp_dir)
+            old_home = os.environ.get("CODEX_MEMORY_HOME")
+            old_codex_home = os.environ.get("CODEX_HOME")
+            os.environ["CODEX_MEMORY_HOME"] = str(home_root)
+            os.environ["CODEX_HOME"] = str(home_root / ".codex")
+            agents_path = home_root / ".codex" / "AGENTS.md"
+            agents_path.parent.mkdir(parents=True)
+            agents_path.write_text(
+                "# User Rules\n\n"
+                "## Codex Memory 全局无感使用（MUST）\n"
+                "- old lifecycle text\n\n"
+                "## Other Section\n"
+                "keep this\n",
+                encoding="utf-8",
+            )
+            try:
+                result = ensure_agents(home_root / "plugins" / "codex-memory")
+                updated = agents_path.read_text(encoding="utf-8")
+            finally:
+                _restore_env("CODEX_MEMORY_HOME", old_home)
+                _restore_env("CODEX_HOME", old_codex_home)
+
+        self.assertEqual(result["status"], "legacy_unmarked_updated")
+        self.assertIn(AGENTS_START, updated)
+        self.assertIn(AGENTS_END, updated)
+        self.assertIn("openspec/changes/<change-id>/proposal.md", updated)
+        self.assertIn("## Other Section\nkeep this", updated)
+        self.assertNotIn("old lifecycle text", updated)
 
     def test_install_dry_run_uses_future_linked_plugin_files_for_first_install(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -330,121 +446,6 @@ class InstallDryRunTests(unittest.TestCase):
         self.assertEqual(result["targets"]["home_marketplace"]["status"], "parse_error")
         self.assertTrue(result["blocked"])
         self.assertFalse(result["check"]["home_marketplace"]["parse_ok"])
-
-    def test_install_dry_run_lists_only_concrete_skill_write_paths(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            home_root = Path(temp_dir)
-            old_home = os.environ.get("CODEX_MEMORY_HOME")
-            os.environ["CODEX_MEMORY_HOME"] = str(home_root)
-            try:
-                result = install_codex_memory.build_install_dry_run_plan(
-                    "auto",
-                    "home",
-                    "none",
-                    install_agents=False,
-                    update_existing=False,
-                    install_skills=True,
-                    mcp_python_command="python",
-                    mcp_python_prefix_args=[],
-                )
-            finally:
-                _restore_env("CODEX_MEMORY_HOME", old_home)
-
-        skill_writes = [
-            item for item in result["planned_writes"]
-            if item["target"] == "bundled_skills"
-        ]
-        self.assertGreater(len(skill_writes), 0)
-        self.assertTrue(all(item["path"] for item in skill_writes))
-        self.assertNotIn(
-            {"target": "bundled_skills", "path": "", "action": "install_missing_skills"},
-            result["planned_writes"],
-        )
-
-    def test_install_dry_run_skips_existing_incomplete_skill_directory(self) -> None:
-        status = {
-            "skills": [
-                {
-                    "name": "partial-skill",
-                    "source_exists": True,
-                    "target_exists": True,
-                    "target_has_skill_md": False,
-                    "path": "C:/Users/test/.agents/skills/partial-skill",
-                }
-            ],
-            "source_ref": "test",
-        }
-
-        with mock.patch.object(install_dry_run_targets, "bundled_skills_status", return_value=status):
-            result = install_dry_run_targets.bundled_skills_plan(Path("plugin"))
-
-        self.assertEqual(result["skills"][0]["action"], "skip_existing_incomplete")
-        self.assertFalse(result["skills"][0]["would_write"])
-        self.assertEqual(
-            install_dry_run_targets.planned_writes({"bundled_skills": result}),
-            [],
-        )
-
-    def test_install_dry_run_reports_missing_skill_sources_as_blocked(self) -> None:
-        status = {
-            "skills": [
-                {
-                    "name": "missing-source",
-                    "source_exists": False,
-                    "target_exists": False,
-                    "target_has_skill_md": False,
-                    "path": "C:/Users/test/.agents/skills/missing-source",
-                },
-                {
-                    "name": "fresh-skill",
-                    "source_exists": True,
-                    "target_exists": False,
-                    "target_has_skill_md": False,
-                    "path": "C:/Users/test/.agents/skills/fresh-skill",
-                }
-            ],
-            "source_ref": "test",
-        }
-
-        with mock.patch.object(install_dry_run_targets, "bundled_skills_status", return_value=status):
-            result = install_dry_run_targets.bundled_skills_plan(Path("plugin"))
-
-        blocked = install_dry_run_targets.target_blocks({"bundled_skills": result})
-        self.assertTrue(result["blocked"])
-        self.assertTrue(blocked)
-        self.assertEqual(result["skills"][0]["action"], "blocked_missing_source")
-        self.assertNotIn(
-            {"target": "bundled_skills", "path": "", "action": "install_missing_skills"},
-            install_dry_run_targets.planned_writes({"bundled_skills": result}),
-        )
-
-    def test_install_dry_run_dedupes_existing_skill_without_blocking(self) -> None:
-        status = {
-            "skills": [
-                {
-                    "name": "harness-release-gate",
-                    "source_exists": True,
-                    "target_exists": True,
-                    "target_has_skill_md": True,
-                    "stale_existing": True,
-                    "deduped_existing": True,
-                    "content_differs_from_source": True,
-                    "path": "C:/Users/test/.agents/skills/harness-release-gate",
-                }
-            ],
-            "source_ref": "test",
-        }
-
-        with mock.patch.object(install_dry_run_targets, "bundled_skills_status", return_value=status):
-            result = install_dry_run_targets.bundled_skills_plan(Path("plugin"))
-
-        self.assertFalse(result["blocked"])
-        self.assertEqual(result["stale_existing_count"], 0)
-        self.assertEqual(result["deduped_existing_count"], 1)
-        self.assertEqual(result["skills"][0]["action"], "already_exists_deduped")
-        self.assertFalse(result["skills"][0]["would_write"])
-        self.assertIn("keep the existing user skill", result["skills"][0]["reason"])
-
 
 def _restore_env(name: str, value: str | None) -> None:
     if value is None:

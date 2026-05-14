@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import shutil
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -97,6 +98,18 @@ def _copy_skill(src: Path, dst: Path) -> None:
     )
 
 
+def _backup_existing_skill(dst: Path, backup_root: Path) -> Path:
+    backup_root.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    backup = backup_root / f"{dst.name}.backup-{timestamp}"
+    suffix = 1
+    while backup.exists():
+        backup = backup_root / f"{dst.name}.backup-{timestamp}-{suffix}"
+        suffix += 1
+    shutil.move(str(dst), str(backup))
+    return backup
+
+
 def _skill_md(path: Path) -> Path:
     return path / "SKILL.md"
 
@@ -136,22 +149,57 @@ def _skill_tree_sha256(path: Path) -> str:
 def ensure_bundled_skills(plugin_root: Path) -> dict[str, Any]:
     manifest = load_manifest(plugin_root)
     target_root = user_skills_root()
+    backup_root = target_root / ".codex-memory-backups"
+    overwrite_existing = bool(manifest.get("overwrite_existing", False))
     results: list[dict[str, Any]] = []
     installed = 0
+    updated = 0
     skipped = 0
 
     for item in _manifest_skill_items(manifest):
         name = item["name"]
         src = _skill_source(plugin_root, item)
         dst = target_root / name
+        if not (src / "SKILL.md").exists():
+            raise RuntimeError(f"Bundled skill source is missing SKILL.md: {src}")
         if dst.exists():
-            skipped += 1
+            source_digest = _skill_tree_sha256(src)
+            target_digest = _skill_tree_sha256(dst)
+            if source_digest and source_digest == target_digest:
+                skipped += 1
+                results.append(
+                    {
+                        "name": name,
+                        "path": str(dst),
+                        "status": "already_current",
+                        "installed": False,
+                        "updated": False,
+                    }
+                )
+                continue
+            if not overwrite_existing:
+                skipped += 1
+                results.append(
+                    {
+                        "name": name,
+                        "path": str(dst),
+                        "status": "deduped_existing",
+                        "installed": False,
+                        "updated": False,
+                    }
+                )
+                continue
+            backup = _backup_existing_skill(dst, backup_root)
+            _copy_skill(src, dst)
+            updated += 1
             results.append(
                 {
                     "name": name,
                     "path": str(dst),
-                    "status": "deduped_existing",
+                    "status": "updated",
+                    "backup_path": str(backup),
                     "installed": False,
+                    "updated": True,
                 }
             )
             continue
@@ -163,14 +211,17 @@ def ensure_bundled_skills(plugin_root: Path) -> dict[str, Any]:
                 "path": str(dst),
                 "status": "installed",
                 "installed": True,
+                "updated": False,
             }
         )
 
     return {
         "target_root": str(target_root),
         "legacy_target_root": str(legacy_codex_skills_root()),
+        "backup_root": str(backup_root),
         "source_ref": manifest.get("source_ref", ""),
         "installed": installed,
+        "updated": updated,
         "skipped_existing": skipped,
         "deduped_existing": skipped,
         "manifest_duplicate_count": _manifest_duplicate_count(manifest),
@@ -205,6 +256,7 @@ def bundled_skills_status(plugin_root: Path) -> dict[str, Any]:
             and target_has_skill_md
             and not target_matches_source
         )
+        stale_existing = bool(dst.exists() and source_exists and not target_matches_source)
         skills.append(
             {
                 "name": name,
@@ -216,7 +268,7 @@ def bundled_skills_status(plugin_root: Path) -> dict[str, Any]:
                 "target_matches_source": target_matches_source,
                 "content_differs_from_source": content_differs_from_source,
                 "deduped_existing": target_has_skill_md,
-                "stale_existing": False,
+                "stale_existing": stale_existing,
                 "legacy_target_exists": legacy_dst.exists(),
                 "path": str(dst),
             }
@@ -240,5 +292,5 @@ def bundled_skills_status(plugin_root: Path) -> dict[str, Any]:
         "source_missing_count": sum(1 for item in skills if not item["source_exists"]),
         "deduped_existing_count": sum(1 for item in skills if item["deduped_existing"]),
         "content_differs_count": sum(1 for item in skills if item["content_differs_from_source"]),
-        "stale_count": 0,
+        "stale_count": sum(1 for item in skills if item["stale_existing"]),
     }

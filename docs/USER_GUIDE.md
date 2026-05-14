@@ -39,7 +39,7 @@ sh ./install.sh --install-python
 
 安装器会默认离线安装 `plugins/codex-memory/skills/bundled-skills.json` 登记的所有随包技能到 `~/.agents/skills/<skill-name>`。当前 manifest 覆盖 security、GitHub、CLI、迁移、release gate、需求澄清、接口设计、TDD、提交、review、PRD、重构、文档、图像、OpenAI docs、plugin/skill 创建等场景。
 
-这些技能已经 vendor 在发布包里，安装时不会联网拉取 GitHub。如果目标技能目录已存在，安装器会保留用户已有版本并跳过，不会覆盖。若只想安装 memory/harness 接入、不安装 bundled skills，可运行：
+这些技能已经 vendor 在发布包里，安装时不会联网拉取 GitHub。如果目标技能目录已存在且内容不同，安装器会先把旧目录移动到 `~/.agents/skills/.codex-memory-backups/`，再刷新为当前包版本。若只想安装 memory/harness 接入、不安装 bundled skills，可运行：
 
 任务执行时还会按 skill-first 规则匹配当前可用技能。需求或策划文档不清时按 `grill-me` 风格列出问题；创建接口、协议、schema、CLI 或跨模块契约前优先使用 `design-an-interface` 比较多个方案；PRD、TDD、代码 review、Git 提交、安全审查和 GitHub CI 等场景按技能路由表触发。完整规则见：
 
@@ -55,21 +55,21 @@ POSIX shell：
 sh ./install.sh --skip-skills
 ```
 
-如果已经安装的是当前版本，安装器会提示 `already_installed`，不会重新安装插件。
+如果已经安装的是当前版本，安装器会提示 `already_installed`，不会重新安装插件，但仍会刷新全局 AGENTS 规则、hook/MCP、profile、marketplace 和 bundled skills。
 
-如果机器上已经有旧版本或其他项目安装的 `codex-memory`，默认安装不会覆盖它。需要更新到当前包时显式运行：
+如果机器上已经有旧版本或其他项目安装的 `codex-memory`，默认安装就是更新：`install.bat`、`install.ps1`、`install.sh` 和 `codex memory install` 都会把 `~/plugins/codex-memory` 更新到当前包。旧普通目录会先备份；junction 或 symlink 会重指向当前版本。它不会修改真实 Codex CLI 文件。`--update-existing` / `-UpdateExisting` 仍可显式写出，`--replace-existing` / `-ReplaceExisting` 仍可作为兼容别名使用。
+
+如果只想保守检查、不替换旧 home plugin，可运行：
 
 ```powershell
-.\install.bat --update-existing
+.\install.bat --no-update-existing
 ```
 
 POSIX shell：
 
 ```sh
-sh ./install.sh --update-existing
+sh ./install.sh --no-update-existing
 ```
-
-这会把 `~/plugins/codex-memory` 更新到当前包。它不会修改真实 Codex CLI 文件。`--replace-existing` 仍可作为兼容别名使用，但推荐新命令写法 `--update-existing`。`install.bat` 和 `install.sh` 兼容旧的 `-UpdateExisting` 写法，PowerShell 入口 `.\install.ps1 -UpdateExisting` 也仍保留。
 
 ## 日常使用
 

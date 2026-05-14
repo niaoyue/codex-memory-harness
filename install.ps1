@@ -3,10 +3,11 @@ param(
     [string]$Mode = "auto",
 
     [ValidateSet("pwsh", "windows", "all", "none")]
-    [string]$ProfileShells = "pwsh",
+    [string]$ProfileShells = "all",
 
     [switch]$ReplaceExisting,
     [switch]$UpdateExisting,
+    [switch]$NoUpdateExisting,
     [switch]$SkipAgents,
     [switch]$SkipSkills,
     [switch]$DryRun
@@ -132,6 +133,10 @@ if ($ReplaceExisting) {
 
 if ($UpdateExisting) {
     $InstallerArgs += "--update-existing"
+}
+
+if ($NoUpdateExisting) {
+    $InstallerArgs += "--no-update-existing"
 }
 
 if ($SkipAgents) {

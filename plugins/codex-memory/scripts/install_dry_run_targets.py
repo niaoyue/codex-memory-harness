@@ -16,6 +16,7 @@ from install_support import (
     profile_paths,
     read_text,
     replace_marked_block,
+    replace_legacy_agents_block,
 )
 from profile_blocks import posix_profile_block, profile_block
 from profile_install import _install_profile_shells
@@ -25,15 +26,10 @@ from skill_bundle import bundled_skills_status
 def agents_plan(home_plugin: Path) -> dict[str, Any]:
     path = home_agents_path()
     current = read_text(path)
-    if AGENTS_START not in current and "## Codex Memory 全局无感使用" in current:
-        return {
-            "path": str(path),
-            "category": "agents",
-            "status": "existing_unmarked_kept",
-            "action": "no_change",
-            "would_write": False,
-        }
-    updated, status = replace_marked_block(current, AGENTS_START, AGENTS_END, agents_block(home_plugin))
+    block = agents_block(home_plugin)
+    updated, status = replace_legacy_agents_block(current, block)
+    if status == "missing":
+        updated, status = replace_marked_block(current, AGENTS_START, AGENTS_END, block)
     return {
         "path": str(path),
         "category": "agents",
@@ -101,10 +97,15 @@ def profile_group_plan(
 
 def bundled_skills_plan(plugin_root: Path) -> dict[str, Any]:
     status = bundled_skills_status(plugin_root)
+    overwrite_existing = bool(status.get("overwrite_existing", False))
     skills = []
     for item in status["skills"]:
         if not item["source_exists"]:
             action = "blocked_missing_source"
+        elif item.get("target_matches_source"):
+            action = "already_current"
+        elif item["target_exists"] and overwrite_existing:
+            action = "update_existing"
         elif item["target_has_skill_md"]:
             action = "already_exists_deduped"
         elif item["target_exists"]:
@@ -115,7 +116,7 @@ def bundled_skills_plan(plugin_root: Path) -> dict[str, Any]:
             {
                 **item,
                 "action": action,
-                "would_write": action == "install",
+                "would_write": action in {"install", "update_existing"},
                 "blocked": action == "blocked_missing_source",
                 "reason": skill_action_reason(action),
             }
@@ -128,16 +129,21 @@ def bundled_skills_plan(plugin_root: Path) -> dict[str, Any]:
         "blocked": any(item["blocked"] for item in skills),
         "skills": skills,
         "planned_install_count": sum(1 for item in skills if item["action"] == "install"),
+        "planned_update_count": sum(1 for item in skills if item["action"] == "update_existing"),
         "deduped_existing_count": sum(
             1 for item in skills if item["action"] == "already_exists_deduped"
         ),
-        "stale_existing_count": 0,
+        "stale_existing_count": sum(1 for item in skills if item.get("stale_existing")),
     }
 
 
 def skill_action_reason(action: str) -> str:
     if action == "blocked_missing_source":
         return "missing bundled skill source"
+    if action == "already_current":
+        return "bundled skill already matches the package"
+    if action == "update_existing":
+        return "existing bundled skill differs from the package and will be backed up before update"
     if action == "already_exists_deduped":
         return "skill name already exists; keep the existing user skill and skip bundled copy"
     return ""
