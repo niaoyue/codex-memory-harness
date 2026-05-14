@@ -188,9 +188,13 @@ class InstallerTests(unittest.TestCase):
             "subagent_runtime.recommended=true\n"
             "host_dispatch_allowed=true\n"
             "spawn_agent\n"
+            "不得只生成 dispatch plan\n"
+            "dispatch_required\n"
+            "host_spawn_request_count\n"
             "actual_subagents=0\n"
             "downgrade_reason\n"
             "dispatch_id\n"
+            "recommended_not_started\n"
         )
         with (
             mock.patch.object(install_status, "read_text", return_value=agents_text),
@@ -246,8 +250,21 @@ class InstallerTests(unittest.TestCase):
             "subagent_runtime.recommended=true",
             home_agents["missing_required_subagent_dispatch_markers"],
         )
+        self.assertIn(
+            "不得只生成 dispatch plan",
+            home_agents["missing_required_subagent_dispatch_markers"],
+        )
+        self.assertIn("dispatch_required", home_agents["missing_required_subagent_dispatch_markers"])
+        self.assertIn(
+            "host_spawn_request_count",
+            home_agents["missing_required_subagent_dispatch_markers"],
+        )
         self.assertIn("downgrade_reason", home_agents["missing_required_subagent_dispatch_markers"])
         self.assertIn("dispatch_id", home_agents["missing_required_subagent_dispatch_markers"])
+        self.assertIn(
+            "recommended_not_started",
+            home_agents["missing_required_subagent_dispatch_markers"],
+        )
 
     def test_dependency_status_accepts_python_launcher_without_py(self) -> None:
         def fake_which(command: str) -> str | None:

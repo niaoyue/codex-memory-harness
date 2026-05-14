@@ -23,14 +23,22 @@ REQUIRED_SUBAGENT_DISPATCH_MARKERS = (
     "subagent_runtime.recommended=true",
     "host_dispatch_allowed=true",
     "spawn_agent",
+    "不得只生成 dispatch plan",
+    "dispatch_required",
+    "host_spawn_request_count",
     "actual_subagents=0",
     "downgrade_reason",
     "dispatch_id",
+    "recommended_not_started",
 )
 
 
 def missing_required_subagent_dispatch_markers(agents_text: str) -> list[str]:
-    return [marker for marker in REQUIRED_SUBAGENT_DISPATCH_MARKERS if marker not in agents_text]
+    return [
+        marker
+        for marker in REQUIRED_SUBAGENT_DISPATCH_MARKERS
+        if marker not in agents_text
+    ]
 
 
 def check_state(
