@@ -51,6 +51,8 @@ def check_state(
             "mentions_current_openspec_layout": "openspec/changes/" in agents_text,
             "mentions_candidate_review_gate": "candidate commit" in agents_text
             or "候选提交" in agents_text,
+            "mentions_required_subagent_dispatch": "spawn_agent" in agents_text
+            and "actual_subagents=0" in agents_text,
         },
         "powershell_profiles": profile_statuses("all"),
         "posix_profiles": posix_profile_statuses(),

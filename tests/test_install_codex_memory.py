@@ -179,6 +179,33 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(state["posix_profiles"], [{"has_launcher": False}])
         self.assertTrue(any("Python 3.11+" in item for item in state["dependency_recommendations"]))
 
+    def test_check_state_reports_required_subagent_dispatch_guidance(self) -> None:
+        agents_text = (
+            "Codex Memory\n"
+            "openspec/changes/<change-id>/proposal.md\n"
+            "candidate commit\n"
+            "host_dispatch_allowed=true\n"
+            "spawn_agent\n"
+            "actual_subagents=0\n"
+        )
+        with (
+            mock.patch.object(install_status, "read_text", return_value=agents_text),
+            mock.patch.object(install_status, "home_agents_path", return_value=Path("AGENTS.md")),
+            mock.patch.object(install_status, "profile_statuses", return_value=[]),
+            mock.patch.object(install_status, "posix_profile_statuses", return_value=[]),
+            mock.patch.object(install_status, "inspect_codex_config", return_value={}),
+            mock.patch.object(install_status, "bundled_skills_status", return_value={}),
+        ):
+            state = install_status.check_state(
+                plugin_name="codex-memory",
+                repo_marketplace=Path("repo-marketplace.json"),
+                home_marketplace=Path("home-marketplace.json"),
+                plugin_root=Path("plugin"),
+                home_plugin=Path("home-plugin"),
+            )
+
+        self.assertTrue(state["home_agents"]["mentions_required_subagent_dispatch"])
+
     def test_dependency_status_accepts_python_launcher_without_py(self) -> None:
         def fake_which(command: str) -> str | None:
             paths = {
