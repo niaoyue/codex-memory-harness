@@ -63,13 +63,19 @@ def _find_project_root(start: Path) -> Path | None:
 def resolve_storage_paths(
     scope: str | None = None,
     cwd: str | Path | None = None,
+    *,
+    project_root_override: str | Path | None = None,
 ) -> StoragePaths:
     requested_scope = (scope or _env_value("CODEX_MEMORY_SCOPE") or "project").lower()
     if requested_scope not in {"project", "global", "auto"}:
         raise ValueError("CODEX_MEMORY_SCOPE must be one of: project, global, auto")
 
     start = Path(cwd or _env_value("CODEX_MEMORY_CWD") or Path.cwd()).resolve()
-    project_root = _find_project_root(start)
+    project_root = (
+        Path(project_root_override).resolve()
+        if project_root_override and requested_scope in {"project", "auto"}
+        else _find_project_root(start)
+    )
     if requested_scope == "global" or (requested_scope == "auto" and project_root is None):
         storage_dir = _global_storage_dir()
         resolved_scope = "global"
@@ -126,8 +132,14 @@ def _ensure_column(
 def ensure_storage_layout(
     scope: str | None = None,
     cwd: str | Path | None = None,
+    *,
+    project_root_override: str | Path | None = None,
 ) -> dict[str, str]:
-    paths = resolve_storage_paths(scope=scope, cwd=cwd)
+    paths = resolve_storage_paths(
+        scope=scope,
+        cwd=cwd,
+        project_root_override=project_root_override,
+    )
     paths.storage_dir.mkdir(parents=True, exist_ok=True)
     paths.summary_dir.mkdir(parents=True, exist_ok=True)
     paths.distilled_dir.mkdir(parents=True, exist_ok=True)

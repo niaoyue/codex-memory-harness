@@ -227,6 +227,25 @@ class VerificationRunnerTests(unittest.TestCase):
 
 
 class BootstrapTests(unittest.TestCase):
+    def test_storage_layout_can_bind_to_selected_project_root(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            home = Path(temp_dir) / "home"
+            project_root = home / "fresh-project"
+            project_root.mkdir(parents=True)
+            (home / ".codex").mkdir()
+
+            layout = init_storage.ensure_storage_layout(
+                scope="project",
+                cwd=project_root,
+                project_root_override=project_root,
+            )
+            project_memory_created = (project_root / ".codex" / "memories" / "memory.db").exists()
+            parent_memory_created = (home / ".codex" / "memories" / "memory.db").exists()
+
+        self.assertEqual(layout["project_root"], str(project_root.resolve()))
+        self.assertTrue(project_memory_created)
+        self.assertFalse(parent_memory_created)
+
     def test_project_command_config_uses_codex_style_entrypoints(self) -> None:
         config = codex_bootstrap._command_config(
             PROJECT_ROOT / "plugins" / "codex-memory",
@@ -368,10 +387,16 @@ class BootstrapTests(unittest.TestCase):
                     mock.patch.object(bootstrap_openspec, "verify_project", return_value={"ok": True, "status": "passed"}),
                 ):
                     result = codex_bootstrap.inspect_state(project_root, init=True)
+                    project_memory_created = (project_root / ".codex" / "memories" / "memory.db").exists()
+                    parent_memory_created = (home / ".codex" / "memories" / "memory.db").exists()
             finally:
                 _restore_env("CODEX_HOME", old_codex_home)
 
         self.assertEqual(result["project"]["root"], str(project_root.resolve()))
+        self.assertEqual(result["memory"]["storage"]["project_root"], str(project_root.resolve()))
+        self.assertTrue(result["checks"]["project_memory_exists"])
+        self.assertTrue(project_memory_created)
+        self.assertFalse(parent_memory_created)
         self.assertTrue(
             any(item["action"] == "openspec_upstream_sync" for item in result["actions"])
         )

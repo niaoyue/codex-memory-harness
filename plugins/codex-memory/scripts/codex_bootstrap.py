@@ -327,7 +327,11 @@ def _ensure_shared_memory_template(project_root: Path, actions: list[dict[str, A
 
 def init_project(project_root: Path, plugin_root: Path, *, sync_openspec_upstream: bool = True) -> list[dict[str, Any]]:
     actions: list[dict[str, Any]] = []
-    layout = ensure_storage_layout(scope="project", cwd=project_root)
+    layout = ensure_storage_layout(
+        scope="project",
+        cwd=project_root,
+        project_root_override=project_root,
+    )
     actions.append({"action": "ensure_memory_layout", "path": layout["storage_dir"]})
 
     harness_dir = project_root / ".codex" / "harness"
@@ -359,6 +363,7 @@ def inspect_state(cwd: Path, *, init: bool) -> dict[str, Any]:
     storage = resolve_storage_paths(
         scope="project" if selected_project else "global",
         cwd=selected_project or start,
+        project_root_override=selected_project if selected_project else None,
     )
     project_memory = selected_project / ".codex" / "memories" if selected_project else None
     project_shared = selected_project / ".codex" / "shared" if selected_project else None
