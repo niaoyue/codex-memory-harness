@@ -27,6 +27,9 @@ IMPLEMENTATION_HINTS = (
     "部署",
     "落地",
 )
+STRONG_IMPLEMENTATION_HINTS = tuple(
+    hint for hint in IMPLEMENTATION_HINTS if hint not in {"change", "改"}
+)
 READ_ONLY_HINTS = (
     "read-only",
     "readonly",
@@ -50,14 +53,14 @@ def ensure_for_task(project_root: Path, spec: TaskSpec) -> dict[str, Any]:
         return _skipped("disabled")
     if not (project_root / UPSTREAM_MANIFEST).exists():
         return _skipped("openspec_upstream_missing")
+    if _read_only_task(spec, metadata):
+        return _skipped("read_only_task")
     existing_change_id = _existing_change_id(metadata, spec.working_set)
     change_id = existing_change_id or safe_id(
         str(metadata.get("openspec_change_id") or metadata.get("openspec_change") or spec.task_id)
     )
     if not change_id:
         change_id = safe_id(spec.objective)
-    if not existing_change_id and _read_only_task(spec, metadata):
-        return _skipped("read_only_task")
 
     capability = safe_id(str(metadata.get("openspec_capability") or change_id))
     change_dir = project_root / "openspec" / "changes" / change_id
@@ -99,7 +102,7 @@ def ensure_for_task(project_root: Path, spec: TaskSpec) -> dict[str, Any]:
 
 def apply_to_spec(spec: TaskSpec, result: dict[str, Any]) -> None:
     if result.get("status") not in {"created", "updated", "existing"}:
-        spec.metadata["openspec_change"] = result
+        spec.metadata["openspec_change_scaffold"] = result
         return
     spec.metadata["openspec_change"] = result
     spec.metadata["openspec_change_id"] = result["change_id"]
@@ -136,6 +139,10 @@ def _read_only_task(spec: TaskSpec, metadata: dict[str, Any]) -> bool:
     if task_type in {"analysis", "review", "diagnostic", "read_only"}:
         return True
     text = " ".join([spec.objective, *spec.constraints, *spec.acceptance]).lower()
+    if any(hint in text for hint in READ_ONLY_HINTS) and not any(
+        hint in text for hint in STRONG_IMPLEMENTATION_HINTS
+    ):
+        return True
     if any(hint in text for hint in IMPLEMENTATION_HINTS):
         return False
     return any(hint in text for hint in READ_ONLY_HINTS)

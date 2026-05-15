@@ -62,6 +62,83 @@ class HarnessControllerTests(unittest.TestCase):
         self.assertTrue(spec_payload["metadata"]["openspec_dispatch_required"])
         self.assertIn("openspec/changes/fix-review-routing/tasks.md", spec_payload["working_set"])
 
+    def test_start_records_skipped_openspec_scaffold_without_trigger_key(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            task_file = root / "task.json"
+            task_file.write_text(
+                json.dumps({"task_id": "analyze-task", "objective": "Analyze repository status"}, ensure_ascii=False),
+                encoding="utf-8",
+            )
+
+            with mock.patch.object(harness_controller, "HookRunner", return_value=_FakeHookRunner(_empty_hook_result())):
+                result = harness_controller.start_task(
+                    argparse.Namespace(project_root=str(root), task_file=str(task_file), payload_json=None)
+                )
+
+        metadata = result["task_spec"]["metadata"]
+        self.assertEqual(metadata["openspec_change_scaffold"]["reason"], "openspec_upstream_missing")
+        self.assertNotIn("openspec_change", metadata)
+        self.assertNotIn("openspec_dispatch_required", metadata)
+
+    def test_start_does_not_scaffold_review_only_task_with_change_wording(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            _write_upstream_manifest(root)
+            task_file = root / "task.json"
+            task_file.write_text(
+                json.dumps(
+                    {
+                        "task_id": "review-commit",
+                        "objective": "Review the code changes introduced by commit abc1234",
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            with mock.patch.object(harness_controller, "HookRunner", return_value=_FakeHookRunner(_empty_hook_result())):
+                result = harness_controller.start_task(
+                    argparse.Namespace(project_root=str(root), task_file=str(task_file), payload_json=None)
+                )
+
+            change_exists = (root / "openspec" / "changes" / "review-commit").exists()
+
+        metadata = result["task_spec"]["metadata"]
+        self.assertFalse(change_exists)
+        self.assertEqual(metadata["openspec_change_scaffold"]["reason"], "read_only_task")
+        self.assertNotIn("openspec_change", metadata)
+
+    def test_start_respects_read_only_even_with_existing_openspec_path(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            _write_upstream_manifest(root)
+            task_file = root / "task.json"
+            task_file.write_text(
+                json.dumps(
+                    {
+                        "task_id": "audit-change",
+                        "objective": "Audit existing OpenSpec change",
+                        "working_set": ["openspec/changes/existing-change/tasks.md"],
+                        "metadata": {"read_only": True},
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            with mock.patch.object(harness_controller, "HookRunner", return_value=_FakeHookRunner(_empty_hook_result())):
+                result = harness_controller.start_task(
+                    argparse.Namespace(project_root=str(root), task_file=str(task_file), payload_json=None)
+                )
+
+            proposal_exists = (root / "openspec" / "changes" / "existing-change" / "proposal.md").exists()
+
+        metadata = result["task_spec"]["metadata"]
+        self.assertFalse(proposal_exists)
+        self.assertEqual(metadata["openspec_change_scaffold"]["reason"], "read_only_task")
+        self.assertNotIn("openspec_change", metadata)
+
     def test_start_persists_hook_workspace_routing_metadata_and_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -181,3 +258,9 @@ def _empty_hook_result() -> dict[str, object]:
         "task_id": "fix-review-routing",
         "result": {"task_state": {"task_id": "fix-review-routing", "metadata": {}}},
     }
+
+
+def _write_upstream_manifest(root: Path) -> None:
+    manifest = root / "openspec" / "upstream" / "openspec" / "manifest.json"
+    manifest.parent.mkdir(parents=True)
+    manifest.write_text('{"resolved_version": "1.3.1"}\n', encoding="utf-8")
