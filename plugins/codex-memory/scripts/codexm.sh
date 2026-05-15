@@ -244,6 +244,7 @@ write_package_help() {
 Codex Package commands:
   codex package build
   codex package verify
+  codex package version check|set <version>|bump patch|minor|major
 EOF
 }
 
@@ -333,6 +334,7 @@ invoke_package() {
         help|-h|--help) write_package_help; exit 0 ;;
         build) run_repo_py build_release.py "$@" ;;
         verify|check) run_repo_py verify_project.py "$@" ;;
+        version) run_repo_py version_manager.py --project-root "$(pwd)" "$@" ;;
         *) echo "Unknown Codex Package command: $command_name. Run 'codex package help' for usage." >&2; exit 64 ;;
     esac
 }

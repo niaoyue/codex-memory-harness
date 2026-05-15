@@ -386,14 +386,16 @@ sh ./install.sh
 卸载：
 
 ```bat
-install.bat --uninstall
+uninstall.bat
 ```
 
 POSIX shell：
 
 ```sh
-sh ./install.sh --uninstall
+sh ./uninstall.sh
 ```
+
+兼容入口 `install.bat --uninstall` 和 `sh ./install.sh --uninstall` 仍可用；PowerShell 用户也可以运行 `.\uninstall.ps1`。
 
 安装器行为：
 
@@ -414,6 +416,14 @@ sh ./install.sh --uninstall
 
 ```powershell
 codex package build
+```
+
+版本维护：
+
+```powershell
+codex package version check
+codex package version set <VERSION>
+codex package version bump patch
 ```
 
 产物：

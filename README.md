@@ -315,6 +315,14 @@ codex package build
 codex package verify
 ```
 
+版本一致性检查、设置和语义化递增使用同一个维护入口；它会同步 `pyproject.toml` 与插件 manifest，并由 `codex package verify` 自动检查：
+
+```powershell
+codex package version check
+codex package version set 0.1.2
+codex package version bump patch
+```
+
 这些命令底层仍复用仓库里的 Python 脚本，但用户不需要直接调用 `py -X utf8 ...`。
 
 同步或验证官方 OpenSpec 上游核心 schema/templates。这是 Codex Memory Harness 对目标项目提供的 pinned snapshot 维护能力；默认初始化和刷新顺序是先同步指定版本，再校验 manifest；`status` 只用于前后状态检查：
@@ -371,13 +379,19 @@ sh ./install.sh
 只移除 marketplace、PowerShell/POSIX shell profile 标记块和全局 AGENTS 标记块：
 
 ```bat
-install.bat --uninstall
+uninstall.bat
 ```
 
 POSIX shell：
 
 ```sh
-sh ./install.sh --uninstall
+sh ./uninstall.sh
+```
+
+PowerShell 兼容入口：
+
+```powershell
+.\uninstall.ps1
 ```
 
 通过 Codex 入口卸载接入：
@@ -389,14 +403,16 @@ codex memory uninstall
 同时移除 `~/plugins/codex-memory`：
 
 ```bat
-install.bat --uninstall --remove-home-plugin
+uninstall.bat --remove-home-plugin
 ```
 
 POSIX shell：
 
 ```sh
-sh ./install.sh --uninstall --remove-home-plugin
+sh ./uninstall.sh --remove-home-plugin
 ```
+
+`install.bat --uninstall` 和 `sh ./install.sh --uninstall` 仍保留为兼容写法。
 
 卸载不会删除任何用户项目里的 `.codex/memories`，也不会删除已经沉淀的项目私有记忆。
 卸载也不会默认删除 `~/.agents/skills` 中已经存在的技能，避免误删用户自己安装或修改过的技能目录。
@@ -408,12 +424,15 @@ plugins/codex-memory/        核心插件、hooks、MCP、memory、harness、ver
 openspec/                    OpenSpec specs、changes、delta specs、upstream snapshot 和 Harness binding extension
 .codex/harness/backlog/      Harness 自身任务清单、迁移计划和未完成项进度来源
 scripts/build_release.py     打包 zip 的底层实现
+scripts/version_manager.py   版本一致性检查、设置和 bump 入口
 scripts/verify_project.py    项目健康检查的底层实现
 docs/                        LLM/Agent 普及手册、用户指南、隐私说明、系统总结、对标、路由设计和兼容 stub
 templates/                   repo/project 接入模板
 install.bat                  Windows CMD 首次安装、更新和卸载入口
 install.sh                   POSIX shell 首次安装、更新和卸载入口
 install.ps1                  PowerShell 兼容安装入口
+uninstall.bat                Windows CMD 独立卸载入口
+uninstall.sh                 POSIX shell 独立卸载入口
 uninstall.ps1                PowerShell 兼容卸载入口
 ```
 

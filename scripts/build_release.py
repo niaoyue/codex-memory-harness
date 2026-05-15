@@ -7,9 +7,10 @@ import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
+from version_manager import current_version
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-PLUGIN_MANIFEST = PROJECT_ROOT / "plugins" / "codex-memory" / ".codex-plugin" / "plugin.json"
 
 EXCLUDED_DIRS = {
     ".git",
@@ -36,8 +37,7 @@ INCLUDED_CODEX_PATH_PREFIXES: tuple[tuple[str, ...], ...] = ()
 
 
 def version() -> str:
-    payload = json.loads(PLUGIN_MANIFEST.read_text(encoding="utf-8"))
-    return str(payload["version"])
+    return current_version(PROJECT_ROOT)
 
 
 def _has_prefix(parts: tuple[str, ...], prefix: tuple[str, ...]) -> bool:
@@ -97,20 +97,28 @@ def iter_files() -> list[Path]:
 
 def build(output_dir: Path) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
-    package_name = f"codex-memory-harness-{version()}.zip"
+    version_text = version()
+    package_name = f"codex-memory-harness-{version_text}.zip"
     package_path = output_dir / package_name
     if package_path.exists():
         package_path.unlink()
 
     manifest = {
         "name": "codex-memory-harness",
-        "version": version(),
+        "version": version_text,
         "built_at": datetime.now(timezone.utc).isoformat(),
         "install": (
             "Windows CMD: run install.bat. PowerShell: run .\\install.bat. "
             "POSIX shell: run sh ./install.sh. "
             "Bundled Codex skills install into ~/.agents/skills by default; use --skip-skills to skip them. "
             "Use --update-existing to update an existing install. install.ps1 remains supported."
+        ),
+        "uninstall": (
+            "Windows CMD: run uninstall.bat. PowerShell: run .\\uninstall.ps1. "
+            "POSIX shell: run sh ./uninstall.sh. Add --remove-home-plugin to also remove ~/plugins/codex-memory."
+        ),
+        "version_management": (
+            "Run python -X utf8 scripts/version_manager.py check, set <version>, or bump patch|minor|major."
         ),
     }
 

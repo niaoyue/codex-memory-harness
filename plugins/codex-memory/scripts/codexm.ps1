@@ -6,7 +6,6 @@ param(
     [Parameter(ValueFromRemainingArguments = $true)]
     [string[]]$CodexArgs
 )
-
 $ErrorActionPreference = "Stop"
 $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $PluginRoot = Split-Path -Parent $ScriptRoot
@@ -39,7 +38,6 @@ $ReviewGateIdleSeconds = 1800
 $ReviewGateRunningEnv = "CODEX_REVIEW_GATE_RUNNING"
 $XHighReviewDispatchDisableEnv = "CODEX_XHIGH_REVIEW_DISPATCH_DISABLE"
 $script:ResolvedPythonRuntime = $null
-
 function Get-PythonVersion {
     param([Parameter(Mandatory = $true)][pscustomobject]$Runtime)
     $probeArgs = @($Runtime.PrefixArgs) + @("-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')")
@@ -47,7 +45,6 @@ function Get-PythonVersion {
     if ($LASTEXITCODE -ne 0 -or -not $versionText) { return $null }
     return ($versionText | Select-Object -First 1).Trim()
 }
-
 function Test-PythonVersion {
     param([Parameter(Mandatory = $true)][string]$VersionText)
     $parts = $VersionText.Split(".")
@@ -55,7 +52,6 @@ function Test-PythonVersion {
     try { $major = [int]$parts[0]; $minor = [int]$parts[1] } catch { return $false }
     return ($major -gt $RequiredPythonMajor) -or ($major -eq $RequiredPythonMajor -and $minor -ge $RequiredPythonMinor)
 }
-
 function Resolve-PythonRuntime {
     if ($script:ResolvedPythonRuntime) { return $script:ResolvedPythonRuntime }
     $candidates = @(
@@ -174,6 +170,7 @@ function Write-PackageHelp {
 Codex Package 命令：
   codex package build              生成可分发 zip。
   codex package verify             运行项目健康检查、编译、行为测试和发布包边界检查。
+  codex package version check|set <version>|bump patch|minor|major
 "@
 }
 
@@ -341,6 +338,10 @@ function Invoke-PackageCommand {
         "check" {
             $script = Resolve-RepoScript -ScriptName "verify_project.py" -Cwd $cwd
             Invoke-PythonScriptAndExit -ScriptPath $script -Arguments $remaining
+        }
+        "version" {
+            $script = Resolve-RepoScript -ScriptName "version_manager.py" -Cwd $cwd
+            Invoke-PythonScriptAndExit -ScriptPath $script -Arguments (@("--project-root", $cwd) + $remaining)
         }
         default {
             Write-Error "未知 Codex Package 命令：$($Arguments[0])。运行 'codex package help' 查看可用命令。"

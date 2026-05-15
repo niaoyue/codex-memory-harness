@@ -440,6 +440,14 @@ Workspace routing 的实现拆分和当前进度见：
 codex package build
 ```
 
+发布前检查或更新版本：
+
+```powershell
+codex package version check
+codex package version set 0.1.2
+codex package version bump patch
+```
+
 把 `dist/codex-memory-harness-0.1.1.zip` 发给用户。用户解压后运行：
 
 ```powershell
@@ -495,13 +503,19 @@ codex
 卸载 profile 和 marketplace 接入：
 
 ```powershell
-.\install.bat --uninstall
+.\uninstall.bat
 ```
 
 POSIX shell：
 
 ```sh
-sh ./install.sh --uninstall
+sh ./uninstall.sh
+```
+
+PowerShell 兼容入口：
+
+```powershell
+.\uninstall.ps1
 ```
 
 卸载不会删除项目 memory。需要删除某个项目的 memory 时，由用户手动处理对应项目的 `.codex/memories`，不要由自动脚本递归删除。

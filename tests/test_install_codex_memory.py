@@ -82,6 +82,25 @@ class InstallerTests(unittest.TestCase):
         self.assertIn("-NoUpdateExisting", script)
         self.assertIn("--no-update-existing", script)
 
+    def test_uninstall_entrypoint_scripts_delegate_to_installer(self) -> None:
+        batch = (PROJECT_ROOT / "uninstall.bat").read_text(encoding="utf-8")
+        shell = (PROJECT_ROOT / "uninstall.sh").read_text(encoding="utf-8")
+        powershell = (PROJECT_ROOT / "uninstall.ps1").read_text(encoding="utf-8")
+
+        self.assertIn('install.bat" --uninstall', batch)
+        self.assertIn('sh "$SCRIPT_DIR/install.sh" --uninstall "$@"', shell)
+        self.assertIn("--uninstall", powershell)
+        self.assertIn("--remove-home-plugin", powershell)
+
+    def test_codexm_package_version_command_routes_to_version_manager(self) -> None:
+        powershell = (PLUGIN_SCRIPTS_DIR / "codexm.ps1").read_text(encoding="utf-8")
+        shell = (PLUGIN_SCRIPTS_DIR / "codexm.sh").read_text(encoding="utf-8")
+
+        self.assertIn("version_manager.py", powershell)
+        self.assertIn("codex package version", powershell)
+        self.assertIn("version_manager.py", shell)
+        self.assertIn("codex package version", shell)
+
     def test_install_writes_posix_profile_for_posix_launcher_family(self) -> None:
         with (
             mock.patch.object(install_codex_memory, "_ensure_home_plugin_install", return_value={"status": "already_installed"}),

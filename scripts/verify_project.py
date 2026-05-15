@@ -10,6 +10,7 @@ import zipfile
 from pathlib import Path
 
 import build_release
+import version_manager
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -193,20 +194,49 @@ def run_installer_smoke_test() -> dict[str, object]:
                 "skills target_root is outside temp home",
             )
 
+        uninstall_completed = subprocess.run(
+            ["cmd", "/c", "uninstall.bat", "--remove-home-plugin"],
+            cwd=package_root,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        uninstall_parse_error = ""
+        if uninstall_completed.returncode == 0:
+            try:
+                parsed = json.loads(uninstall_completed.stdout)
+                if not isinstance(parsed, dict):
+                    uninstall_parse_error = "uninstaller output is not a JSON object"
+            except json.JSONDecodeError as exc:
+                uninstall_parse_error = str(exc)
+
+        expect(uninstall_completed.returncode == 0, "uninstall.bat returned a non-zero exit code")
+        expect(
+            not uninstall_parse_error,
+            f"uninstall.bat stdout was not valid JSON: {uninstall_parse_error}",
+        )
+        expect(not (home / "plugins" / "codex-memory").exists(), "home plugin was not removed")
+        profile_after = profile_path.read_text(encoding="utf-8", errors="replace") if profile_path.exists() else ""
+        expect("codex-memory codexm launcher" not in profile_after, "profile launcher block was not removed")
+
         return {
             "ok": not failures,
             "skipped": False,
             "exit_code": completed.returncode,
             "failures": failures,
             "stdout": completed.stdout[-3000:],
-            "stderr": completed.stderr[-3000:],
+            "stderr": (completed.stderr + uninstall_completed.stderr)[-3000:],
         }
 
 
 def check_release_package() -> list[dict[str, object]]:
     failures: list[dict[str, object]] = []
     with tempfile.TemporaryDirectory() as output_dir:
-        package_path = build_release.build(Path(output_dir))
+        try:
+            package_path = build_release.build(Path(output_dir))
+        except Exception as exc:
+            return [{"path": "release_package", "error": str(exc)}]
         with zipfile.ZipFile(package_path) as archive:
             names = archive.namelist()
 
@@ -219,6 +249,13 @@ def check_release_package() -> list[dict[str, object]]:
         if name.endswith("memory.db") or name.endswith("events.jsonl"):
             failures.append({"path": name, "error": "memory storage file included"})
     return failures
+
+
+def check_version_consistency() -> dict[str, object]:
+    try:
+        return version_manager.version_status(PROJECT_ROOT)
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
 
 
 def run_behavior_tests(timeout_seconds: int = BEHAVIOR_TEST_TIMEOUT_SECONDS) -> dict[str, object]:
@@ -296,6 +333,7 @@ def main() -> int:
     args = parser.parse_args()
 
     result = {
+        "version_check": check_version_consistency(),
         "line_count_failures": check_code_line_counts(),
         "compile_failures": compile_python(),
         "json_failures": validate_json(),
@@ -306,7 +344,8 @@ def main() -> int:
         "installer_smoke": None if args.skip_installer_smoke else run_installer_smoke_test(),
     }
     ok = (
-        not result["line_count_failures"]
+        result["version_check"]["ok"]
+        and not result["line_count_failures"]
         and not result["compile_failures"]
         and not result["json_failures"]
         and not result["release_package_failures"]
