@@ -45,6 +45,21 @@ READ_ONLY_HINTS = (
     "为什么",
     "原因",
 )
+READ_ONLY_PREFIXES = (
+    "review ",
+    "analyze ",
+    "diagnose ",
+    "audit ",
+    "check ",
+    "please review ",
+    "please analyze ",
+    "只读",
+    "分析",
+    "查看",
+    "检查",
+    "排查",
+    "审计",
+)
 
 
 def ensure_for_task(project_root: Path, spec: TaskSpec) -> dict[str, Any]:
@@ -139,13 +154,18 @@ def _read_only_task(spec: TaskSpec, metadata: dict[str, Any]) -> bool:
     if task_type in {"analysis", "review", "diagnostic", "read_only"}:
         return True
     text = " ".join([spec.objective, *spec.constraints, *spec.acceptance]).lower()
-    if any(hint in text for hint in READ_ONLY_HINTS) and not any(
+    if _starts_with_any(text, READ_ONLY_PREFIXES) and not any(
         hint in text for hint in STRONG_IMPLEMENTATION_HINTS
     ):
         return True
     if any(hint in text for hint in IMPLEMENTATION_HINTS):
         return False
     return any(hint in text for hint in READ_ONLY_HINTS)
+
+
+def _starts_with_any(text: str, prefixes: tuple[str, ...]) -> bool:
+    stripped = text.strip()
+    return any(stripped.startswith(prefix) for prefix in prefixes)
 
 
 def _change_paths(change_id: str, capability: str) -> dict[str, str]:

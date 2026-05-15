@@ -109,6 +109,34 @@ class HarnessControllerTests(unittest.TestCase):
         self.assertEqual(metadata["openspec_change_scaffold"]["reason"], "read_only_task")
         self.assertNotIn("openspec_change", metadata)
 
+    def test_start_scaffolds_generic_change_task_with_review_object(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            _write_upstream_manifest(root)
+            task_file = root / "task.json"
+            task_file.write_text(
+                json.dumps(
+                    {
+                        "task_id": "change-review-routing",
+                        "objective": "Change review routing",
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            with mock.patch.object(harness_controller, "HookRunner", return_value=_FakeHookRunner(_empty_hook_result())):
+                result = harness_controller.start_task(
+                    argparse.Namespace(project_root=str(root), task_file=str(task_file), payload_json=None)
+                )
+
+            change_exists = (root / "openspec" / "changes" / "change-review-routing").exists()
+
+        metadata = result["task_spec"]["metadata"]
+        self.assertTrue(change_exists)
+        self.assertEqual(metadata["openspec_change_id"], "change-review-routing")
+        self.assertTrue(metadata["openspec_dispatch_required"])
+
     def test_start_respects_read_only_even_with_existing_openspec_path(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
