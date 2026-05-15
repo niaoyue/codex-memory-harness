@@ -6,7 +6,6 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest import mock
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -20,6 +19,7 @@ if str(PLUGIN_SCRIPTS_DIR) not in sys.path:
 
 import review_workflow
 from git_repo_template import copy_git_repo
+from review_workflow_helpers import fast_review_project, fingerprint as _fingerprint, patched_fingerprint
 
 
 class ReviewWorkflowTests(unittest.TestCase):
@@ -454,26 +454,6 @@ class ReviewWorkflowTests(unittest.TestCase):
         remaining = after["findings"]
         self.assertEqual(len(remaining), 1)
         self.assertEqual(remaining[0]["summary"], "First")
-
-
-def _fingerprint(value: str = "current", *, mode: str = "uncommitted") -> dict[str, object]:
-    return {"algorithm": "sha256", "fingerprint": f"sha256:{value}", "mode": mode, "changed_files": []}
-
-
-def patched_fingerprint(value: str = "current") -> object:
-    return mock.patch.object(review_workflow, "diff_fingerprint", return_value=_fingerprint(value))
-
-
-class fast_review_project:
-    def __enter__(self) -> Path:
-        self.temp_dir = tempfile.TemporaryDirectory()
-        self.patch = patched_fingerprint()
-        self.patch.__enter__()
-        return Path(self.temp_dir.name)
-
-    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
-        self.patch.__exit__(exc_type, exc, tb)
-        self.temp_dir.cleanup()
 
 
 class temp_repo:
