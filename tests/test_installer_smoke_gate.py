@@ -54,7 +54,7 @@ class InstallerSmokeGateTests(unittest.TestCase):
 
     def test_installer_smoke_reports_release_build_failure(self) -> None:
         with (
-            mock.patch.object(verify_project.os, "name", "nt"),
+            mock.patch.object(verify_project, "is_windows", return_value=True),
             mock.patch.object(verify_project.build_release, "build", side_effect=RuntimeError("version mismatch")),
         ):
             result = verify_project.run_installer_smoke_test()

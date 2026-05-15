@@ -104,8 +104,12 @@ def run_installer_check() -> dict[str, object]:
     }
 
 
+def is_windows() -> bool:
+    return os.name == "nt"
+
+
 def run_installer_smoke_test() -> dict[str, object]:
-    if os.name != "nt":
+    if not is_windows():
         return {
             "ok": True,
             "skipped": True,
