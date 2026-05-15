@@ -16,8 +16,9 @@ def runtime_decision(
     task_payload: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     context = decision_context(route_plan, bindings, task_payload or {})
-    eligible = not (context["disabled"] or context["requirements_blocked"])
-    dispatch_required = eligible and context["dispatch_required_signal"]
+    hard_blocked = context["hard_disabled"] or context["requirements_blocked"]
+    eligible = not (hard_blocked or context["user_disabled"])
+    dispatch_required = not hard_blocked and context["dispatch_required_signal"]
     recommended = dispatch_required or (eligible and (
         context["explicit"]
         or context["review_gate"]
@@ -113,6 +114,7 @@ def decision_context(
         "disabled": user_disabled or policy_disabled or review_gate_dispatch_disabled,
         "user_disabled": user_disabled,
         "policy_disabled": policy_disabled,
+        "hard_disabled": policy_disabled or review_gate_dispatch_disabled,
         "review_gate_dispatch_disabled": review_gate_dispatch_disabled,
         "policy_execution_model": policy_execution_model,
         "policy_autostart": bool(policy.get("autostart")),
@@ -189,8 +191,6 @@ def status_reason(context: dict[str, Any]) -> tuple[str, str, str]:
             "policy_disabled",
             context["policy_reason"] or "SubAgent runtime policy requires main Agent serial execution.",
         )
-    if context["user_disabled"]:
-        return "main_agent_serial", "user_disabled", "User explicitly disabled SubAgent, delegation, or parallel agent work."
     if context["openspec_required"]:
         return (
             "dispatch_required_not_started",
@@ -203,6 +203,8 @@ def status_reason(context: dict[str, Any]) -> tuple[str, str, str]:
             "route_policy_required",
             context["policy_reason"] or "Route policy requires host SubAgent dispatch.",
         )
+    if context["user_disabled"]:
+        return "main_agent_serial", "user_disabled", "User explicitly disabled SubAgent, delegation, or parallel agent work."
     if context["explicit"]:
         return (
             "requested_not_started",
@@ -264,6 +266,7 @@ def decision_factors(context: dict[str, Any]) -> dict[str, Any]:
         "requirements_blocked": context["requirements_blocked"],
         "user_disabled": context["user_disabled"],
         "policy_disabled": context["policy_disabled"],
+        "hard_disabled": context["hard_disabled"],
         "policy_required": context["policy_required"],
         "policy_autostart": context["policy_autostart"],
         "review_gate_dispatch_disabled": context["review_gate_dispatch_disabled"],

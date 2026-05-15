@@ -148,6 +148,26 @@ class SubagentRuntimePlannerTests(unittest.TestCase):
         self.assertFalse(runtime["host_dispatch_allowed"])
         self.assertFalse(runtime["dispatch_plan_required"])
 
+    def test_openspec_required_dispatch_overrides_user_disable(self) -> None:
+        plan = _route_plan(intent="small_change")
+        bindings = workspace_subagents.create_bindings(plan)
+
+        runtime = subagent_runtime_planner.runtime_decision(
+            plan,
+            bindings,
+            {
+                "objective": "Implement OpenSpec change contract without subagent",
+                "working_set": ["openspec/changes/require-subagent-dispatch/tasks.md"],
+                "use_subagents": False,
+            },
+        )
+
+        self.assertEqual(runtime["status"], "dispatch_required_not_started")
+        self.assertEqual(runtime["trigger"], "openspec_required")
+        self.assertEqual(runtime["execution_model"], "host_subagent_required")
+        self.assertTrue(runtime["dispatch_required"])
+        self.assertTrue(runtime["host_dispatch_allowed"])
+
     def test_route_reviewer_is_added_for_autonomous_feature_story(self) -> None:
         plan = _route_plan(intent="system_change", task_type="contract", risk="high")
         bindings = workspace_subagents.create_bindings(plan)

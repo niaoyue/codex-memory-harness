@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 from typing import Any
 
+import required_dispatch_review
 import subagent_runtime_planner
 import subagent_task_classifier
 import workspace_binding_enforcement
@@ -400,8 +401,9 @@ def routing_review(task_state: dict[str, Any] | None) -> dict[str, Any]:
     for result in routing.get("scope_guard") if isinstance(routing.get("scope_guard"), list) else []:
         if isinstance(result, dict) and result.get("violations"):
             gaps.append({"type": "scope_guard", "blocking": True, "reason": "touched paths exceed binding scope"})
-    review = {"ok": not any(item.get("blocking") for item in gaps), "gaps": gaps}
     runtime = routing.get("subagent_runtime") if isinstance(routing.get("subagent_runtime"), dict) else {}
+    required_dispatch_review.append_gap(gaps, runtime)
+    review = {"ok": not any(item.get("blocking") for item in gaps), "gaps": gaps}
     if runtime:
         review["subagent_runtime"] = runtime
     return review

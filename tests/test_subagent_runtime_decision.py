@@ -151,6 +151,47 @@ class SubagentRuntimeDecisionTests(unittest.TestCase):
         self.assertTrue(dispatch_plan["autostart"])
         self.assertTrue(dispatch_plan["dispatch_required"])
 
+    def test_before_response_blocks_unrun_required_dispatch(self) -> None:
+        with MemoryEnv():
+            with mock.patch.object(workspace_lifecycle.workspace_router, "build_route_plan", return_value=route_plan()):
+                runner = hook_runner.HookRunner(memory_store=memory_store.MemoryStore())
+                runner.run_event(
+                    "before_task",
+                    {
+                        "task_id": "openspec-required-task",
+                        "objective": "Implement OpenSpec change contract",
+                        "working_set": ["openspec/changes/require-subagent-dispatch/tasks.md"],
+                    },
+                )
+                result = runner.run_event("before_response", {"task_id": "openspec-required-task"})
+
+        review = result["result"]["workspace_routing_review"]
+        self.assertFalse(review["ok"])
+        self.assertEqual(review["gaps"][0]["type"], "required_subagent_dispatch")
+        self.assertTrue(review["gaps"][0]["blocking"])
+        self.assertEqual(review["subagent_runtime"]["status"], "dispatch_required_not_started")
+
+    def test_openspec_required_dispatch_ignores_user_disable(self) -> None:
+        with MemoryEnv():
+            with mock.patch.object(workspace_lifecycle.workspace_router, "build_route_plan", return_value=route_plan()):
+                runner = hook_runner.HookRunner(memory_store=memory_store.MemoryStore())
+                result = runner.run_event(
+                    "before_task",
+                    {
+                        "task_id": "openspec-user-disabled-task",
+                        "objective": "Implement OpenSpec change contract without subagent",
+                        "working_set": ["openspec/changes/require-subagent-dispatch/tasks.md"],
+                        "use_subagents": False,
+                    },
+                )
+
+        runtime = result["result"]["task_state"]["metadata"]["workspace_routing"]["subagent_runtime"]
+        self.assertEqual(runtime["status"], "dispatch_required_not_started")
+        self.assertEqual(runtime["trigger"], "openspec_required")
+        self.assertEqual(runtime["execution_model"], "host_subagent_required")
+        self.assertTrue(runtime["dispatch_required"])
+        self.assertTrue(runtime["host_dispatch_allowed"])
+
     def test_main_agent_serial_route_policy_suppresses_complex_dispatch_plan(self) -> None:
         plan = route_plan()
         plan["risk_level"] = "high"
