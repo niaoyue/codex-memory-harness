@@ -137,6 +137,43 @@ class HarnessControllerTests(unittest.TestCase):
         self.assertEqual(metadata["openspec_change_id"], "change-review-routing")
         self.assertTrue(metadata["openspec_dispatch_required"])
 
+    def test_start_does_not_scaffold_explicit_read_only_change_phrasings(self) -> None:
+        objectives = [
+            "Analysis of proposed change",
+            "Read-only review of existing change",
+            "Review: code changes introduced by commit abc123",
+            "Code review for changes introduced by commit abc123",
+        ]
+        for objective in objectives:
+            with self.subTest(objective=objective):
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    root = Path(temp_dir)
+                    _write_upstream_manifest(root)
+                    task_id = objective.lower().replace(" ", "-").replace(":", "").replace("/", "-")
+                    task_file = root / "task.json"
+                    task_file.write_text(
+                        json.dumps(
+                            {
+                                "task_id": task_id,
+                                "objective": objective,
+                            },
+                            ensure_ascii=False,
+                        ),
+                        encoding="utf-8",
+                    )
+
+                    with mock.patch.object(harness_controller, "HookRunner", return_value=_FakeHookRunner(_empty_hook_result())):
+                        result = harness_controller.start_task(
+                            argparse.Namespace(project_root=str(root), task_file=str(task_file), payload_json=None)
+                        )
+
+                    change_exists = (root / "openspec" / "changes" / task_id).exists()
+
+                metadata = result["task_spec"]["metadata"]
+                self.assertFalse(change_exists)
+                self.assertEqual(metadata["openspec_change_scaffold"]["reason"], "read_only_task")
+                self.assertNotIn("openspec_change", metadata)
+
     def test_start_respects_read_only_even_with_existing_openspec_path(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
