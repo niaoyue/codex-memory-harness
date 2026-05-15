@@ -233,7 +233,9 @@ class InstallDryRunSkillPlanTests(unittest.TestCase):
                     "source_exists": True,
                     "target_exists": True,
                     "target_has_skill_md": True,
+                    "target_matches_source": True,
                     "legacy_duplicate": True,
+                    "legacy_retirement_required": True,
                     "path": "C:/Users/test/.agents/skills/git-safe-commit",
                     "legacy_path": "C:/Users/test/.codex/skills/git-safe-commit",
                 }
@@ -245,10 +247,63 @@ class InstallDryRunSkillPlanTests(unittest.TestCase):
         with mock.patch.object(install_dry_run_targets, "bundled_skills_status", return_value=status):
             result = install_dry_run_targets.bundled_skills_plan(Path("plugin"))
 
-        self.assertEqual(result["skills"][0]["action"], "retire_legacy_duplicate")
+        self.assertEqual(result["skills"][0]["action"], "already_current")
+        self.assertFalse(result["skills"][0]["primary_write"])
         self.assertTrue(result["skills"][0]["would_write"])
         self.assertEqual(result["planned_duplicate_retire_count"], 1)
-        self.assertIn("legacy CODEX_HOME/skills", result["skills"][0]["reason"])
+        self.assertEqual(
+            install_dry_run_targets.planned_writes({"bundled_skills": result}),
+            [
+                {
+                    "target": "bundled_skills",
+                    "path": "C:/Users/test/.codex/skills/git-safe-commit",
+                    "action": "retire_legacy_duplicate",
+                }
+            ],
+        )
+
+    def test_plans_update_with_legacy_retirement(self) -> None:
+        status = {
+            "skills": [
+                {
+                    "name": "git-safe-commit",
+                    "source_exists": True,
+                    "target_exists": True,
+                    "target_has_skill_md": True,
+                    "target_matches_source": False,
+                    "legacy_duplicate": True,
+                    "legacy_retirement_required": True,
+                    "path": "C:/Users/test/.agents/skills/git-safe-commit",
+                    "legacy_path": "C:/Users/test/.codex/skills/git-safe-commit",
+                }
+            ],
+            "source_ref": "test",
+            "overwrite_existing": True,
+        }
+
+        with mock.patch.object(install_dry_run_targets, "bundled_skills_status", return_value=status):
+            result = install_dry_run_targets.bundled_skills_plan(Path("plugin"))
+
+        self.assertEqual(result["skills"][0]["action"], "update_existing")
+        self.assertTrue(result["skills"][0]["primary_write"])
+        self.assertTrue(result["skills"][0]["would_write"])
+        self.assertEqual(result["planned_update_count"], 1)
+        self.assertEqual(result["planned_duplicate_retire_count"], 1)
+        self.assertEqual(
+            install_dry_run_targets.planned_writes({"bundled_skills": result}),
+            [
+                {
+                    "target": "bundled_skills",
+                    "path": "C:/Users/test/.codex/skills/git-safe-commit",
+                    "action": "retire_legacy_duplicate",
+                },
+                {
+                    "target": "bundled_skills",
+                    "path": "C:/Users/test/.agents/skills/git-safe-commit",
+                    "action": "update_existing",
+                },
+            ],
+        )
 
     def test_plans_install_with_legacy_only_retirement(self) -> None:
         status = {

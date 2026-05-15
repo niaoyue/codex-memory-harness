@@ -104,8 +104,6 @@ def bundled_skills_plan(plugin_root: Path) -> dict[str, Any]:
             action = "blocked_missing_source"
         elif item.get("system_duplicate"):
             action = "retire_system_duplicate"
-        elif item.get("legacy_duplicate"):
-            action = "retire_legacy_duplicate"
         elif item.get("system_target_has_skill_md"):
             action = "use_system_builtin"
         elif item.get("target_matches_source"):
@@ -116,6 +114,8 @@ def bundled_skills_plan(plugin_root: Path) -> dict[str, Any]:
             action = "already_exists_deduped"
         elif item["target_exists"]:
             action = "skip_existing_incomplete"
+        elif item.get("legacy_duplicate"):
+            action = "retire_legacy_duplicate"
         else:
             action = "install"
         cleanup_writes = skill_cleanup_writes(item, action)
