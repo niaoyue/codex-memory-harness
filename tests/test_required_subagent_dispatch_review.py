@@ -54,6 +54,7 @@ class RequiredSubagentDispatchReviewTests(unittest.TestCase):
                         "task_id": "openspec-required-partial",
                         "tool_name": "subagent",
                         "summary": "Only one required dispatch item completed.",
+                        "dispatch_id": first_request["dispatch_id"],
                         "binding_id": first_request["binding_id"],
                         "subagent_id": first_request["subagent_id"],
                         "touched_paths": [],
@@ -78,6 +79,7 @@ class RequiredSubagentDispatchReviewTests(unittest.TestCase):
                             "task_id": "openspec-required-complete",
                             "tool_name": "subagent",
                             "summary": f"Completed {request['dispatch_id']}",
+                            "dispatch_id": request["dispatch_id"],
                             "binding_id": request["binding_id"],
                             "subagent_id": request["subagent_id"],
                             "touched_paths": [],
@@ -88,6 +90,35 @@ class RequiredSubagentDispatchReviewTests(unittest.TestCase):
         review = result["result"]["workspace_routing_review"]
         self.assertTrue(review["ok"])
         self.assertNotIn("required_subagent_dispatch", [gap["type"] for gap in review["gaps"]])
+
+    def test_same_actor_checkpoint_does_not_satisfy_multiple_dispatches(self) -> None:
+        with MemoryEnv():
+            with mock.patch.object(workspace_lifecycle.workspace_router, "build_route_plan", return_value=multi_route_plan()):
+                runner = hook_runner.HookRunner(memory_store=memory_store.MemoryStore())
+                before = _start_required_task(runner, "openspec-required-same-actor")
+                requests = _host_requests(before)
+                summarize = next(request for request in requests if request["dispatch_id"].endswith("-summarize"))
+                for request in requests:
+                    if request["dispatch_id"] == summarize["dispatch_id"]:
+                        continue
+                    runner.run_event(
+                        "after_tool",
+                        {
+                            "task_id": "openspec-required-same-actor",
+                            "tool_name": "subagent",
+                            "summary": f"Completed {request['dispatch_id']}",
+                            "dispatch_id": request["dispatch_id"],
+                            "binding_id": request["binding_id"],
+                            "subagent_id": request["subagent_id"],
+                            "touched_paths": [],
+                        },
+                    )
+                result = runner.run_event("before_response", {"task_id": "openspec-required-same-actor"})
+
+        review = result["result"]["workspace_routing_review"]
+        self.assertFalse(review["ok"])
+        required_gap = next(gap for gap in review["gaps"] if gap["type"] == "required_subagent_dispatch")
+        self.assertEqual(required_gap["missing_dispatch_requests"], [summarize["dispatch_id"]])
 
     def test_openspec_required_dispatch_ignores_user_disable(self) -> None:
         with MemoryEnv():

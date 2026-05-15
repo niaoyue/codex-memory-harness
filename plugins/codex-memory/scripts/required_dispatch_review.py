@@ -26,34 +26,21 @@ def append_gap(gaps: list[dict[str, Any]], runtime: dict[str, Any], dispatch_pla
 
 def missing_dispatch_requests(runtime: dict[str, Any], dispatch_plan: dict[str, Any]) -> list[str]:
     requests = dispatch_plan.get("host_spawn_requests") if isinstance(dispatch_plan.get("host_spawn_requests"), list) else []
-    actor_ids = set(string_list(runtime.get("artifact_actor_ids")))
+    dispatch_ids = set(string_list(runtime.get("artifact_dispatch_ids")))
     if requests:
         missing = []
         for request in requests:
             if not isinstance(request, dict):
                 continue
-            identifiers = request_identifiers(request)
-            if not actor_ids.intersection(identifiers):
-                missing.append(string(request.get("dispatch_id")) or string(request.get("binding_id")) or "unknown")
+            dispatch_id = string(request.get("dispatch_id"))
+            if not dispatch_id or dispatch_id not in dispatch_ids:
+                missing.append(dispatch_id or "unknown")
         return missing
     actual = int_value(runtime.get("actual_subagents"))
     expected = int_value(runtime.get("host_spawn_request_count"))
     if expected <= 0:
         return [] if actual > 0 else ["unknown"]
     return [] if actual >= expected else ["unknown"]
-
-
-def request_identifiers(request: dict[str, Any]) -> set[str]:
-    return {
-        value
-        for value in (
-            string(request.get("dispatch_id")),
-            string(request.get("binding_id")),
-            string(request.get("subagent_id")),
-            string(request.get("slice_id")),
-        )
-        if value
-    }
 
 
 def string_list(value: Any) -> list[str]:

@@ -141,6 +141,7 @@ def fallback_dispatch_bindings(route_plan: dict[str, Any]) -> list[dict[str, Any
 
 def note_subagent_artifact(routing: dict[str, Any], artifact: dict[str, Any]) -> None:
     marker = string(artifact.get("subagent_id")) or string(artifact.get("binding_id"))
+    dispatch_id = string(artifact.get("dispatch_id"))
     if not marker:
         return
     runtime = routing.get("subagent_runtime") if isinstance(routing.get("subagent_runtime"), dict) else {}
@@ -148,9 +149,14 @@ def note_subagent_artifact(routing: dict[str, Any], artifact: dict[str, Any]) ->
     artifact_ids = string_list(runtime.get("artifact_actor_ids"))
     if marker not in artifact_ids:
         artifact_ids.append(marker)
+    dispatch_ids = string_list(runtime.get("artifact_dispatch_ids"))
+    if dispatch_id and dispatch_id not in dispatch_ids:
+        dispatch_ids.append(dispatch_id)
     runtime["status"] = "artifact_recorded"
     runtime["actual_subagents"] = len(artifact_ids)
     runtime["artifact_actor_ids"] = artifact_ids
+    if dispatch_ids:
+        runtime["artifact_dispatch_ids"] = dispatch_ids
     runtime["reason"] = "At least one SubAgent-style checkpoint or route-bound artifact was recorded."
     routing["subagent_runtime"] = runtime
 
