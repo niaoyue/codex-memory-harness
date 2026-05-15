@@ -84,8 +84,14 @@ class WorkspaceRoutingSchemaTests(unittest.TestCase):
                 "Workspace Coordinator",
                 "Route Review Specialist",
                 "XHigh Review Runner",
+                "worker",
+                "default",
             ],
         )
+        fallback_guard = spawn["allOf"][0]
+        self.assertEqual(fallback_guard["if"]["properties"]["agent_type"]["enum"], ["worker", "default"])
+        self.assertIn("downgrade_reason", fallback_guard["then"]["required"])
+        self.assertIn("downgrade_reason", spawn["properties"])
         self.assertIn("specified_role_subagent_required", spawn["required"])
         self.assertIn("standing_user_authorization", spawn["required"])
         self.assertIn("dispatch_permission_source", spawn["required"])

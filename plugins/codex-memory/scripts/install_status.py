@@ -43,6 +43,9 @@ REQUIRED_SUBAGENT_DISPATCH_MARKERS = (
     "downgrade_reason",
     "dispatch_id",
     "recommended_not_started",
+    "review gate 任务优先级高于普通实现策略",
+    "codex xhigh review --commit <commit-sha>",
+    "不得被 `host_subagent_required`",
 )
 
 REQUIRED_OPENSPEC_UPSTREAM_COMMAND_MARKERS = (

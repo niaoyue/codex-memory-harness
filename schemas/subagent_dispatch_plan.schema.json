@@ -73,6 +73,34 @@
     "host_spawn_request": {
       "type": "object",
       "additionalProperties": true,
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "agent_type"
+            ],
+            "properties": {
+              "agent_type": {
+                "enum": [
+                  "worker",
+                  "default"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "downgrade_reason"
+            ],
+            "properties": {
+              "downgrade_reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      ],
       "required": [
         "dispatch_id",
         "role",
@@ -99,11 +127,17 @@
             "Implementation Specialist",
             "Workspace Coordinator",
             "Route Review Specialist",
-            "XHigh Review Runner"
+            "XHigh Review Runner",
+            "worker",
+            "default"
           ]
         },
         "message": {
           "type": "string"
+        },
+        "downgrade_reason": {
+          "type": "string",
+          "minLength": 1
         },
         "specified_role_subagent_required": {
           "type": "boolean",

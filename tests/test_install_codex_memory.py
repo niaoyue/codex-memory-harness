@@ -214,29 +214,8 @@ class InstallerTests(unittest.TestCase):
             "网络或 upstream 不可用\n"
             "降级必须\n"
             "candidate commit\n"
-            "subagent_dispatch_plan.host_spawn_requests\n"
-            "subagent_runtime.recommended=true\n"
-            "host_dispatch_allowed=true\n"
-            "spawn_agent\n"
-            "不得只生成 dispatch plan\n"
-            "长期明确授权\n"
-            "当前 prompt 未再次写 SubAgent\n"
-            "指定 role\n"
-            "Implementation Specialist\n"
-            "Workspace Coordinator\n"
-            "Route Review Specialist\n"
-            "XHigh Review Runner\n"
-            "host_subagent_required\n"
-            "OpenSpec\n"
-            "openspec/changes/\n"
-            "openspec/specs/\n"
-            "autostart=true\n"
-            "dispatch_required\n"
-            "host_spawn_request_count\n"
-            "actual_subagents=0\n"
-            "downgrade_reason\n"
-            "dispatch_id\n"
-            "recommended_not_started\n"
+            + "\n".join(install_status.REQUIRED_SUBAGENT_DISPATCH_MARKERS)
+            + "\n"
         )
         with (
             mock.patch.object(install_status, "read_text", return_value=agents_text),
@@ -365,6 +344,9 @@ class InstallerTests(unittest.TestCase):
                 "downgrade_reason",
                 "dispatch_id",
                 "recommended_not_started",
+                "review gate 任务优先级高于普通实现策略",
+                "codex xhigh review --commit <commit-sha>",
+                "不得被 `host_subagent_required`",
             ],
         )
         self.assertTrue(home_agents["mentions_current_openspec_layout"])
