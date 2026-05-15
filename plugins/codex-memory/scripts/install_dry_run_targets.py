@@ -100,14 +100,14 @@ def bundled_skills_plan(plugin_root: Path) -> dict[str, Any]:
     overwrite_existing = bool(status.get("overwrite_existing", False))
     skills = []
     for item in status["skills"]:
-        if item.get("system_duplicate"):
+        if not item["source_exists"]:
+            action = "blocked_missing_source"
+        elif item.get("system_duplicate"):
             action = "retire_system_duplicate"
         elif item.get("legacy_duplicate"):
             action = "retire_legacy_duplicate"
         elif item.get("system_target_has_skill_md"):
             action = "use_system_builtin"
-        elif not item["source_exists"]:
-            action = "blocked_missing_source"
         elif item.get("target_matches_source"):
             action = "already_current"
         elif item["target_exists"] and overwrite_existing:
@@ -118,18 +118,17 @@ def bundled_skills_plan(plugin_root: Path) -> dict[str, Any]:
             action = "skip_existing_incomplete"
         else:
             action = "install"
+        cleanup_writes = skill_cleanup_writes(item, action)
+        primary_write = action in {"install", "update_existing"}
         skills.append(
             {
                 **item,
                 "action": action,
-                "would_write": action in {
-                    "install",
-                    "update_existing",
-                    "retire_system_duplicate",
-                    "retire_legacy_duplicate",
-                },
+                "primary_write": primary_write,
+                "would_write": primary_write or bool(cleanup_writes),
                 "blocked": action == "blocked_missing_source",
                 "reason": skill_action_reason(action),
+                "cleanup_writes": cleanup_writes,
             }
         )
     return {
@@ -142,15 +141,29 @@ def bundled_skills_plan(plugin_root: Path) -> dict[str, Any]:
         "planned_install_count": sum(1 for item in skills if item["action"] == "install"),
         "planned_update_count": sum(1 for item in skills if item["action"] == "update_existing"),
         "planned_duplicate_retire_count": sum(
-            1
-            for item in skills
-            if item["action"] in {"retire_system_duplicate", "retire_legacy_duplicate"}
+            len(item.get("cleanup_writes", [])) for item in skills
         ),
         "deduped_existing_count": sum(
             1 for item in skills if item["action"] == "already_exists_deduped"
         ),
         "stale_existing_count": sum(1 for item in skills if item.get("stale_existing")),
     }
+
+
+def skill_cleanup_writes(item: dict[str, Any], action: str) -> list[dict[str, str]]:
+    if action == "blocked_missing_source":
+        return []
+    writes: list[dict[str, str]] = []
+    if action == "retire_system_duplicate":
+        writes.append({"path": str(item.get("path", "")), "action": "retire_system_duplicate"})
+    if action == "retire_legacy_duplicate" or item.get("legacy_retirement_required"):
+        writes.append(
+            {
+                "path": str(item.get("legacy_path", "")),
+                "action": "retire_legacy_duplicate",
+            }
+        )
+    return writes
 
 
 def skill_action_reason(action: str) -> str:
@@ -205,7 +218,19 @@ def planned_writes(targets: dict[str, Any]) -> list[dict[str, str]]:
     writes: list[dict[str, str]] = []
     for name, target in targets.items():
         for item in flatten_targets(target):
+            for cleanup in item.get("cleanup_writes", []):
+                writes.append(
+                    {
+                        "target": name,
+                        "path": str(cleanup.get("path", "")),
+                        "action": str(cleanup.get("action", "write")),
+                    }
+                )
             if item.get("would_write"):
+                if item.get("cleanup_writes") is not None and not item.get("primary_write"):
+                    continue
+                if item.get("action") in {"retire_system_duplicate", "retire_legacy_duplicate"}:
+                    continue
                 writes.append(
                     {
                         "target": name,

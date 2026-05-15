@@ -334,6 +334,7 @@ def bundled_skills_status(plugin_root: Path) -> dict[str, Any]:
         )
         available = bool(target_has_skill_md or system_has_skill_md)
         legacy_duplicate = bool(legacy_has_skill_md and available)
+        legacy_retirement_required = bool(source_exists and legacy_has_skill_md)
         system_duplicate = bool(system_has_skill_md and target_has_skill_md)
         content_differs_from_source = bool(
             source_exists
@@ -356,6 +357,7 @@ def bundled_skills_status(plugin_root: Path) -> dict[str, Any]:
                 "legacy_target_exists": legacy_dst.exists(),
                 "legacy_target_has_skill_md": legacy_has_skill_md,
                 "legacy_duplicate": legacy_duplicate,
+                "legacy_retirement_required": legacy_retirement_required,
                 "system_target_exists": system_dst.exists(),
                 "system_target_has_skill_md": system_has_skill_md,
                 "system_duplicate": system_duplicate,

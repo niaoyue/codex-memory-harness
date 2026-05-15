@@ -249,6 +249,50 @@ class SkillBundleTests(unittest.TestCase):
             self.assertEqual(after["system_duplicate_count"], 0)
             self.assertEqual(after["duplicate_count"], 0)
 
+    def test_bundled_skills_status_marks_legacy_only_for_retirement(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            plugin_root = temp_root / "plugin"
+            source = plugin_root / "skills" / "local" / "git-safe-commit"
+            source.mkdir(parents=True)
+            (source / "SKILL.md").write_text("# packaged commit skill\n", encoding="utf-8")
+            (plugin_root / "skills" / "bundled-skills.json").write_text(
+                json.dumps(
+                    {
+                        "version": 1,
+                        "overwrite_existing": True,
+                        "skills": [
+                            {
+                                "name": "git-safe-commit",
+                                "source_group": "local",
+                                "path": "local/git-safe-commit",
+                            }
+                        ],
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            home = temp_root / "home"
+            legacy = temp_root / "codex-home" / "skills" / "git-safe-commit"
+            legacy.mkdir(parents=True)
+            (legacy / "SKILL.md").write_text("# legacy only\n", encoding="utf-8")
+
+            old_codex_home = os.environ.get("CODEX_HOME")
+            os.environ["CODEX_HOME"] = str(temp_root / "codex-home")
+            try:
+                with mock.patch.object(skill_bundle, "home_root", return_value=home):
+                    status = skill_bundle.bundled_skills_status(plugin_root)
+            finally:
+                _restore_env("CODEX_HOME", old_codex_home)
+
+            skill = status["skills"][0]
+            self.assertFalse(skill["available"])
+            self.assertFalse(skill["legacy_duplicate"])
+            self.assertTrue(skill["legacy_retirement_required"])
+            self.assertEqual(status["missing_count"], 1)
+            self.assertEqual(status["legacy_duplicate_count"], 0)
+
     def test_bundled_skills_status_dedupes_existing_skill_drift(self) -> None:
         status = _status_for_existing_skill(
             source_skill="# packaged candidate commit flow\n",
