@@ -114,7 +114,17 @@ def run_installer_smoke_test() -> dict[str, object]:
 
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_root = Path(temp_dir)
-        package_path = build_release.build(temp_root / "dist")
+        try:
+            package_path = build_release.build(temp_root / "dist")
+        except Exception as exc:
+            return {
+                "ok": False,
+                "skipped": False,
+                "exit_code": 1,
+                "failures": [f"release package build failed: {exc}"],
+                "stdout": "",
+                "stderr": "",
+            }
         package_root = temp_root / "package"
         with zipfile.ZipFile(package_path) as archive:
             archive.extractall(package_root)

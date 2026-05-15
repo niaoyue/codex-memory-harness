@@ -1,6 +1,6 @@
 param(
     [ValidateSet("pwsh", "windows", "all", "none")]
-    [string]$ProfileShells = "pwsh",
+    [string]$ProfileShells = "all",
 
     [switch]$RemoveHomePlugin
 )

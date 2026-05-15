@@ -89,6 +89,7 @@ class InstallerTests(unittest.TestCase):
 
         self.assertIn('install.bat" --uninstall', batch)
         self.assertIn('sh "$SCRIPT_DIR/install.sh" --uninstall "$@"', shell)
+        self.assertIn('[string]$ProfileShells = "all"', powershell)
         self.assertIn("--uninstall", powershell)
         self.assertIn("--remove-home-plugin", powershell)
 

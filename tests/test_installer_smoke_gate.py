@@ -5,16 +5,21 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 PLUGIN_SCRIPTS_DIR = PROJECT_ROOT / "plugins" / "codex-memory" / "scripts"
+SCRIPTS_DIR = PROJECT_ROOT / "scripts"
 
 if str(PLUGIN_SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(PLUGIN_SCRIPTS_DIR))
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
 
 import install_codex_memory
 import install_support
+import verify_project
 
 
 class InstallerSmokeGateTests(unittest.TestCase):
@@ -46,6 +51,17 @@ class InstallerSmokeGateTests(unittest.TestCase):
         self.assertNotIn("py_compile", verifier)
         self.assertIn("harness-release-gate", verifier)
         self.assertIn("version_check", verifier)
+
+    def test_installer_smoke_reports_release_build_failure(self) -> None:
+        with (
+            mock.patch.object(verify_project.os, "name", "nt"),
+            mock.patch.object(verify_project.build_release, "build", side_effect=RuntimeError("version mismatch")),
+        ):
+            result = verify_project.run_installer_smoke_test()
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["exit_code"], 1)
+        self.assertIn("version mismatch", result["failures"][0])
 
 
 def _restore_env(name: str, value: str | None) -> None:
