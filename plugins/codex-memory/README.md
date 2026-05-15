@@ -64,9 +64,9 @@ codex memory update
 codex memory check-install
 ```
 
-安装器默认会把 `skills/bundled-skills.json` 中登记的所有随包技能复制到 `~/.agents/skills`。这些技能覆盖 security、GitHub、CLI、迁移、release gate、需求澄清、接口设计、TDD、提交、review、PRD、重构、文档、图像、OpenAI docs、plugin/skill 创建等场景。
+安装器默认会把 `skills/bundled-skills.json` 中登记的随包技能安装到 `~/.agents/skills`，但如果同名技能已经由 Codex 内置 `.system` 技能提供，则跳过用户目录副本，避免重复发现。随包技能覆盖 security、GitHub、CLI、迁移、release gate、需求澄清、接口设计、TDD、提交、review、PRD、重构、文档、图像、OpenAI docs、plugin/skill 创建等场景。
 
-这些技能位于 `skills/openai-curated/` 和 `skills/local/`，安装时不联网下载；安装计划按技能名去重，如果 `~/.agents/skills/<skill-name>` 已存在，会跳过并保留用户已有版本，不要求覆盖或更新。需要跳过技能安装时使用：
+这些技能位于 `skills/openai-curated/` 和 `skills/local/`，安装时不联网下载；安装计划按技能名去重，如果 `~/.agents/skills/<skill-name>` 已存在且内容不同，会先备份到 `~/.agents/skills/.codex-memory-backups/` 再刷新。若旧版 `~/.codex/skills/<skill-name>` 里还有同名副本，或用户目录中存在和 `.system` 同名的副本，安装器会把重复副本移动到 `.codex-memory-backups/`，保留内容但退出 Codex 技能发现路径。需要跳过技能安装时使用：
 
 ```bat
 install.bat --skip-skills

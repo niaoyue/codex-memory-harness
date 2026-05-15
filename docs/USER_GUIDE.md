@@ -37,9 +37,9 @@ sh ./install.sh --install-python
 
 安装器还会修复必要的官方 Codex 配置，确保 `$CODEX_HOME/config.toml` 中存在 `[features] hooks = true`，让插件 hooks 走官方生命周期。
 
-安装器会默认离线安装 `plugins/codex-memory/skills/bundled-skills.json` 登记的所有随包技能到 `~/.agents/skills/<skill-name>`。当前 manifest 覆盖 security、GitHub、CLI、迁移、release gate、需求澄清、接口设计、TDD、提交、review、PRD、重构、文档、图像、OpenAI docs、plugin/skill 创建等场景。
+安装器会默认离线安装 `plugins/codex-memory/skills/bundled-skills.json` 登记的随包技能到 `~/.agents/skills/<skill-name>`；如果同名技能已经由 Codex 内置 `.system` 技能提供，则跳过用户目录副本，避免重复发现。当前 manifest 覆盖 security、GitHub、CLI、迁移、release gate、需求澄清、接口设计、TDD、提交、review、PRD、重构、文档、图像、OpenAI docs、plugin/skill 创建等场景。
 
-这些技能已经 vendor 在发布包里，安装时不会联网拉取 GitHub。如果目标技能目录已存在且内容不同，安装器会先把旧目录移动到 `~/.agents/skills/.codex-memory-backups/`，再刷新为当前包版本。若只想安装 memory/harness 接入、不安装 bundled skills，可运行：
+这些技能已经 vendor 在发布包里，安装时不会联网拉取 GitHub。如果目标技能目录已存在且内容不同，安装器会先把旧目录移动到 `~/.agents/skills/.codex-memory-backups/`，再刷新为当前包版本。若旧版 `~/.codex/skills/<skill-name>` 中还有同名副本，或用户目录中存在和 `.system` 同名的副本，安装器会把重复副本移动到 `.codex-memory-backups/`，保留内容但退出 Codex 技能发现路径。若只想安装 memory/harness 接入、不安装 bundled skills，可运行：
 
 任务执行时还会按 skill-first 规则匹配当前可用技能。需求或策划文档不清时按 `grill-me` 风格列出问题；创建接口、协议、schema、CLI 或跨模块契约前优先使用 `design-an-interface` 比较多个方案；PRD、TDD、代码 review、Git 提交、安全审查和 GitHub CI 等场景按技能路由表触发。完整规则见：
 

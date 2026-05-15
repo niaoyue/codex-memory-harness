@@ -100,7 +100,13 @@ def bundled_skills_plan(plugin_root: Path) -> dict[str, Any]:
     overwrite_existing = bool(status.get("overwrite_existing", False))
     skills = []
     for item in status["skills"]:
-        if not item["source_exists"]:
+        if item.get("system_duplicate"):
+            action = "retire_system_duplicate"
+        elif item.get("legacy_duplicate"):
+            action = "retire_legacy_duplicate"
+        elif item.get("system_target_has_skill_md"):
+            action = "use_system_builtin"
+        elif not item["source_exists"]:
             action = "blocked_missing_source"
         elif item.get("target_matches_source"):
             action = "already_current"
@@ -116,7 +122,12 @@ def bundled_skills_plan(plugin_root: Path) -> dict[str, Any]:
             {
                 **item,
                 "action": action,
-                "would_write": action in {"install", "update_existing"},
+                "would_write": action in {
+                    "install",
+                    "update_existing",
+                    "retire_system_duplicate",
+                    "retire_legacy_duplicate",
+                },
                 "blocked": action == "blocked_missing_source",
                 "reason": skill_action_reason(action),
             }
@@ -130,6 +141,11 @@ def bundled_skills_plan(plugin_root: Path) -> dict[str, Any]:
         "skills": skills,
         "planned_install_count": sum(1 for item in skills if item["action"] == "install"),
         "planned_update_count": sum(1 for item in skills if item["action"] == "update_existing"),
+        "planned_duplicate_retire_count": sum(
+            1
+            for item in skills
+            if item["action"] in {"retire_system_duplicate", "retire_legacy_duplicate"}
+        ),
         "deduped_existing_count": sum(
             1 for item in skills if item["action"] == "already_exists_deduped"
         ),
@@ -144,6 +160,12 @@ def skill_action_reason(action: str) -> str:
         return "bundled skill already matches the package"
     if action == "update_existing":
         return "existing bundled skill differs from the package and will be backed up before update"
+    if action == "retire_system_duplicate":
+        return "Codex provides this skill as a built-in system skill; back up the user copy to avoid duplicate discovery"
+    if action == "retire_legacy_duplicate":
+        return "same skill also exists in legacy CODEX_HOME/skills; back up the legacy copy to avoid duplicate discovery"
+    if action == "use_system_builtin":
+        return "Codex provides this skill as a built-in system skill; skip the bundled user copy"
     if action == "already_exists_deduped":
         return "skill name already exists; keep the existing user skill and skip bundled copy"
     return ""

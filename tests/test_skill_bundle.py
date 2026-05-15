@@ -141,6 +141,114 @@ class SkillBundleTests(unittest.TestCase):
             self.assertEqual(len(backups), 1)
             self.assertEqual((backups[0] / "SKILL.md").read_text(encoding="utf-8"), "# old gate\n")
 
+    def test_ensure_bundled_skills_retires_legacy_duplicate(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            plugin_root = temp_root / "plugin"
+            source = plugin_root / "skills" / "local" / "git-safe-commit"
+            source.mkdir(parents=True)
+            (source / "SKILL.md").write_text("# packaged commit skill\n", encoding="utf-8")
+            (plugin_root / "skills" / "bundled-skills.json").write_text(
+                json.dumps(
+                    {
+                        "version": 1,
+                        "overwrite_existing": True,
+                        "skills": [
+                            {
+                                "name": "git-safe-commit",
+                                "source_group": "local",
+                                "path": "local/git-safe-commit",
+                            }
+                        ],
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            home = temp_root / "home"
+            existing = home / ".agents" / "skills" / "git-safe-commit"
+            legacy = temp_root / "codex-home" / "skills" / "git-safe-commit"
+            existing.mkdir(parents=True)
+            legacy.mkdir(parents=True)
+            (existing / "SKILL.md").write_text("# packaged commit skill\n", encoding="utf-8")
+            (legacy / "SKILL.md").write_text("# legacy duplicate\n", encoding="utf-8")
+
+            old_codex_home = os.environ.get("CODEX_HOME")
+            os.environ["CODEX_HOME"] = str(temp_root / "codex-home")
+            try:
+                with mock.patch.object(skill_bundle, "home_root", return_value=home):
+                    result = skill_bundle.ensure_bundled_skills(plugin_root)
+                    status = skill_bundle.bundled_skills_status(plugin_root)
+            finally:
+                _restore_env("CODEX_HOME", old_codex_home)
+
+            backups = list((temp_root / "codex-home" / "skills" / ".codex-memory-backups").glob("git-safe-commit.backup-*"))
+
+            self.assertEqual(result["retired_legacy_duplicates"], 1)
+            self.assertEqual(result["retired_system_duplicates"], 0)
+            self.assertFalse(legacy.exists())
+            self.assertEqual(len(backups), 1)
+            self.assertEqual((backups[0] / "SKILL.md").read_text(encoding="utf-8"), "# legacy duplicate\n")
+            self.assertEqual(status["legacy_duplicate_count"], 0)
+            self.assertEqual(status["duplicate_count"], 0)
+
+    def test_ensure_bundled_skills_prefers_system_builtin_and_retires_user_copy(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            plugin_root = temp_root / "plugin"
+            source = plugin_root / "skills" / "local" / "imagegen"
+            source.mkdir(parents=True)
+            (source / "SKILL.md").write_text("# packaged image skill\n", encoding="utf-8")
+            (plugin_root / "skills" / "bundled-skills.json").write_text(
+                json.dumps(
+                    {
+                        "version": 1,
+                        "overwrite_existing": True,
+                        "skills": [
+                            {
+                                "name": "imagegen",
+                                "source_group": "local",
+                                "path": "local/imagegen",
+                            }
+                        ],
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            home = temp_root / "home"
+            user_copy = home / ".agents" / "skills" / "imagegen"
+            system_copy = temp_root / "codex-home" / "skills" / ".system" / "imagegen"
+            user_copy.mkdir(parents=True)
+            system_copy.mkdir(parents=True)
+            (user_copy / "SKILL.md").write_text("# user duplicate\n", encoding="utf-8")
+            (system_copy / "SKILL.md").write_text("# built-in image skill\n", encoding="utf-8")
+
+            old_codex_home = os.environ.get("CODEX_HOME")
+            os.environ["CODEX_HOME"] = str(temp_root / "codex-home")
+            try:
+                with mock.patch.object(skill_bundle, "home_root", return_value=home):
+                    before = skill_bundle.bundled_skills_status(plugin_root)
+                    result = skill_bundle.ensure_bundled_skills(plugin_root)
+                    after = skill_bundle.bundled_skills_status(plugin_root)
+            finally:
+                _restore_env("CODEX_HOME", old_codex_home)
+
+            backups = list((home / ".agents" / "skills" / ".codex-memory-backups").glob("imagegen.backup-*"))
+
+            self.assertEqual(before["system_duplicate_count"], 1)
+            self.assertEqual(result["installed"], 0)
+            self.assertEqual(result["retired_system_duplicates"], 1)
+            self.assertEqual(result["skills"][0]["status"], "system_builtin")
+            self.assertFalse(user_copy.exists())
+            self.assertTrue((system_copy / "SKILL.md").exists())
+            self.assertEqual(len(backups), 1)
+            self.assertEqual((backups[0] / "SKILL.md").read_text(encoding="utf-8"), "# user duplicate\n")
+            self.assertEqual(after["available_count"], 1)
+            self.assertEqual(after["missing_count"], 0)
+            self.assertEqual(after["system_duplicate_count"], 0)
+            self.assertEqual(after["duplicate_count"], 0)
+
     def test_bundled_skills_status_dedupes_existing_skill_drift(self) -> None:
         status = _status_for_existing_skill(
             source_skill="# packaged candidate commit flow\n",

@@ -8,4 +8,4 @@
 - `openai-curated/`：从 `https://github.com/openai/skills` 的 `skills/.curated` 固定提取的技能文件。
 - `local/`：本项目自带的 install-propagated workflow skills。
 
-安装器默认把清单中的技能复制到 `~/.agents/skills/<skill-name>`。如果目标目录已存在，会跳过并保留用户已有版本；可用 `--skip-skills` 跳过该步骤。
+安装器默认把清单中的技能安装到 `~/.agents/skills/<skill-name>`。如果 Codex 已提供同名 `.system` 技能，则跳过用户目录副本；如果目标目录已存在且内容不同，会先备份到 `.codex-memory-backups/` 再刷新；如果旧版 `~/.codex/skills` 中还有同名技能副本，会把旧副本备份移出发现路径。可用 `--skip-skills` 跳过该步骤。

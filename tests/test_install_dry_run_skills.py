@@ -168,6 +168,56 @@ class InstallDryRunSkillPlanTests(unittest.TestCase):
             ],
         )
 
+    def test_plans_system_duplicate_retirement(self) -> None:
+        status = {
+            "skills": [
+                {
+                    "name": "imagegen",
+                    "source_exists": True,
+                    "target_exists": True,
+                    "target_has_skill_md": True,
+                    "system_target_has_skill_md": True,
+                    "system_duplicate": True,
+                    "path": "C:/Users/test/.agents/skills/imagegen",
+                }
+            ],
+            "source_ref": "test",
+            "overwrite_existing": True,
+        }
+
+        with mock.patch.object(install_dry_run_targets, "bundled_skills_status", return_value=status):
+            result = install_dry_run_targets.bundled_skills_plan(Path("plugin"))
+
+        self.assertEqual(result["skills"][0]["action"], "retire_system_duplicate")
+        self.assertTrue(result["skills"][0]["would_write"])
+        self.assertEqual(result["planned_duplicate_retire_count"], 1)
+        self.assertIn("built-in system skill", result["skills"][0]["reason"])
+
+    def test_plans_legacy_duplicate_retirement(self) -> None:
+        status = {
+            "skills": [
+                {
+                    "name": "git-safe-commit",
+                    "source_exists": True,
+                    "target_exists": True,
+                    "target_has_skill_md": True,
+                    "legacy_duplicate": True,
+                    "path": "C:/Users/test/.agents/skills/git-safe-commit",
+                    "legacy_path": "C:/Users/test/.codex/skills/git-safe-commit",
+                }
+            ],
+            "source_ref": "test",
+            "overwrite_existing": True,
+        }
+
+        with mock.patch.object(install_dry_run_targets, "bundled_skills_status", return_value=status):
+            result = install_dry_run_targets.bundled_skills_plan(Path("plugin"))
+
+        self.assertEqual(result["skills"][0]["action"], "retire_legacy_duplicate")
+        self.assertTrue(result["skills"][0]["would_write"])
+        self.assertEqual(result["planned_duplicate_retire_count"], 1)
+        self.assertIn("legacy CODEX_HOME/skills", result["skills"][0]["reason"])
+
 
 def _restore_env(name: str, value: str | None) -> None:
     if value is None:
