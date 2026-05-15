@@ -9,6 +9,7 @@ import shutil
 from pathlib import Path
 from typing import Any
 
+from bootstrap_openspec import ensure_default_openspec_upstream
 from init_storage import PROJECT_MARKERS, ensure_storage_layout, resolve_storage_paths
 from codex_config_status import inspect_codex_config
 from custom_agents_templates import ensure_project_agents
@@ -324,7 +325,7 @@ def _ensure_shared_memory_template(project_root: Path, actions: list[dict[str, A
         _ensure_text_file(directory / ".gitkeep", "", actions)
 
 
-def init_project(project_root: Path, plugin_root: Path) -> list[dict[str, Any]]:
+def init_project(project_root: Path, plugin_root: Path, *, sync_openspec_upstream: bool = True) -> list[dict[str, Any]]:
     actions: list[dict[str, Any]] = []
     layout = ensure_storage_layout(scope="project", cwd=project_root)
     actions.append({"action": "ensure_memory_layout", "path": layout["storage_dir"]})
@@ -339,6 +340,8 @@ def init_project(project_root: Path, plugin_root: Path) -> list[dict[str, Any]]:
     _ensure_profile_policy(profile_path, actions)
     _ensure_shared_memory_template(project_root, actions)
     ensure_project_agents(project_root, actions)
+    if sync_openspec_upstream:
+        actions.extend(ensure_default_openspec_upstream(project_root))
     return actions
 
 
@@ -346,6 +349,8 @@ def inspect_state(cwd: Path, *, init: bool) -> dict[str, Any]:
     plugin_root = _plugin_root()
     start = cwd.resolve()
     project_root, markers = _find_project_root(start)
+    if init and project_root and project_root.resolve() == HOME.resolve() and start != project_root.resolve():
+        project_root, markers = None, []
     selected_project = project_root or (start if init else None)
     actions: list[dict[str, Any]] = []
     if init and selected_project:

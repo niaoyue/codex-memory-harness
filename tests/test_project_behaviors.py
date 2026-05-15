@@ -21,6 +21,7 @@ for path in (SCRIPTS_DIR, PLUGIN_SCRIPTS_DIR):
         sys.path.insert(0, str(path))
 
 import build_release
+import bootstrap_openspec
 import codex_bootstrap
 import init_storage
 import memory_store
@@ -257,6 +258,7 @@ class BootstrapTests(unittest.TestCase):
             actions = codex_bootstrap.init_project(
                 project_root,
                 PROJECT_ROOT / "plugins" / "codex-memory",
+                sync_openspec_upstream=False,
             )
 
             shared_dir = project_root / ".codex" / "shared"
@@ -283,7 +285,11 @@ class BootstrapTests(unittest.TestCase):
             harness_dir = project_root / ".codex" / "harness"
             harness_dir.mkdir(parents=True)
             (harness_dir / "project_profile.json").write_text('{"version": 1}\n', encoding="utf-8")
-            actions = codex_bootstrap.init_project(project_root, PROJECT_ROOT / "plugins" / "codex-memory")
+            actions = codex_bootstrap.init_project(
+                project_root,
+                PROJECT_ROOT / "plugins" / "codex-memory",
+                sync_openspec_upstream=False,
+            )
 
             profile = json.loads((harness_dir / "project_profile.json").read_text(encoding="utf-8"))
 
@@ -303,13 +309,72 @@ class BootstrapTests(unittest.TestCase):
                 json.dumps({"version": 1, "harness": {"subagent_runtime_policy": nested_policy}}, ensure_ascii=False),
                 encoding="utf-8",
             )
-            actions = codex_bootstrap.init_project(project_root, PROJECT_ROOT / "plugins" / "codex-memory")
+            actions = codex_bootstrap.init_project(
+                project_root,
+                PROJECT_ROOT / "plugins" / "codex-memory",
+                sync_openspec_upstream=False,
+            )
 
             profile = json.loads((harness_dir / "project_profile.json").read_text(encoding="utf-8"))
 
         self.assertNotIn("subagent_runtime_policy", profile)
         self.assertEqual(profile["harness"]["subagent_runtime_policy"], nested_policy)
         self.assertTrue(any(item["action"] == "keep_existing_subagent_runtime_policy" for item in actions))
+
+    def test_init_project_syncs_openspec_upstream_by_default(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            project_root = Path(temp_dir)
+            sync_result = {
+                "ok": True,
+                "status": "passed",
+                "manifest": str(project_root / "openspec" / "upstream" / "openspec" / "manifest.json"),
+                "resolved_version": "1.3.1",
+                "files": 9,
+                "failures": [],
+            }
+            verify_result = dict(sync_result)
+            with (
+                mock.patch.object(bootstrap_openspec, "sync_from_npm", return_value=sync_result) as sync,
+                mock.patch.object(bootstrap_openspec, "verify_project", return_value=verify_result) as verify,
+            ):
+                actions = codex_bootstrap.init_project(
+                    project_root,
+                    PROJECT_ROOT / "plugins" / "codex-memory",
+                )
+
+        sync.assert_called_once_with(project_root, version="1.3.1")
+        verify.assert_called_once_with(project_root)
+        self.assertTrue(any(item["action"] == "openspec_upstream_sync" and item["ok"] for item in actions))
+        self.assertTrue(any(item["action"] == "openspec_upstream_verify" and item["ok"] for item in actions))
+
+    def test_init_project_uses_cwd_when_only_parent_home_has_markers(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            home = temp_root / "home"
+            project_root = home / "fresh-project"
+            project_root.mkdir(parents=True)
+            (home / ".codex").mkdir()
+            (home / "package.json").write_text("{}", encoding="utf-8")
+            old_codex_home = os.environ.get("CODEX_HOME")
+            try:
+                os.environ.pop("CODEX_HOME", None)
+                with (
+                    mock.patch.object(codex_bootstrap, "HOME", home),
+                    mock.patch.object(codex_bootstrap, "HOME_PLUGIN", codex_bootstrap._plugin_root()),
+                    mock.patch.object(codex_bootstrap, "HOME_AGENTS", home / ".codex" / "AGENTS.md"),
+                    mock.patch.object(codex_bootstrap, "HOME_MARKETPLACE", home / ".agents" / "plugins" / "marketplace.json"),
+                    mock.patch.object(codex_bootstrap, "GLOBAL_MEMORY", home / ".codex" / "codex-memory-harness" / "memories"),
+                    mock.patch.object(bootstrap_openspec, "sync_from_npm", return_value={"ok": True, "status": "passed"}),
+                    mock.patch.object(bootstrap_openspec, "verify_project", return_value={"ok": True, "status": "passed"}),
+                ):
+                    result = codex_bootstrap.inspect_state(project_root, init=True)
+            finally:
+                _restore_env("CODEX_HOME", old_codex_home)
+
+        self.assertEqual(result["project"]["root"], str(project_root.resolve()))
+        self.assertTrue(
+            any(item["action"] == "openspec_upstream_sync" for item in result["actions"])
+        )
 
     def test_doctor_is_not_ready_when_home_plugin_points_elsewhere(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
