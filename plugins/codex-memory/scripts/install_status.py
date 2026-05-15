@@ -14,6 +14,7 @@ from install_support import (
     posix_profile_statuses,
     profile_statuses,
     read_text,
+    stale_uncommitted_review_gate_lines,
 )
 from skill_bundle import bundled_skills_status
 
@@ -99,6 +100,8 @@ def check_state(
     missing_openspec_upstream_rule_markers = (
         missing_default_openspec_upstream_rule_markers(agents_text)
     )
+    stale_review_gate_lines = stale_uncommitted_review_gate_lines(agents_text)
+    mentions_candidate_review_gate = "candidate commit" in agents_text or "候选提交" in agents_text
 
     return {
         "plugin_root": str(plugin_root),
@@ -125,8 +128,11 @@ def check_state(
             "missing_default_openspec_upstream_rule_markers": (
                 missing_openspec_upstream_rule_markers
             ),
-            "mentions_candidate_review_gate": "candidate commit" in agents_text
-            or "候选提交" in agents_text,
+            "mentions_candidate_review_gate": mentions_candidate_review_gate,
+            "has_stale_uncommitted_review_gate": bool(stale_review_gate_lines),
+            "stale_uncommitted_review_gate_lines": stale_review_gate_lines,
+            "review_gate_guidance_ok": mentions_candidate_review_gate
+            and not stale_review_gate_lines,
             "mentions_required_subagent_dispatch": not missing_dispatch_markers,
             "missing_required_subagent_dispatch_markers": missing_dispatch_markers,
         },

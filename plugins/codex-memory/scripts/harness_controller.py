@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from hook_runner import HookRunner
+import openspec_change_scaffold
 from sensitive_scan import sanitized_payload
 from task_spec import (
     TaskSpec,
@@ -21,6 +22,14 @@ from task_spec import (
 
 
 ARTIFACT_CONTEXT_FIELDS = ("dispatch_id", "binding_id", "subagent_id", "project_id", "domain", "assigned_scope")
+ROUTING_ARTIFACTS = (
+    "route_plan",
+    "adaptive_route_plan",
+    "subagent_dispatch_plan",
+    "adaptive_subagent_dispatch_plan",
+    "scope_guard",
+    "verification_aggregation",
+)
 
 
 def _project_root(value: str | None) -> Path:
@@ -32,7 +41,7 @@ def _configure_memory(scope: str, project_root: Path) -> None:
     os.environ["CODEX_MEMORY_CWD"] = str(project_root)
 
 
-def _write_json(path: Path, payload: dict[str, Any]) -> None:
+def _write_json(path: Path, payload: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
@@ -51,19 +60,73 @@ def _load_spec(project_root: Path, task_id: str) -> TaskSpec:
 
 
 def _task_payload(spec: TaskSpec, *, next_step: str = "") -> dict[str, Any]:
+    metadata = _deep_merge_dicts(
+        spec.metadata,
+        {
+            "harness_status": spec.status,
+            "acceptance": spec.acceptance,
+            "verification": spec.verification,
+            "risk_level": spec.risk_level,
+        },
+    )
     return {
         "task_id": spec.task_id,
         "objective": spec.objective,
         "constraints": spec.constraints,
         "working_set": spec.working_set,
         "next_step": next_step,
-        "metadata": {
-            "harness_status": spec.status,
-            "acceptance": spec.acceptance,
-            "verification": spec.verification,
-            "risk_level": spec.risk_level,
-        },
+        "metadata": metadata,
     }
+
+
+def _merge_hook_metadata(
+    project_root: Path,
+    spec: TaskSpec,
+    state: dict[str, Any],
+    hook_result: dict[str, Any],
+) -> bool:
+    task_state = _hook_task_state(hook_result)
+    metadata = task_state.get("metadata") if isinstance(task_state.get("metadata"), dict) else {}
+    if not metadata:
+        return False
+    spec.metadata = _deep_merge_dicts(spec.metadata, metadata)
+    state["metadata"] = spec.metadata
+    _write_routing_artifacts(project_root, spec.task_id, spec.metadata)
+    return True
+
+
+def _hook_task_state(hook_result: dict[str, Any]) -> dict[str, Any]:
+    result = hook_result.get("result") if isinstance(hook_result.get("result"), dict) else {}
+    task_state = result.get("task_state") if isinstance(result.get("task_state"), dict) else {}
+    return task_state
+
+
+def _deep_merge_dicts(base: Any, overlay: Any) -> dict[str, Any]:
+    merged: dict[str, Any] = dict(base) if isinstance(base, dict) else {}
+    if not isinstance(overlay, dict):
+        return merged
+    for key, value in overlay.items():
+        current = merged.get(key)
+        if isinstance(current, dict) and isinstance(value, dict):
+            merged[key] = _deep_merge_dicts(current, value)
+        else:
+            merged[key] = value
+    return merged
+
+
+def _write_routing_artifacts(project_root: Path, task_id: str, metadata: dict[str, Any]) -> None:
+    routing = metadata.get("workspace_routing") if isinstance(metadata.get("workspace_routing"), dict) else {}
+    if not routing:
+        return
+    target_dir = task_dir(project_root, task_id)
+    _write_json(target_dir / "workspace_routing.json", routing)
+    for field in ROUTING_ARTIFACTS:
+        value = routing.get(field)
+        if isinstance(value, dict):
+            _write_json(target_dir / f"{field}.json", value)
+    bindings = routing.get("bindings")
+    if isinstance(bindings, list):
+        _write_json(target_dir / "bindings.json", bindings)
 
 
 def start_task(args: argparse.Namespace) -> dict[str, Any]:
@@ -72,6 +135,8 @@ def start_task(args: argparse.Namespace) -> dict[str, Any]:
     payload = sanitized_payload(payload, context="harness_task_spec")
     spec = TaskSpec.from_payload(payload, project_root)
     spec.update_status("scoped")
+    openspec_result = openspec_change_scaffold.ensure_for_task(project_root, spec)
+    openspec_change_scaffold.apply_to_spec(spec, openspec_result)
     _configure_memory(spec.memory_scope, project_root)
 
     spec.save(task_spec_path(project_root, spec.task_id))
@@ -89,6 +154,7 @@ def start_task(args: argparse.Namespace) -> dict[str, Any]:
         "before_task",
         _task_payload(spec, next_step="进入执行阶段"),
     )
+    _merge_hook_metadata(project_root, spec, state, hook_result)
     spec.update_status("context_loaded")
     spec.save(task_spec_path(project_root, spec.task_id))
     state["status"] = spec.status
@@ -137,12 +203,16 @@ def checkpoint_task(args: argparse.Namespace) -> dict[str, Any]:
         "touched_paths": artifact["touched_paths"],
         "phase": artifact["phase"],
         "signals": artifact["signals"],
+        "metadata": spec.metadata,
         "next_step": payload.get("next_step") or "继续执行或进入验证",
     }
     for field in ARTIFACT_CONTEXT_FIELDS:
         if field in artifact:
             hook_payload[field] = artifact[field]
     hook_result = HookRunner().run_event("after_tool", hook_payload)
+    _merge_hook_metadata(project_root, spec, state, hook_result)
+    spec.save(task_spec_path(project_root, spec.task_id))
+    _write_json(run_state_path(project_root, spec.task_id), state)
     return {"task_spec": spec.to_dict(), "artifact": artifact, "hook_result": hook_result}
 
 
@@ -170,6 +240,7 @@ def complete_task(args: argparse.Namespace) -> dict[str, Any]:
             "queries": [Path(item).name for item in spec.working_set[:3]],
         },
     )
+    _merge_hook_metadata(project_root, spec, state, hook_result)
     spec.update_status("distilled")
     spec.save(task_spec_path(project_root, spec.task_id))
     state["status"] = spec.status

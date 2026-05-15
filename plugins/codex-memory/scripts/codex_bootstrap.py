@@ -48,13 +48,13 @@ SHARED_MEMORY_INDEX = {
     "entries": [],
 }
 DEFAULT_SUBAGENT_RUNTIME_POLICY = {
-    "execution_model": "host_subagent_or_manual",
-    "autostart": False,
+    "execution_model": "host_subagent_required",
+    "autostart": True,
     "task_types": ["implementation"],
     "risk_levels": ["medium", "high"],
     "reason": (
-        "Project policy authorizes Harness SubAgent dispatch for normal implementation tasks "
-        "when the host supports it."
+        "Project policy requires Harness SubAgent dispatch for implementation tasks when the "
+        "host supports it; if the host cannot dispatch, record a blocking downgrade."
     ),
 }
 WORKSPACE_ROUTING_SCHEMA = "local://codex-memory-harness/schemas/workspace_routing_config.schema.json"

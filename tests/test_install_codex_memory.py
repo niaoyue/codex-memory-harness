@@ -3,6 +3,7 @@ from __future__ import annotations
 import shutil
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -235,6 +236,58 @@ class InstallerTests(unittest.TestCase):
             state["home_agents"]["missing_default_openspec_upstream_rule_markers"],
             [],
         )
+        self.assertFalse(state["home_agents"]["has_stale_uncommitted_review_gate"])
+        self.assertEqual(state["home_agents"]["stale_uncommitted_review_gate_lines"], [])
+        self.assertTrue(state["home_agents"]["review_gate_guidance_ok"])
+
+    def test_check_state_flags_stale_uncommitted_final_review_gate_conflict(self) -> None:
+        agents_text = (
+            "candidate commit\n"
+            "- 代码审核优先使用 `codex xhigh review --uncommitted` 作为最终 review gate；"
+            "SubAgent reviewer 只做窄范围专题/旁路审查，不替代最终代码审核。\n"
+        )
+        with (
+            mock.patch.object(install_status, "read_text", return_value=agents_text),
+            mock.patch.object(install_status, "home_agents_path", return_value=Path("AGENTS.md")),
+            mock.patch.object(install_status, "profile_statuses", return_value=[]),
+            mock.patch.object(install_status, "posix_profile_statuses", return_value=[]),
+            mock.patch.object(install_status, "inspect_codex_config", return_value={}),
+            mock.patch.object(install_status, "bundled_skills_status", return_value={}),
+        ):
+            state = install_status.check_state(
+                plugin_name="codex-memory",
+                repo_marketplace=Path("repo-marketplace.json"),
+                home_marketplace=Path("home-marketplace.json"),
+                plugin_root=Path("plugin"),
+                home_plugin=Path("home-plugin"),
+            )
+
+        home_agents = state["home_agents"]
+        self.assertTrue(home_agents["mentions_candidate_review_gate"])
+        self.assertTrue(home_agents["has_stale_uncommitted_review_gate"])
+        self.assertFalse(home_agents["review_gate_guidance_ok"])
+        self.assertEqual(len(home_agents["stale_uncommitted_review_gate_lines"]), 1)
+
+    def test_ensure_agents_repairs_stale_unmarked_review_gate_guidance(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            agents_path = Path(temp_dir) / "AGENTS.md"
+            agents_path.write_text(
+                "# Repository Guidelines\n"
+                "- 代码审核优先使用 `codex xhigh review --uncommitted` 作为最终 review gate；"
+                "SubAgent reviewer 只做窄范围专题/旁路审查，不替代最终代码审核。\n",
+                encoding="utf-8",
+            )
+
+            with mock.patch.object(install_support, "home_agents_path", return_value=agents_path):
+                result = install_support.ensure_agents(Path("C:/Users/Administrator/plugins/codex-memory"))
+
+            updated = agents_path.read_text(encoding="utf-8")
+
+        self.assertTrue(result["stale_review_gate_repaired"])
+        self.assertIn("stale_review_gate_repaired", result["status"])
+        self.assertNotIn("codex xhigh review --uncommitted` 作为最终 review gate", updated)
+        self.assertIn("codex xhigh review --commit <commit-sha>", updated)
+        self.assertIn(install_support.AGENTS_START, updated)
 
     def test_check_state_rejects_partial_subagent_dispatch_guidance(self) -> None:
         agents_text = (

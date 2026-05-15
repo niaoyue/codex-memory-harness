@@ -26,6 +26,12 @@ PYTHON_LAUNCHER_CANDIDATES = (
     ("python3.12", []),
     ("python3.11", []),
 )
+STALE_REVIEW_GATE_REPLACEMENT = (
+    "- 代码审核采用候选提交后 Review a commit：验证通过并确认提交边界后，"
+    "先创建只包含本轮相关文件的 candidate commit，再运行 "
+    "`codex xhigh review --commit <commit-sha>` 审核该提交；SubAgent reviewer "
+    "只做窄范围专题/旁路审查，不替代最终代码审核。"
+)
 
 
 def home_root() -> Path:
@@ -244,6 +250,41 @@ def replace_legacy_agents_block(text: str, block: str) -> tuple[str, str]:
     return "\n\n".join(parts) + "\n", "legacy_unmarked_updated"
 
 
+def stale_uncommitted_review_gate_lines(text: str) -> list[str]:
+    return [
+        line.strip()
+        for line in text.splitlines()
+        if _is_stale_uncommitted_review_gate_line(line)
+    ]
+
+
+def repair_stale_review_gate_guidance(text: str) -> tuple[str, bool]:
+    lines = text.splitlines(keepends=True)
+    if not lines:
+        return text, False
+    changed = False
+    repaired: list[str] = []
+    for line in lines:
+        if _is_stale_uncommitted_review_gate_line(line):
+            newline = "\n" if line.endswith("\n") else ""
+            repaired.append(STALE_REVIEW_GATE_REPLACEMENT + newline)
+            changed = True
+        else:
+            repaired.append(line)
+    return "".join(repaired), changed
+
+
+def _is_stale_uncommitted_review_gate_line(line: str) -> bool:
+    normalized = line.lower()
+    if "--uncommitted" not in normalized:
+        return False
+    return (
+        "最终 review gate" in normalized
+        or "final review gate" in normalized
+        or "代码审核优先使用" in line
+    )
+
+
 def agents_block(home_plugin: Path) -> str:
     official_memory = codex_home_root() / "memories"
     global_memory = codex_home_root() / "codex-memory-harness" / "memories"
@@ -392,9 +433,12 @@ def ensure_agents(home_plugin: Path) -> dict[str, Any]:
     updated, status = replace_legacy_agents_block(current, block)
     if status == "missing":
         updated, status = replace_marked_block(current, AGENTS_START, AGENTS_END, block)
+    updated, stale_repaired = repair_stale_review_gate_guidance(updated)
     if updated != current:
         write_text(path, updated)
-    return {"path": str(path), "status": status}
+    if stale_repaired:
+        status = f"{status}+stale_review_gate_repaired"
+    return {"path": str(path), "status": status, "stale_review_gate_repaired": stale_repaired}
 
 
 def remove_marked_block(path: Path, start_marker: str, end_marker: str) -> dict[str, Any]:

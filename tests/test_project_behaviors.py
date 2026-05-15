@@ -302,8 +302,10 @@ class BootstrapTests(unittest.TestCase):
             harness_dir = project_root / ".codex" / "harness"
             profile = json.loads((harness_dir / "project_profile.json").read_text(encoding="utf-8"))
             workspace_routing = json.loads((harness_dir / "workspace-routing.json").read_text(encoding="utf-8"))
-            self.assertEqual(profile["subagent_runtime_policy"]["execution_model"], "host_subagent_or_manual")
-            self.assertEqual(workspace_routing["subagent_runtime_policy"]["execution_model"], "host_subagent_or_manual")
+            self.assertEqual(profile["subagent_runtime_policy"]["execution_model"], "host_subagent_required")
+            self.assertTrue(profile["subagent_runtime_policy"]["autostart"])
+            self.assertEqual(workspace_routing["subagent_runtime_policy"]["execution_model"], "host_subagent_required")
+            self.assertTrue(workspace_routing["subagent_runtime_policy"]["autostart"])
             self.assertEqual(workspace_routing["projects"][0]["domain"], "workspace_meta")
 
     def test_init_project_adds_missing_subagent_runtime_policy_to_existing_profile(self) -> None:
@@ -320,7 +322,8 @@ class BootstrapTests(unittest.TestCase):
 
             profile = json.loads((harness_dir / "project_profile.json").read_text(encoding="utf-8"))
 
-        self.assertEqual(profile["subagent_runtime_policy"]["execution_model"], "host_subagent_or_manual")
+        self.assertEqual(profile["subagent_runtime_policy"]["execution_model"], "host_subagent_required")
+        self.assertTrue(profile["subagent_runtime_policy"]["autostart"])
         self.assertTrue(any(item["action"] == "add_subagent_runtime_policy" for item in actions))
 
     def test_init_project_keeps_existing_nested_subagent_runtime_policy(self) -> None:

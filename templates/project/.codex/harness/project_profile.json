@@ -4,8 +4,8 @@
   "project_root": "<PROJECT_ROOT>",
   "default_memory_scope": "project",
   "subagent_runtime_policy": {
-    "execution_model": "host_subagent_or_manual",
-    "autostart": false,
+    "execution_model": "host_subagent_required",
+    "autostart": true,
     "task_types": [
       "implementation"
     ],
@@ -13,7 +13,7 @@
       "medium",
       "high"
     ],
-    "reason": "Project policy authorizes Harness SubAgent dispatch for normal implementation tasks when the host supports it."
+    "reason": "Project policy requires Harness SubAgent dispatch for implementation tasks when the host supports it; if the host cannot dispatch, record a blocking downgrade."
   },
   "harness": {
     "task_spec_dir": ".codex/harness/tasks",

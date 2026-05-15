@@ -140,7 +140,8 @@ class WorkspaceRoutingSchemaTests(unittest.TestCase):
         self.assertIn("projects", template)
         self.assertIn("fallback", template)
         self.assertIn("subagent_runtime_policy", template)
-        self.assertEqual(template["subagent_runtime_policy"]["execution_model"], "host_subagent_or_manual")
+        self.assertEqual(template["subagent_runtime_policy"]["execution_model"], "host_subagent_required")
+        self.assertTrue(template["subagent_runtime_policy"]["autostart"])
         project_ids = [project["id"] for project in template["projects"]]
         self.assertEqual(len(project_ids), len(set(project_ids)))
 
