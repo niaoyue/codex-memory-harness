@@ -46,6 +46,8 @@ class SubagentSchedulerTests(unittest.TestCase):
         self.assertEqual(specialist_spawn["checkpoint_schema"], "subagent_artifact.v1")
         self.assertEqual(specialist_spawn["assigned_scope"], ["client/Assets"])
         self.assertIn("binding-client-route", specialist_spawn["binding_id"])
+        self.assertIn(f"Dispatch ID: {specialist_spawn['dispatch_id']}", specialist["prompt"])
+        self.assertIn("Record a checkpoint with dispatch_id", specialist["prompt"])
         self.assertIn("Do not edit outside assigned_scope", specialist["prompt"])
         self.assertIn("Host wait windows are observation polls only", specialist["prompt"])
         self.assertIn("do not revert edits made by others", specialist["prompt"])
@@ -61,6 +63,8 @@ class SubagentSchedulerTests(unittest.TestCase):
             self.assertEqual(request["wait_policy"], "progress_output_observation")
             self.assertEqual(request["total_timeout_policy"], "none")
             self.assertEqual(request["observation_window_policy"], "poll_only_never_interrupt")
+            self.assertIn(f"Dispatch ID: {request['dispatch_id']}", request["message"])
+            self.assertIn("dispatch_id", request["message"])
 
     def test_required_runtime_marks_dispatch_plan_required_and_autostart(self) -> None:
         route_plan = _route_plan()

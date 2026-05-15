@@ -300,6 +300,7 @@ class ReviewFindingsRegressionTests(unittest.TestCase):
                 "tool_name": "workspace_router",
                 "phase": "verification",
                 "summary": "Generated route plan",
+                "dispatch_id": "dispatch-binding-client",
                 "binding_id": "binding-client",
                 "subagent_id": "agent-client",
                 "project_id": "client-unity",
@@ -328,10 +329,12 @@ class ReviewFindingsRegressionTests(unittest.TestCase):
             hook_payload["signals"]["route_plan"]["route_plan_id"],
             "route-signal-task",
         )
+        self.assertEqual(hook_payload["dispatch_id"], "dispatch-binding-client")
         self.assertEqual(hook_payload["binding_id"], "binding-client")
         self.assertEqual(hook_payload["project_id"], "client-unity")
         self.assertEqual(hook_payload["phase"], "verification")
         self.assertEqual(result["artifact"]["phase"], "verification")
+        self.assertEqual(result["artifact"]["dispatch_id"], "dispatch-binding-client")
         self.assertEqual(result["artifact"]["subagent_id"], "agent-client")
         self.assertEqual(result["artifact"]["assigned_scope"], ["client/Assets"])
         self.assertEqual(result["artifact"]["signals"]["route_plan"]["task_id"], "signal-task")

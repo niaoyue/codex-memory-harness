@@ -72,8 +72,9 @@ def runtime_execution_model(runtime: dict[str, Any] | None) -> str:
 
 
 def dispatch_item(binding: dict[str, Any], coordinator_prepare_id: str | None) -> dict[str, Any]:
+    dispatch_id = f"dispatch-{binding.get('binding_id')}"
     return {
-        "dispatch_id": f"dispatch-{binding.get('binding_id')}",
+        "dispatch_id": dispatch_id,
         "binding_id": binding.get("binding_id"),
         "subagent_id": binding.get("subagent_id"),
         "role": binding.get("role"),
@@ -86,13 +87,14 @@ def dispatch_item(binding: dict[str, Any], coordinator_prepare_id: str | None) -
         "verification_profile_ids": binding.get("verification_profile_ids") or [],
         "status": "queued",
         "dependencies": [coordinator_prepare_id] if coordinator_prepare_id else [],
-        "prompt": specialist_prompt(binding),
+        "prompt": specialist_prompt(binding, dispatch_id),
     }
 
 
 def coordinator_item(route_plan: dict[str, Any], binding: dict[str, Any], phase: str, dependencies: list[str]) -> dict[str, Any]:
+    dispatch_id = f"dispatch-{binding.get('binding_id')}-{phase}"
     return {
-        "dispatch_id": f"dispatch-{binding.get('binding_id')}-{phase}",
+        "dispatch_id": dispatch_id,
         "binding_id": binding.get("binding_id"),
         "subagent_id": binding.get("subagent_id"),
         "role": binding.get("role"),
@@ -101,20 +103,21 @@ def coordinator_item(route_plan: dict[str, Any], binding: dict[str, Any], phase:
         "coordinates_projects": binding.get("coordinates_projects") or [],
         "status": "queued",
         "dependencies": dependencies,
-        "prompt": coordinator_prompt(route_plan, phase),
+        "prompt": coordinator_prompt(route_plan, phase, dispatch_id),
     }
 
 
 def reviewer_item(route_plan: dict[str, Any], specialist_items: list[dict[str, Any]]) -> dict[str, Any]:
+    dispatch_id = "dispatch-route-reviewer"
     return {
-        "dispatch_id": "dispatch-route-reviewer",
+        "dispatch_id": dispatch_id,
         "binding_id": "binding-route-reviewer",
         "subagent_id": "agent-route-reviewer",
         "role": "Route Review Specialist",
         "binding_mode": "reviewer",
         "status": "queued",
         "dependencies": [item["dispatch_id"] for item in specialist_items],
-        "prompt": reviewer_prompt(route_plan),
+        "prompt": reviewer_prompt(route_plan, dispatch_id),
     }
 
 
@@ -152,39 +155,46 @@ def agent_type_for(item: dict[str, Any]) -> str:
     return "default"
 
 
-def specialist_prompt(binding: dict[str, Any]) -> str:
+def specialist_prompt(binding: dict[str, Any], dispatch_id: str) -> str:
     return (
         f"Role: {binding.get('role')}\n"
+        f"Dispatch ID: {dispatch_id}\n"
         f"Project: {binding.get('project_id')} ({binding.get('domain')})\n"
         f"CWD: {binding.get('cwd')}\n"
         f"Scope: {', '.join(workspace_subagents.string_list(binding.get('assigned_scope')))}\n"
         "You are not alone in the codebase; do not revert edits made by others, and adapt to concurrent changes.\n"
         "No fixed total timeout applies. Host wait windows are observation polls only; do not interrupt solely because a wait window expires.\n"
-        "Do not edit outside assigned_scope. Record a checkpoint with binding_id, subagent_id, project_id, "
+        "Do not edit outside assigned_scope. Record a checkpoint with dispatch_id, binding_id, subagent_id, project_id, "
         "domain, assigned_scope, touched_paths, verification_profile_ids, findings, and next_step."
     )
 
 
-def coordinator_prompt(route_plan: dict[str, Any], phase: str) -> str:
+def coordinator_prompt(route_plan: dict[str, Any], phase: str, dispatch_id: str) -> str:
     mode = route_plan.get("mode")
     if phase == "prepare":
         return (
+            f"Dispatch ID: {dispatch_id}\n"
             f"Prepare {mode} coordination: confirm contracts, dispatch order, release gates, and rollback needs. "
-            "No fixed total timeout applies; host wait windows are observation polls only."
+            "No fixed total timeout applies; host wait windows are observation polls only. "
+            "Record a checkpoint with dispatch_id, binding_id, subagent_id, findings, and next_step."
         )
     return (
+        f"Dispatch ID: {dispatch_id}\n"
         "Summarize specialist checkpoints, conflicts, scope guard results, verification gaps, publish order, and rollback needs. "
-        "No fixed total timeout applies; host wait windows are observation polls only."
+        "No fixed total timeout applies; host wait windows are observation polls only. "
+        "Record a checkpoint with dispatch_id, binding_id, subagent_id, findings, and next_step."
     )
 
 
-def reviewer_prompt(route_plan: dict[str, Any]) -> str:
+def reviewer_prompt(route_plan: dict[str, Any], dispatch_id: str) -> str:
     factors = route_plan.get("task_type") or "implementation"
     return (
+        f"Dispatch ID: {dispatch_id}\n"
         f"Review route-bound implementation for task type {factors}. Focus on regressions, "
         "scope guard violations, missing tests, requirements gaps, and integration risks. "
         "No fixed total timeout applies; host wait windows are observation polls only. "
-        "Do not edit files; report findings with file paths and blocking severity."
+        "Do not edit files; report findings with file paths and blocking severity. "
+        "Record a checkpoint with dispatch_id, binding_id, subagent_id, findings, and next_step."
     )
 
 

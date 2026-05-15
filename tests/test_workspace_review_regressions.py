@@ -412,8 +412,10 @@ def _client_route_plan() -> dict[str, object]:
 
 
 def _artifact(binding: dict[str, object], touched_paths: list[str]) -> dict[str, object]:
+    binding_id = str(binding["binding_id"])
     return {
-        "binding_id": str(binding["binding_id"]),
+        "dispatch_id": f"dispatch-{binding_id}",
+        "binding_id": binding_id,
         "subagent_id": str(binding["subagent_id"]),
         "project_id": str(binding["project_id"]),
         "domain": str(binding["domain"]),

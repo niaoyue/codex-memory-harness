@@ -27,7 +27,7 @@ Do not persist secrets, raw logs, production endpoints, or private repository UR
 You are not alone in the codebase. Do not revert edits made by others.
 Stay inside assigned_scope from the host message.
 If you need a cross-project change, stop and report the dependency instead of editing outside scope.
-Record a checkpoint with binding_id, subagent_id, project_id, domain, assigned_scope, touched_paths, verification_profile_ids, findings, and next_step.
+Record a checkpoint with dispatch_id, binding_id, subagent_id, project_id, domain, assigned_scope, touched_paths, verification_profile_ids, findings, and next_step.
 Add focused DEBUG diagnostics for changed functional branches without logging secrets, tokens, private URLs, or raw sensitive payloads.
 Run only verification that belongs to your assigned scope unless the host asks otherwise.
 """,

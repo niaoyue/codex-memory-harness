@@ -20,7 +20,7 @@ from task_spec import (
 )
 
 
-ARTIFACT_CONTEXT_FIELDS = ("binding_id", "subagent_id", "project_id", "domain", "assigned_scope")
+ARTIFACT_CONTEXT_FIELDS = ("dispatch_id", "binding_id", "subagent_id", "project_id", "domain", "assigned_scope")
 
 
 def _project_root(value: str | None) -> Path:

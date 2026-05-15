@@ -89,13 +89,16 @@ codex harness checkpoint --task-id <task-id> --result-file role-result.json
 {
   "tool_name": "subagent:reviewer",
   "phase": "review",
+  "dispatch_id": "dispatch-binding-docs-review",
+  "binding_id": "binding-docs-review",
+  "subagent_id": "agent-docs-review",
+  "project_id": "codex-memory-harness",
+  "domain": "docs",
+  "assigned_scope": ["README.md", "docs/"],
   "summary": "发现 README 缺少 SubAgent 分工说明，建议新增文档入口。",
   "touched_paths": ["README.md", "docs/SUBAGENT_WORKFLOW.md"],
   "signals": {
     "role": "Reviewer",
-    "project_id": "codex-memory-harness",
-    "domain": "docs",
-    "assigned_scope": ["README.md", "docs/"],
     "status": "findings",
     "findings": [
       {
@@ -127,6 +130,7 @@ codex harness complete --task-id <task-id> --summary-file summary.md
 
 - 只写和任务相关的最小事实。
 - 不写密钥、令牌、内部链接、原始敏感日志。
+- checkpoint 必须把 `dispatch_id`、`binding_id`、`subagent_id`、`project_id`、`domain`、`assigned_scope` 和 touched paths 放在顶层字段，便于 Harness lifecycle 归因和 mandatory dispatch gate 校验。
 - findings 必须带路径或证据来源。
 - implementer 只修改自己负责的文件集合。
 - reviewer 不直接重写大块代码，除非被明确授权；代码变更的最终审核优先使用 Codex CLI 的 `codex xhigh review --commit <commit-sha>` 审核被审提交。
@@ -250,7 +254,7 @@ codex harness roles record --task-id <task-id> --role Reviewer --result-file res
     "write_summary": true
   },
   "artifact_policy": {
-    "required_fields": ["project_id", "domain", "assigned_scope", "touched_paths"],
+    "required_fields": ["dispatch_id", "binding_id", "subagent_id", "project_id", "domain", "assigned_scope", "touched_paths"],
     "forbid_raw_sensitive_output": true,
     "checkpoint_required": true
   },

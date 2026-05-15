@@ -26,6 +26,7 @@ class WorkspaceSubagentTests(unittest.TestCase):
         specialist_ids = {item["project_id"] for item in bindings[1:]}
         self.assertEqual(specialist_ids, {"client-unity", "server-game"})
         self.assertIn("artifact_policy", bindings[1])
+        self.assertIn("dispatch_id", bindings[1]["artifact_policy"]["required_fields"])
         self.assertIn("binding_id", bindings[1]["artifact_policy"]["required_fields"])
         self.assertIn("subagent_id", bindings[1]["artifact_policy"]["required_fields"])
         self.assertEqual(bindings[1]["scope_guard"]["on_violation"], "report_cross_project_dependency")
@@ -374,8 +375,10 @@ def _route_plan() -> dict[str, object]:
 
 
 def _artifact(binding: dict[str, object], touched_paths: list[str]) -> dict[str, object]:
+    binding_id = str(binding["binding_id"])
     return {
-        "binding_id": str(binding["binding_id"]),
+        "dispatch_id": f"dispatch-{binding_id}",
+        "binding_id": binding_id,
         "subagent_id": str(binding["subagent_id"]),
         "project_id": str(binding["project_id"]),
         "domain": str(binding["domain"]),

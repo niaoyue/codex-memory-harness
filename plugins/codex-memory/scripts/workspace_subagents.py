@@ -318,7 +318,7 @@ def diagnostic_logging(value: Any) -> dict[str, Any]:
 
 def artifact_policy() -> dict[str, Any]:
     return {
-        "required_fields": ["binding_id", "subagent_id", "project_id", "domain", "assigned_scope", "touched_paths"],
+        "required_fields": ["dispatch_id", "binding_id", "subagent_id", "project_id", "domain", "assigned_scope", "touched_paths"],
         "forbid_raw_sensitive_output": True,
         "checkpoint_required": True,
     }
