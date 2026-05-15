@@ -11,13 +11,17 @@ from unittest import mock
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+TESTS_DIR = Path(__file__).resolve().parent
 PLUGIN_SCRIPTS_DIR = PROJECT_ROOT / "plugins" / "codex-memory" / "scripts"
 
+if str(TESTS_DIR) not in sys.path:
+    sys.path.insert(0, str(TESTS_DIR))
 if str(PLUGIN_SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(PLUGIN_SCRIPTS_DIR))
 
 import workspace_session, workspace_session_cli
 import workspace_session_lock
+from git_repo_template import copy_git_repo
 
 
 class WorkspaceSessionTests(unittest.TestCase):
@@ -470,13 +474,7 @@ def _binding(project_root: Path, *, binding_id: str, session_id: str, task_id: s
 
 
 def init_repo(path: Path) -> None:
-    path.mkdir(parents=True)
-    run_git(path, ["init", "-b", "main"])
-    run_git(path, ["config", "user.email", "test@example.com"])
-    run_git(path, ["config", "user.name", "Test User"])
-    write_text(path / "README.md", "# Test\n")
-    run_git(path, ["add", "README.md"])
-    run_git(path, ["commit", "-m", "initial"])
+    copy_git_repo(path, {"README.md": "# Test\n"})
 
 
 def run_git(path: Path, args: list[str]) -> None:

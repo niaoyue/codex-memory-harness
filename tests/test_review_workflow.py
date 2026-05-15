@@ -6,15 +6,20 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+TESTS_DIR = Path(__file__).resolve().parent
 PLUGIN_SCRIPTS_DIR = PROJECT_ROOT / "plugins" / "codex-memory" / "scripts"
 
+if str(TESTS_DIR) not in sys.path:
+    sys.path.insert(0, str(TESTS_DIR))
 if str(PLUGIN_SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(PLUGIN_SCRIPTS_DIR))
 
 import review_workflow
+from git_repo_template import copy_git_repo
 
 
 class ReviewWorkflowTests(unittest.TestCase):
@@ -129,7 +134,7 @@ class ReviewWorkflowTests(unittest.TestCase):
         self.assertTrue(any("api_key" in item for item in sensitive["report"]["categories"]))
 
     def test_record_infra_failure_adds_recoverable_policy(self) -> None:
-        with temp_repo() as root:
+        with fast_review_project() as root:
             result = review_workflow.record_review(
                 root,
                 {"ok": False, "stderr_tail": ["429 rate limit"]},
@@ -142,7 +147,7 @@ class ReviewWorkflowTests(unittest.TestCase):
         self.assertEqual(entry["recoverable_failure_policy"]["primary_action"], "send_input_to_active_review_runner")
 
     def test_record_clean_requires_reviewed_fingerprint(self) -> None:
-        with temp_repo() as root:
+        with fast_review_project() as root:
             result = review_workflow.record_review(
                 root,
                 {"ok": True},
@@ -155,10 +160,8 @@ class ReviewWorkflowTests(unittest.TestCase):
         self.assertEqual(entry["fingerprint_validation"]["reason"], "missing_reviewed_diff_fingerprint")
 
     def test_record_clean_rejects_changed_reviewed_fingerprint(self) -> None:
-        with temp_repo() as root:
-            reviewed = review_workflow.diff_fingerprint(root)
-            _write(root / "README.md", "# changed\n")
-
+        with fast_review_project() as root:
+            reviewed = _fingerprint("reviewed")
             result = review_workflow.record_review(
                 root,
                 {"ok": True, "diff_fingerprint": reviewed},
@@ -172,8 +175,8 @@ class ReviewWorkflowTests(unittest.TestCase):
         self.assertEqual(entry["fingerprint_validation"]["reason"], "reviewed_diff_changed")
 
     def test_clean_payload_with_timeout_policy_is_not_infra_failure(self) -> None:
-        with temp_repo() as root:
-            fingerprint = review_workflow.diff_fingerprint(root)
+        with fast_review_project() as root:
+            fingerprint = _fingerprint()
             result = review_workflow.record_review(
                 root,
                 {
@@ -192,12 +195,11 @@ class ReviewWorkflowTests(unittest.TestCase):
         self.assertNotIn("recoverable_failure_policy", entry)
 
     def test_record_persists_explicit_review_commit_ref(self) -> None:
-        with temp_repo() as root:
+        with temp_repo() as root, patched_fingerprint():
             commit = _head_commit(root)
-            fingerprint = review_workflow.diff_fingerprint(root)
             result = review_workflow.record_review(
                 root,
-                {"ok": True, "diff_fingerprint": fingerprint},
+                {"ok": True, "diff_fingerprint": _fingerprint()},
                 task_id="review-task",
                 commit_ref=commit,
             )
@@ -206,14 +208,13 @@ class ReviewWorkflowTests(unittest.TestCase):
         self.assertEqual(result["entry"]["review_commit_ref"], commit)
 
     def test_record_extracts_review_commit_ref_from_runner_command(self) -> None:
-        with temp_repo() as root:
+        with temp_repo() as root, patched_fingerprint():
             commit = _head_commit(root)
-            fingerprint = review_workflow.diff_fingerprint(root)
             result = review_workflow.record_review(
                 root,
                 {
                     "ok": True,
-                    "diff_fingerprint": fingerprint,
+                    "diff_fingerprint": _fingerprint(),
                     "command": ["codex", "review", "--commit", commit],
                 },
                 task_id="review-task",
@@ -223,7 +224,7 @@ class ReviewWorkflowTests(unittest.TestCase):
         self.assertEqual(result["entry"]["review_commit_ref"], commit)
 
     def test_record_clean_commit_review_does_not_require_diff_fingerprint(self) -> None:
-        with temp_repo() as root:
+        with temp_repo() as root, patched_fingerprint():
             commit = _head_commit(root)
             result = review_workflow.record_review(
                 root,
@@ -237,7 +238,7 @@ class ReviewWorkflowTests(unittest.TestCase):
         self.assertNotIn("fingerprint_validation", result["entry"])
 
     def test_record_resolves_mutable_review_commit_ref(self) -> None:
-        with temp_repo() as root:
+        with temp_repo() as root, patched_fingerprint():
             commit = _head_commit(root)
             result = review_workflow.record_review(
                 root,
@@ -249,7 +250,7 @@ class ReviewWorkflowTests(unittest.TestCase):
         self.assertEqual(result["entry"]["review_commit_ref"], commit)
 
     def test_record_rejects_unresolved_review_commit_ref(self) -> None:
-        with temp_repo() as root:
+        with temp_repo() as root, patched_fingerprint():
             result = review_workflow.record_review(
                 root,
                 {"ok": True, "command": ["codex", "review", "--commit", "not-a-ref"]},
@@ -262,7 +263,7 @@ class ReviewWorkflowTests(unittest.TestCase):
         self.assertNotIn("review_commit_ref", result["entry"])
 
     def test_record_rejects_nonexistent_full_review_commit_ref(self) -> None:
-        with temp_repo() as root:
+        with temp_repo() as root, patched_fingerprint():
             result = review_workflow.record_review(
                 root,
                 {"ok": True, "command": ["codex", "review", "--commit", "f" * 40]},
@@ -275,8 +276,8 @@ class ReviewWorkflowTests(unittest.TestCase):
         self.assertNotIn("review_commit_ref", result["entry"])
 
     def test_record_structured_runner_findings_without_tails(self) -> None:
-        with temp_repo() as root:
-            fingerprint = review_workflow.diff_fingerprint(root)
+        with fast_review_project() as root:
+            fingerprint = _fingerprint()
             result = review_workflow.record_review(
                 root,
                 {
@@ -294,8 +295,8 @@ class ReviewWorkflowTests(unittest.TestCase):
         self.assertEqual(result["entry"]["findings"][0]["source"], "review_runner_summary")
 
     def test_record_ok_payload_with_findings_is_not_clean(self) -> None:
-        with temp_repo() as root:
-            fingerprint = review_workflow.diff_fingerprint(root)
+        with fast_review_project() as root:
+            fingerprint = _fingerprint()
             result = review_workflow.record_review(
                 root,
                 {
@@ -394,7 +395,7 @@ class ReviewWorkflowTests(unittest.TestCase):
         self.assertEqual(json.loads(top_level_mode.stdout)["mode"], "staged")
 
     def test_resolved_findings_still_require_final_rerun(self) -> None:
-        with temp_repo() as root:
+        with fast_review_project() as root:
             review_workflow.record_review(
                 root,
                 {"ok": False, "findings": [{"id": "finding-001", "summary": "Bug"}]},
@@ -409,13 +410,12 @@ class ReviewWorkflowTests(unittest.TestCase):
         self.assertTrue(after["requires_final_review_rerun"])
 
     def test_resolved_findings_are_scoped_to_review(self) -> None:
-        with temp_repo() as root:
+        with fast_review_project() as root:
             first = review_workflow.record_review(
                 root,
                 {"ok": False, "findings": [{"id": "finding-001", "summary": "First"}]},
                 task_id="review-task",
             )
-            _write(root / "README.md", "# changed\n")
             second = review_workflow.record_review(
                 root,
                 {"ok": False, "findings": [{"id": "finding-001", "summary": "Second"}]},
@@ -436,13 +436,12 @@ class ReviewWorkflowTests(unittest.TestCase):
         self.assertEqual(remaining[0]["review_id"], second["entry"]["review_id"])
 
     def test_resolve_finding_defaults_to_latest_matching_review(self) -> None:
-        with temp_repo() as root:
+        with fast_review_project() as root:
             review_workflow.record_review(
                 root,
                 {"ok": False, "findings": [{"id": "finding-001", "summary": "First"}]},
                 task_id="review-task",
             )
-            _write(root / "README.md", "# changed\n")
             review_workflow.record_review(
                 root,
                 {"ok": False, "findings": [{"id": "finding-001", "summary": "Second"}]},
@@ -457,18 +456,38 @@ class ReviewWorkflowTests(unittest.TestCase):
         self.assertEqual(remaining[0]["summary"], "First")
 
 
+def _fingerprint(value: str = "current", *, mode: str = "uncommitted") -> dict[str, object]:
+    return {"algorithm": "sha256", "fingerprint": f"sha256:{value}", "mode": mode, "changed_files": []}
+
+
+def patched_fingerprint(value: str = "current") -> object:
+    return mock.patch.object(review_workflow, "diff_fingerprint", return_value=_fingerprint(value))
+
+
+class fast_review_project:
+    def __enter__(self) -> Path:
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.patch = patched_fingerprint()
+        self.patch.__enter__()
+        return Path(self.temp_dir.name)
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        self.patch.__exit__(exc_type, exc, tb)
+        self.temp_dir.cleanup()
+
+
 class temp_repo:
     def __enter__(self) -> Path:
         self.temp_dir = tempfile.TemporaryDirectory()
         root = Path(self.temp_dir.name)
-        subprocess.run(["git", "init"], cwd=root, check=True, stdout=subprocess.DEVNULL)
-        subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=root, check=True)
-        subprocess.run(["git", "config", "user.name", "Test User"], cwd=root, check=True)
-        _write(root / "README.md", "# test\n")
-        _write(root / ".codex" / "harness" / "commands.json", '{"version":1}\n')
-        _write(root / ".codex" / "harness" / "project_profile.json", '{"version":1}\n')
-        subprocess.run(["git", "add", "README.md"], cwd=root, check=True)
-        subprocess.run(["git", "commit", "-m", "init"], cwd=root, check=True, stdout=subprocess.DEVNULL)
+        copy_git_repo(
+            root,
+            {
+                "README.md": "# test\n",
+                ".codex/harness/commands.json": '{"version":1}\n',
+                ".codex/harness/project_profile.json": '{"version":1}\n',
+            },
+        )
         self.root = root
         return root
 
