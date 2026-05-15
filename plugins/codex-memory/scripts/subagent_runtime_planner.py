@@ -16,44 +16,56 @@ def runtime_decision(
     task_payload: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     context = decision_context(route_plan, bindings, task_payload or {})
-    recommended = not (context["disabled"] or context["requirements_blocked"]) and (
+    eligible = not (context["disabled"] or context["requirements_blocked"])
+    dispatch_required = eligible and context["dispatch_required_signal"]
+    recommended = dispatch_required or (eligible and (
         context["explicit"]
         or context["review_gate"]
         or context["route_policy"]
         or context["route_recommended"]
         or context["complex_task"]
         or context["autonomous_task"]
-    )
-    dispatch_allowed = not (context["disabled"] or context["requirements_blocked"]) and (
+    ))
+    dispatch_allowed = dispatch_required or (eligible and (
         context["explicit"]
         or context["review_gate"]
         or context["route_policy"]
         or context["complex_task"]
         or context["autonomous_task"]
-    )
+    ))
     status, trigger, reason = status_reason(context)
     roles = dispatch_roles(context, recommended, bindings)
+    execution_model = "host_subagent_required" if dispatch_required else (
+        "host_subagent_or_manual" if recommended else "main_agent_serial"
+    )
     return {
         "version": 1,
         "status": status,
         "trigger": trigger,
-        "execution_model": "host_subagent_or_manual" if recommended else "main_agent_serial",
-        "autostart": False,
+        "execution_model": execution_model,
+        "autostart": bool(dispatch_required or (recommended and context["policy_autostart"])),
         "recommended": recommended,
+        "dispatch_required": dispatch_required,
+        "required_dispatch_reason": required_dispatch_reason(context) if dispatch_required else "",
         "host_dispatch_allowed": dispatch_allowed,
         "host_dispatch_recommended": recommended,
         "requires_user_explicit_choice": recommended and not dispatch_allowed,
         "dispatch_plan_required": recommended,
         "dispatch_plan_source": "workspace_routing.subagent_dispatch_plan" if recommended else "",
-        "main_agent_action": main_agent_action(dispatch_allowed, recommended, context["requirements_blocked"]),
-        "fallback_action": "ask_user" if context["requirements_blocked"] else ("main_agent_serial" if recommended else ""),
+        "main_agent_action": main_agent_action(
+            dispatch_allowed,
+            recommended,
+            context["requirements_blocked"],
+            dispatch_required,
+        ),
+        "fallback_action": fallback_action(context, recommended, dispatch_required),
         "planned_bindings": len(bindings),
         "planned_specialists": len(context["specialists"]),
         "actual_subagents": 0,
         "reason": reason,
         "policy": (
-            "Route bindings and dispatch plans are planning metadata; real SubAgent spawning must be "
-            "performed by the host runtime or the main Agent when allowed."
+            "Route bindings and dispatch plans are planning metadata. For host_subagent_required, the "
+            "main Agent must call host SubAgent tools before implementation or record a blocking downgrade."
         ),
         "recommended_role": "XHigh Review Runner" if context["review_gate"] else "",
         "timeout_policy": "progress_output_observation" if context["review_gate"] else "no_fixed_total_timeout" if recommended else "",
@@ -74,6 +86,7 @@ def decision_context(
     policy = runtime_policy(route_plan)
     policy_execution_model = string(policy.get("execution_model"))
     policy_disabled = policy.get("enabled") is False or policy_execution_model == "main_agent_serial"
+    policy_required = policy_execution_model == "host_subagent_required"
     user_disabled = subagent_task_classifier.explicitly_disabled(task_payload)
     review_gate_dispatch_disabled = subagent_task_classifier.xhigh_review_dispatch_disabled(task_payload)
     specialists = [item for item in bindings if item.get("binding_mode") == "specialist"]
@@ -91,6 +104,7 @@ def decision_context(
     review_gate = subagent_task_classifier.review_gate_recommended(task_payload)
     complex_task = subagent_task_classifier.complex_task_recommended(task_payload, route_plan)
     route_policy = not policy_disabled and subagent_task_classifier.route_policy_recommended(route_plan)
+    openspec_required = subagent_task_classifier.openspec_subagent_required(task_payload, route_plan)
     context = {
         "route_plan": route_plan,
         "bindings": bindings,
@@ -101,11 +115,15 @@ def decision_context(
         "policy_disabled": policy_disabled,
         "review_gate_dispatch_disabled": review_gate_dispatch_disabled,
         "policy_execution_model": policy_execution_model,
+        "policy_autostart": bool(policy.get("autostart")),
+        "policy_required": policy_required and not policy_disabled,
         "policy_reason": string(policy.get("reason")),
         "explicit": explicit,
         "review_gate": review_gate,
         "route_policy": route_policy,
         "route_policy_reason": subagent_task_classifier.route_policy_reason(route_plan),
+        "openspec_required": openspec_required,
+        "openspec_required_reason": subagent_task_classifier.openspec_required_reason(task_payload, route_plan) if openspec_required else "",
         "complex_task": complex_task,
         "requirements_blocked": requirements_gate_blocking(route_plan) and not review_gate,
         "route_recommended": route_recommended,
@@ -118,6 +136,7 @@ def decision_context(
     context["complexity_level"] = complexity_level(context)
     context["autonomous_task"] = autonomous_task(context)
     context["reviewer_required"] = reviewer_required(context)
+    context["dispatch_required_signal"] = context["openspec_required"] or context["policy_required"]
     return context
 
 
@@ -172,6 +191,18 @@ def status_reason(context: dict[str, Any]) -> tuple[str, str, str]:
         )
     if context["user_disabled"]:
         return "main_agent_serial", "user_disabled", "User explicitly disabled SubAgent, delegation, or parallel agent work."
+    if context["openspec_required"]:
+        return (
+            "dispatch_required_not_started",
+            "openspec_required",
+            context["openspec_required_reason"],
+        )
+    if context["policy_required"]:
+        return (
+            "dispatch_required_not_started",
+            "route_policy_required",
+            context["policy_reason"] or "Route policy requires host SubAgent dispatch.",
+        )
     if context["explicit"]:
         return (
             "requested_not_started",
@@ -233,8 +264,12 @@ def decision_factors(context: dict[str, Any]) -> dict[str, Any]:
         "requirements_blocked": context["requirements_blocked"],
         "user_disabled": context["user_disabled"],
         "policy_disabled": context["policy_disabled"],
+        "policy_required": context["policy_required"],
+        "policy_autostart": context["policy_autostart"],
         "review_gate_dispatch_disabled": context["review_gate_dispatch_disabled"],
         "policy_execution_model": context["policy_execution_model"],
+        "openspec_required": context["openspec_required"],
+        "dispatch_required_signal": context["dispatch_required_signal"],
         "route_policy": context["route_policy"],
         "review_gate": context["review_gate"],
         "complex_task": context["complex_task"],
@@ -252,14 +287,39 @@ def runtime_policy(route_plan: dict[str, Any]) -> dict[str, Any]:
     return policy if isinstance(policy, dict) else {}
 
 
-def main_agent_action(dispatch_allowed: bool, recommended: bool, requirements_blocked: bool = False) -> str:
+def main_agent_action(
+    dispatch_allowed: bool,
+    recommended: bool,
+    requirements_blocked: bool = False,
+    dispatch_required: bool = False,
+) -> str:
     if requirements_blocked:
         return "ask_user_for_requirements"
+    if dispatch_required:
+        return "read_dispatch_plan_and_call_host_subagents"
     if dispatch_allowed:
         return "read_dispatch_plan_and_call_host_subagents"
     if recommended:
         return "record_dispatch_plan_for_host_or_manual_use"
     return "execute_on_main_agent"
+
+
+def fallback_action(context: dict[str, Any], recommended: bool, dispatch_required: bool) -> str:
+    if context["requirements_blocked"]:
+        return "ask_user"
+    if dispatch_required:
+        return "report_blocking_downgrade"
+    if recommended:
+        return "main_agent_serial"
+    return ""
+
+
+def required_dispatch_reason(context: dict[str, Any]) -> str:
+    if context["openspec_required"]:
+        return context["openspec_required_reason"]
+    if context["policy_required"]:
+        return context["policy_reason"] or "Route policy requires host SubAgent dispatch."
+    return ""
 
 
 def string(value: Any) -> str:

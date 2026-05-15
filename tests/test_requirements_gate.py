@@ -85,6 +85,25 @@ class RequirementsGateTests(unittest.TestCase):
         self.assertEqual(gate["status"], "passed")
         self.assertFalse(gate["blocking"])
 
+    def test_openspec_change_path_counts_as_contract_evidence(self) -> None:
+        gate = requirements_gate.evaluate(
+            {"objective": "Implement OpenSpec change contract"},
+            {
+                "text": "implement openspec change contract",
+                "paths": ["openspec/changes/require-subagent-dispatch/tasks.md"],
+                "cwd": "",
+            },
+            mode="single_project",
+            task_type="contract",
+            risk_level="medium",
+            domains=["workspace_meta"],
+        )
+
+        self.assertEqual(gate["task_intent"], "system_change")
+        self.assertEqual(gate["status"], "passed")
+        self.assertFalse(gate["blocking"])
+        self.assertIn("openspec/changes/require-subagent-dispatch/tasks.md", gate["requirement_sources"])
+
     def test_routing_review_reports_blocking_requirements_gate(self) -> None:
         review = workspace_lifecycle.routing_review(
             {

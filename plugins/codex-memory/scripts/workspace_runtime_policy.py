@@ -7,7 +7,7 @@ from typing import Any
 
 PROJECT_PROFILE = ".codex/harness/project_profile.json"
 WORKSPACE_CONFIG = ".codex/harness/workspace-routing.json"
-EXECUTION_MODELS = {"main_agent_serial", "host_subagent_or_manual"}
+EXECUTION_MODELS = {"main_agent_serial", "host_subagent_or_manual", "host_subagent_required"}
 
 
 def apply_runtime_policy(
@@ -150,7 +150,7 @@ def matching_policy(policy: dict[str, Any], route_plan: dict[str, Any], task: di
     reason = string(policy.get("reason")) or "Project policy requests host SubAgent dispatch for this route."
     return {
         "execution_model": execution_model,
-        "autostart": bool(policy.get("autostart")),
+        "autostart": bool(policy.get("autostart") or execution_model == "host_subagent_required"),
         "reason": reason,
     }
 

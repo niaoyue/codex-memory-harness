@@ -103,6 +103,51 @@ class SubagentRuntimePlannerTests(unittest.TestCase):
         self.assertTrue(runtime["dispatch_plan_required"])
         self.assertEqual(runtime["main_agent_action"], "read_dispatch_plan_and_call_host_subagents")
 
+    def test_openspec_change_path_requires_host_subagent_dispatch(self) -> None:
+        plan = _route_plan(intent="small_change")
+        bindings = workspace_subagents.create_bindings(plan)
+
+        runtime = subagent_runtime_planner.runtime_decision(
+            plan,
+            bindings,
+            {
+                "objective": "Implement OpenSpec change contract",
+                "working_set": ["openspec/changes/require-subagent-dispatch/tasks.md"],
+            },
+        )
+
+        self.assertEqual(runtime["status"], "dispatch_required_not_started")
+        self.assertEqual(runtime["trigger"], "openspec_required")
+        self.assertEqual(runtime["execution_model"], "host_subagent_required")
+        self.assertTrue(runtime["autostart"])
+        self.assertTrue(runtime["dispatch_required"])
+        self.assertTrue(runtime["host_dispatch_allowed"])
+        self.assertFalse(runtime["requires_user_explicit_choice"])
+        self.assertEqual(runtime["fallback_action"], "report_blocking_downgrade")
+        self.assertIn("OpenSpec path requires host SubAgent dispatch", runtime["required_dispatch_reason"])
+
+    def test_requirements_gate_still_blocks_openspec_dispatch(self) -> None:
+        plan = _route_plan(intent="system_change")
+        plan["requirements_gate"]["blocking"] = True
+        plan["requirements_gate"]["status"] = "needs_clarification"
+        plan["fallback_action"] = "ask_user"
+        bindings = workspace_subagents.create_bindings(plan)
+
+        runtime = subagent_runtime_planner.runtime_decision(
+            plan,
+            bindings,
+            {
+                "objective": "Implement OpenSpec change contract",
+                "working_set": ["openspec/changes/require-subagent-dispatch/tasks.md"],
+            },
+        )
+
+        self.assertEqual(runtime["status"], "requirements_blocked")
+        self.assertEqual(runtime["execution_model"], "main_agent_serial")
+        self.assertFalse(runtime["dispatch_required"])
+        self.assertFalse(runtime["host_dispatch_allowed"])
+        self.assertFalse(runtime["dispatch_plan_required"])
+
     def test_route_reviewer_is_added_for_autonomous_feature_story(self) -> None:
         plan = _route_plan(intent="system_change", task_type="contract", risk="high")
         bindings = workspace_subagents.create_bindings(plan)

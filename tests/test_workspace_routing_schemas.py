@@ -62,6 +62,19 @@ class WorkspaceRoutingSchemaTests(unittest.TestCase):
             "blocked_by_requirements_gate",
         )
         self.assertIn("host_spawn_requests", dispatch["required"])
+        self.assertIn("dispatch_required", dispatch["properties"])
+        self.assertIn(
+            "host_subagent_required",
+            dispatch["properties"]["execution_model"]["enum"],
+        )
+        self.assertIn(
+            "host_subagent_required",
+            route_plan["$defs"]["subagent_runtime_policy"]["properties"]["execution_model"]["enum"],
+        )
+        self.assertIn(
+            "host_subagent_required",
+            routing_config["$defs"]["subagent_runtime_policy"]["properties"]["execution_model"]["enum"],
+        )
         spawn = dispatch["$defs"]["host_spawn_request"]
         self.assertIn("total_timeout_policy", spawn["required"])
         self.assertEqual(spawn["properties"]["total_timeout_policy"]["enum"], ["none"])

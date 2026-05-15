@@ -177,6 +177,32 @@ class SubagentRuntimePolicyConfigTests(unittest.TestCase):
         self.assertEqual(policy["execution_model"], "host_subagent_or_manual")
         self.assertEqual(policy["reason"], POLICY["reason"])
 
+    def test_host_subagent_required_policy_is_accepted_and_autostarts(self) -> None:
+        required_policy = {
+            "execution_model": "host_subagent_required",
+            "task_types": ["implementation"],
+            "risk_levels": ["medium"],
+            "reason": "OpenSpec execution requires host SubAgent dispatch.",
+        }
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            _write_json(root / ".codex" / "harness" / "project_profile.json", {"version": 1, "subagent_runtime_policy": required_policy})
+
+            policy = workspace_runtime_policy.select_runtime_policy(
+                root,
+                {
+                    "task_type": "implementation",
+                    "risk_level": "medium",
+                    "mode": "single_project",
+                    "affected_projects": ["dictionary-web"],
+                },
+                _implementation_task(),
+            )
+
+        self.assertEqual(policy["execution_model"], "host_subagent_required")
+        self.assertTrue(policy["autostart"])
+        self.assertEqual(policy["reason"], required_policy["reason"])
+
     def test_affected_child_project_profile_policy_is_injected_from_route_cwd(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

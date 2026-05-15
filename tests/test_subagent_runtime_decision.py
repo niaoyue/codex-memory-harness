@@ -124,6 +124,33 @@ class SubagentRuntimeDecisionTests(unittest.TestCase):
         self.assertIn("subagent_dispatch_plan", routing)
         self.assertGreater(runtime["host_spawn_request_count"], 0)
 
+    def test_openspec_working_set_forces_host_subagent_required(self) -> None:
+        with MemoryEnv():
+            with mock.patch.object(workspace_lifecycle.workspace_router, "build_route_plan", return_value=route_plan()):
+                runner = hook_runner.HookRunner(memory_store=memory_store.MemoryStore())
+                result = runner.run_event(
+                    "before_task",
+                    {
+                        "task_id": "openspec-required-task",
+                        "objective": "Implement OpenSpec change contract",
+                        "working_set": ["openspec/changes/require-subagent-dispatch/tasks.md"],
+                    },
+                )
+
+        routing = result["result"]["task_state"]["metadata"]["workspace_routing"]
+        runtime = routing["subagent_runtime"]
+        dispatch_plan = routing["subagent_dispatch_plan"]
+        self.assertEqual(runtime["status"], "dispatch_required_not_started")
+        self.assertEqual(runtime["trigger"], "openspec_required")
+        self.assertEqual(runtime["execution_model"], "host_subagent_required")
+        self.assertTrue(runtime["autostart"])
+        self.assertTrue(runtime["dispatch_required"])
+        self.assertTrue(runtime["host_dispatch_allowed"])
+        self.assertEqual(runtime["host_spawn_request_count"], len(dispatch_plan["host_spawn_requests"]))
+        self.assertEqual(dispatch_plan["execution_model"], "host_subagent_required")
+        self.assertTrue(dispatch_plan["autostart"])
+        self.assertTrue(dispatch_plan["dispatch_required"])
+
     def test_main_agent_serial_route_policy_suppresses_complex_dispatch_plan(self) -> None:
         plan = route_plan()
         plan["risk_level"] = "high"

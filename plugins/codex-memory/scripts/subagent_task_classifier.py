@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+import openspec_task_signals
+
 
 ACTION_WORDS = (
     "build",
@@ -67,6 +69,7 @@ COMPLEX_WORDS = (
     "批量",
 )
 COMPLEX_INTENTS = {"system_change", "release_gate"}
+REQUIRED_EXECUTION_MODELS = {"host_subagent_required"}
 DISABLE_PHRASES = (
     "不要用 subagent",
     "不用 subagent",
@@ -97,13 +100,44 @@ REVIEW_GATE_PHRASES = (
     "最终审核",
     "reivew",
 )
+OPENSPEC_METADATA_KEYS = (
+    "openspec_change_id",
+    "openspec_change",
+    "openspec_capability",
+    "openspec_dispatch_required",
+)
+OPENSPEC_EXECUTION_WORDS = (
+    *ACTION_WORDS,
+    "update",
+    "modify",
+    "edit",
+    "change",
+    "apply",
+    "archive",
+    "execute",
+    "run",
+    "complete",
+    "fix",
+    "align",
+    "更新",
+    "修改",
+    "编辑",
+    "变更",
+    "应用",
+    "归档",
+    "执行",
+    "完成",
+    "修复",
+    "对齐",
+    "落地",
+)
 
 
 def route_policy_recommended(route_plan: dict[str, Any]) -> bool:
     policy = route_plan.get("subagent_runtime_policy")
     if not isinstance(policy, dict):
         return False
-    return str(policy.get("execution_model") or "") == "host_subagent_or_manual"
+    return str(policy.get("execution_model") or "") in {"host_subagent_or_manual", *REQUIRED_EXECUTION_MODELS}
 
 
 def route_policy_reason(route_plan: dict[str, Any]) -> str:
@@ -168,6 +202,35 @@ def complex_task_recommended(task_payload: dict[str, Any], route_plan: dict[str,
     requirements = route_plan.get("requirements_gate") if isinstance(route_plan.get("requirements_gate"), dict) else {}
     intent = str(requirements.get("task_intent") or "")
     return intent in COMPLEX_INTENTS and (complex_signal or scope_size(task_payload, route_plan) >= 3)
+
+
+def openspec_subagent_required(task_payload: dict[str, Any], route_plan: dict[str, Any]) -> bool:
+    metadata = metadata_dict(task_payload)
+    if any(metadata_value_is_required(source.get(key)) for source in (task_payload, metadata) for key in OPENSPEC_METADATA_KEYS):
+        return True
+    if openspec_required_paths(task_payload, route_plan):
+        return True
+    text = task_text(task_payload, route_plan)
+    return "openspec" in text and has_any(text, OPENSPEC_EXECUTION_WORDS)
+
+
+def openspec_required_reason(task_payload: dict[str, Any], route_plan: dict[str, Any]) -> str:
+    paths = openspec_required_paths(task_payload, route_plan)
+    if paths:
+        return f"OpenSpec path requires host SubAgent dispatch: {paths[0]}"
+    return "OpenSpec execution/change task requires host SubAgent dispatch before main Agent implementation."
+
+
+def openspec_required_paths(task_payload: dict[str, Any], route_plan: dict[str, Any]) -> list[str]:
+    return openspec_task_signals.contract_paths_from_task(task_payload, route_plan)
+
+
+def metadata_value_is_required(value: Any) -> bool:
+    if value is True:
+        return True
+    if value in (None, False, "", [], {}):
+        return False
+    return bool(str(value).strip())
 
 
 def task_text(task_payload: dict[str, Any], route_plan: dict[str, Any]) -> str:

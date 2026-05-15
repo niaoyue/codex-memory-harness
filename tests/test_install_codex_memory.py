@@ -198,6 +198,11 @@ class InstallerTests(unittest.TestCase):
             "host_dispatch_allowed=true\n"
             "spawn_agent\n"
             "不得只生成 dispatch plan\n"
+            "host_subagent_required\n"
+            "OpenSpec\n"
+            "openspec/changes/\n"
+            "openspec/specs/\n"
+            "autostart=true\n"
             "dispatch_required\n"
             "host_spawn_request_count\n"
             "actual_subagents=0\n"
@@ -264,6 +269,10 @@ class InstallerTests(unittest.TestCase):
                 "subagent_dispatch_plan.host_spawn_requests",
                 "subagent_runtime.recommended=true",
                 "不得只生成 dispatch plan",
+                "host_subagent_required",
+                "OpenSpec",
+                "openspec/specs/",
+                "autostart=true",
                 "dispatch_required",
                 "host_spawn_request_count",
                 "downgrade_reason",

@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
+import openspec_task_signals
 import requirements_gate_schema
 
 
@@ -153,6 +154,8 @@ def evaluate(
     sources = requirement_sources(task, signals)
     acceptance = task_field_list(task, "acceptance") or task_field_list(task, "acceptance_criteria")
     architecture = task_field_list(task, "architecture") or task_field_list(task, "architecture_notes")
+    acceptance = unique(acceptance + openspec_task_signals.acceptance_evidence_from_signals(signals))
+    architecture = unique(architecture + openspec_task_signals.architecture_evidence_from_signals(signals))
     rollback = task_field_list(task, "rollback_plan") or task_field_list(task, "rollback")
     missing = missing_requirements(
         intent,
@@ -409,6 +412,8 @@ def path_sources(signals: dict[str, Any]) -> list[str]:
     for path in string_list(signals.get("paths")):
         lowered = path.lower()
         if any(token in lowered for token in ("docs/", "design/", "gdd/", "策划/")):
+            result.append(path)
+        if openspec_task_signals.is_contract_path(path):
             result.append(path)
     text = str(signals.get("text") or "")
     if has_keyword(text, DESIGN_SOURCE_WORDS):

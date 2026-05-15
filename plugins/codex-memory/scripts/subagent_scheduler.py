@@ -34,13 +34,17 @@ def build_dispatch_plan(
     spawn_items = items if subagent_blocker_plan.can_parallelize(blocker_plan) else [
         item for item in items if item.get("binding_mode") == "coordinator" and item.get("phase") == "prepare"
     ]
+    execution_model = runtime_execution_model(runtime)
+    dispatch_required = bool(runtime and runtime.get("dispatch_required"))
     return {
         "version": 1,
         "task_id": str(route_plan.get("task_id") or "workspace-route"),
         "route_plan_id": str(route_plan.get("route_plan_id") or ""),
         "status": "ready" if subagent_blocker_plan.can_parallelize(blocker_plan) else "blocked",
-        "execution_model": "host_subagent_or_manual",
-        "autostart": False,
+        "execution_model": execution_model,
+        "autostart": bool(runtime and runtime.get("autostart")),
+        "dispatch_required": dispatch_required,
+        "required_dispatch_reason": str(runtime.get("required_dispatch_reason") or "") if runtime else "",
         "host_spawn_requests": [host_spawn_request(item) for item in spawn_items],
         "items": items,
         "subagent_blocker_plan": blocker_plan,
@@ -48,6 +52,7 @@ def build_dispatch_plan(
             "can_generate_host_spawn_requests": subagent_blocker_plan.can_parallelize(blocker_plan),
             "not_generated_reasons": [] if subagent_blocker_plan.can_parallelize(blocker_plan) else blocker_plan["dispatch_recommendation"]["blocking_ids"],
             "host_spawn_requests": [host_spawn_request(item) for item in spawn_items],
+            "dispatch_required": dispatch_required,
         },
         "completion_gate": {
             "requires_checkpoint": True,
@@ -57,6 +62,13 @@ def build_dispatch_plan(
             "requires_conflict_report": not subagent_blocker_plan.can_parallelize(blocker_plan),
         },
     }
+
+
+def runtime_execution_model(runtime: dict[str, Any] | None) -> str:
+    value = str((runtime or {}).get("execution_model") or "").strip()
+    if value in {"host_subagent_or_manual", "host_subagent_required"}:
+        return value
+    return "host_subagent_or_manual"
 
 
 def dispatch_item(binding: dict[str, Any], coordinator_prepare_id: str | None) -> dict[str, Any]:

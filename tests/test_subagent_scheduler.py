@@ -62,6 +62,24 @@ class SubagentSchedulerTests(unittest.TestCase):
             self.assertEqual(request["total_timeout_policy"], "none")
             self.assertEqual(request["observation_window_policy"], "poll_only_never_interrupt")
 
+    def test_required_runtime_marks_dispatch_plan_required_and_autostart(self) -> None:
+        route_plan = _route_plan()
+        bindings = workspace_subagents.create_bindings(route_plan)
+        runtime = {
+            "execution_model": "host_subagent_required",
+            "autostart": True,
+            "dispatch_required": True,
+            "required_dispatch_reason": "OpenSpec path requires host SubAgent dispatch.",
+        }
+
+        plan = subagent_scheduler.build_dispatch_plan(route_plan, bindings, runtime)
+
+        self.assertEqual(plan["execution_model"], "host_subagent_required")
+        self.assertTrue(plan["autostart"])
+        self.assertTrue(plan["dispatch_required"])
+        self.assertEqual(plan["required_dispatch_reason"], runtime["required_dispatch_reason"])
+        self.assertTrue(plan["dispatch_plan_patch"]["dispatch_required"])
+
     def test_scheduler_loads_standard_route_command_output(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

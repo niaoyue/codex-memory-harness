@@ -219,7 +219,8 @@
           "type": "string",
           "enum": [
             "main_agent_serial",
-            "host_subagent_or_manual"
+            "host_subagent_or_manual",
+            "host_subagent_required"
           ]
         },
         "autostart": {

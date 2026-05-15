@@ -31,12 +31,18 @@
     "execution_model": {
       "type": "string",
       "enum": [
-        "host_subagent_or_manual"
+        "host_subagent_or_manual",
+        "host_subagent_required"
       ]
     },
     "autostart": {
-      "type": "boolean",
-      "const": false
+      "type": "boolean"
+    },
+    "dispatch_required": {
+      "type": "boolean"
+    },
+    "required_dispatch_reason": {
+      "type": "string"
     },
     "host_spawn_requests": {
       "type": "array",
