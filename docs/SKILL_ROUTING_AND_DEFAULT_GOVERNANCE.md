@@ -72,7 +72,7 @@
 
 能通过现有代码、文档、配置和权威资料回答的问题，由 Agent 自行补齐并标注依据。不能可靠回答的问题，用 `grill-me` 风格形成问题列表，按阻断程度分为 `blocking`、`should_confirm`、`can_assume`。
 
-持久规格与 change contract 默认遵循 OpenSpec 最新 `spec-driven` 结构：新变更写入 `openspec/changes/<change-id>/proposal.md`、`specs/<capability>/spec.md`、`design.md`、`tasks.md`；稳定行为规格写入 `openspec/specs/<capability>/spec.md`。Harness 执行衔接写入同一 change 下的 `harness.json` / `harness.md`；官方 OpenSpec schema/templates/license/package metadata 通过 `codex openspec upstream sync` 从 `@fission-ai/openspec` 同步到 `openspec/upstream/openspec/`，并由 manifest 哈希校验；`.codex/specs` 已退役，不再作为正式 spec 层。`docs/` 只放用户可读或长期公开项目文档；`.codex/memories`、`.codex/harness/tasks`、事件日志、数据库和缓存仍是运行态，不能当作 specs 提交。
+持久规格与 change contract 默认遵循 OpenSpec 最新 `spec-driven` 结构：新变更写入 `openspec/changes/<change-id>/proposal.md`、`specs/<capability>/spec.md`、`design.md`、`tasks.md`；稳定行为规格写入 `openspec/specs/<capability>/spec.md`。Harness 执行衔接写入同一 change 下的 `harness.json` / `harness.md`；官方 OpenSpec schema/templates/license/package metadata 由 Codex Memory Harness 通过 `codex openspec upstream sync` 从 `@fission-ai/openspec` 同步到目标项目的 `openspec/upstream/openspec/`，并由 manifest 哈希校验。这是 Harness 提供的接入/校验能力，不代表目标项目自身已经实现 OpenSpec 业务能力。`.codex/specs` 已退役，不再作为正式 spec 层。`docs/` 只放用户可读或长期公开项目文档；`.codex/memories`、`.codex/harness/tasks`、事件日志、数据库和缓存仍是运行态，不能当作 specs 提交。
 
 输出未完成 Task 汇总时，必须为每个未完成 Task 附带进度：状态、最近 checkpoint 或更新时间、已完成/剩余验收、阻塞点、下一步和证据来源。缺少证据时标记 `unknown`，不得凭空生成百分比。运行时可通过 `before_response` payload 的 `include_unfinished_tasks` 或 `include_unfinished_task_progress` 显式返回结构化汇总。
 

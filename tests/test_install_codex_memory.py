@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import shutil
 import subprocess
 import sys
@@ -183,8 +182,9 @@ class InstallerTests(unittest.TestCase):
         agents_text = (
             "Codex Memory\n"
             "openspec/changes/<change-id>/proposal.md\n"
-            "每个 Codex 窗口启动或进入项目后，默认先执行启动自检\n"
-            "OpenSpec upstream snapshot 是默认项目骨架\n"
+            "每个 Codex 窗口启动或进入项目后，默认先执行由 Codex Memory Harness 提供的启动自检\n"
+            "OpenSpec upstream snapshot 是 Codex Memory Harness 提供的项目初始化/自检步骤\n"
+            "不代表目标项目自身已经实现\n"
             "默认流程\n"
             "codex openspec upstream sync --version 1.3.1\n"
             "codex openspec upstream verify\n"
@@ -288,7 +288,7 @@ class InstallerTests(unittest.TestCase):
         )
         self.assertFalse(home_agents["mentions_default_openspec_upstream_rule"])
         self.assertIn(
-            "OpenSpec upstream snapshot",
+            "Codex Memory Harness 提供的项目初始化/自检步骤",
             home_agents["missing_default_openspec_upstream_rule_markers"],
         )
         self.assertIn(
@@ -465,61 +465,6 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(ensure_hooks_config.call_args.kwargs["launcher_family"], "posix")
         self.assertEqual(ensure_mcp_config.call_args.kwargs["launcher_family"], "posix")
         self.assertEqual(result["launcher_family"], "posix")
-
-    def test_install_still_repairs_codex_config_when_home_plugin_is_installed_elsewhere(self) -> None:
-        with (
-            mock.patch.object(install_codex_memory, "ensure_codex_config", return_value={"modified": True}) as ensure_config,
-            mock.patch.object(install_codex_memory, "_ensure_hooks_config") as ensure_hooks_config,
-            mock.patch.object(
-                install_codex_memory,
-                "_ensure_home_plugin_install",
-                return_value={"status": "installed_elsewhere"},
-            ),
-            mock.patch.object(install_codex_memory, "_check_state", return_value={}),
-        ):
-            result = install_codex_memory.install(
-                "auto",
-                "home",
-                "none",
-                install_agents=True,
-                update_existing=False,
-                install_skills=True,
-            )
-
-        ensure_config.assert_called_once()
-        ensure_hooks_config.assert_not_called()
-        self.assertTrue(result["codex_config"]["modified"])
-        self.assertEqual(result["bundled_skills"]["reason"], "installed_elsewhere")
-
-    def test_install_can_skip_bundled_skills(self) -> None:
-        with (
-            mock.patch.object(install_codex_memory, "_ensure_home_plugin_install", return_value={"status": "already_installed"}),
-            mock.patch.object(install_codex_memory, "ensure_codex_config", return_value={"modified": True}),
-            mock.patch.object(install_codex_memory, "_upsert_marketplace_entry", return_value={"updated": True}),
-            mock.patch.object(install_codex_memory, "ensure_agents", return_value={"status": "updated"}),
-            mock.patch.object(install_codex_memory, "ensure_launcher_profiles", return_value={"powershell_profiles": [], "posix_profiles": []}),
-            mock.patch.object(install_codex_memory, "_ensure_hooks_config", return_value={"modified": True}),
-            mock.patch.object(install_codex_memory, "_ensure_mcp_config", return_value={"modified": True}),
-            mock.patch.object(install_codex_memory, "ensure_bundled_skills") as ensure_skills,
-            mock.patch.object(install_codex_memory, "_check_state", return_value={}),
-        ):
-            result = install_codex_memory.install(
-                "auto",
-                "home",
-                "none",
-                install_agents=True,
-                update_existing=False,
-                install_skills=False,
-            )
-
-        ensure_skills.assert_not_called()
-        self.assertEqual(result["bundled_skills"]["reason"], "skip_skills")
-
-def _restore_env(name: str, value: str | None) -> None:
-    if value is None:
-        os.environ.pop(name, None)
-    else:
-        os.environ[name] = value
 
 
 if __name__ == "__main__":

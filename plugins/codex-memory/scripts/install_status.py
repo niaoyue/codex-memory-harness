@@ -43,9 +43,10 @@ REQUIRED_OPENSPEC_UPSTREAM_COMMAND_MARKERS = (
 )
 
 REQUIRED_OPENSPEC_UPSTREAM_DEFAULT_RULE_MARKERS = (
-    "每个 Codex 窗口启动或进入项目后，默认先执行启动自检",
+    "每个 Codex 窗口启动或进入项目后，默认先执行由 Codex Memory Harness 提供的启动自检",
     "OpenSpec upstream snapshot",
-    "默认项目骨架",
+    "Codex Memory Harness 提供的项目初始化/自检步骤",
+    "不代表目标项目自身已经实现",
     "启动自检",
     "默认流程",
     *REQUIRED_OPENSPEC_UPSTREAM_COMMAND_MARKERS,

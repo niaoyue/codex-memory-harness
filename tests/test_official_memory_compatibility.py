@@ -179,7 +179,7 @@ class OfficialMemoryCompatibilityTests(unittest.TestCase):
         self.assertIn("正式 implementation 任务", block)
         self.assertIn("timeout 只能作为本次观察窗口", block)
         self.assertIn("不得仅因观察窗口到期而中断", block)
-        self.assertIn("OpenSpec upstream snapshot 是默认项目骨架和启动自检的一部分", block)
+        self.assertIn("OpenSpec upstream snapshot 是 Codex Memory Harness 提供的项目初始化/自检步骤", block)
         self.assertIn("codex openspec upstream sync --version 1.3.1", block)
         self.assertIn("codex openspec upstream verify", block)
         self.assertIn("candidate commit", block)

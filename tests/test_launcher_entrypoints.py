@@ -50,7 +50,7 @@ class LauncherEntrypointTests(unittest.TestCase):
 
         self.assertIn("codex memory doctor", block)
         self.assertIn("codex memory init", block)
-        self.assertIn("OpenSpec upstream snapshot 是默认项目骨架和启动自检的一部分", block)
+        self.assertIn("OpenSpec upstream snapshot 是 Codex Memory Harness 提供的项目初始化/自检步骤", block)
         self.assertIn("codex openspec upstream sync --version 1.3.1", block)
         self.assertIn("codex openspec upstream verify", block)
         self.assertIn("codex harness verify run --profile primary", block)

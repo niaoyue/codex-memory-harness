@@ -93,7 +93,7 @@ codex
 - `codex harness ...`：运行 harness 任务生命周期命令。
 - `codex harness verify ...`：运行当前项目配置化验证。
 - `codex review preflight/status/plan`：在最终 xhigh review 前执行确定性 preflight、查看 diff fingerprint 和 reviewable slices。
-- `codex openspec upstream status|sync|verify`：查看、刷新或校验官方 OpenSpec schema/templates/license/package metadata 的 pinned upstream snapshot；默认初始化和刷新顺序是 `sync --version 1.3.1` 后 `verify`。
+- `codex openspec upstream status|sync|verify`：查看、刷新或校验官方 OpenSpec schema/templates/license/package metadata 的 pinned upstream snapshot；这是 Harness 对目标项目提供的初始化/维护能力，默认顺序是 `sync --version 1.3.1` 后 `verify`，不代表目标项目自身已经实现 OpenSpec 业务能力。
 - `codex package build/verify`：维护者打包和项目健康检查入口。
 - `codex-memory-doctor`：只检查当前窗口接入状态，不启动 Codex。
 - `codex-raw`：绕过 memory wrapper，直接启动真实 Codex。
