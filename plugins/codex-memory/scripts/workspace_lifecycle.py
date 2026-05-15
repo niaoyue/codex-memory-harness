@@ -402,7 +402,8 @@ def routing_review(task_state: dict[str, Any] | None) -> dict[str, Any]:
         if isinstance(result, dict) and result.get("violations"):
             gaps.append({"type": "scope_guard", "blocking": True, "reason": "touched paths exceed binding scope"})
     runtime = routing.get("subagent_runtime") if isinstance(routing.get("subagent_runtime"), dict) else {}
-    required_dispatch_review.append_gap(gaps, runtime)
+    dispatch_plan = routing.get("subagent_dispatch_plan") if isinstance(routing.get("subagent_dispatch_plan"), dict) else {}
+    required_dispatch_review.append_gap(gaps, runtime, dispatch_plan)
     review = {"ok": not any(item.get("blocking") for item in gaps), "gaps": gaps}
     if runtime:
         review["subagent_runtime"] = runtime
