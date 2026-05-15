@@ -23,6 +23,7 @@ for path in (SCRIPTS_DIR, PLUGIN_SCRIPTS_DIR):
 import build_release
 import bootstrap_openspec
 import codex_bootstrap
+import custom_agents_templates
 import init_storage
 import memory_store
 import retrieval_store
@@ -65,6 +66,13 @@ class BuildReleaseTests(unittest.TestCase):
         self.assertIn("plugins/codex-memory/skills/local/harness-release-gate/SKILL.md", names)
         self.assertIn("plugins/codex-memory/skills/openai-curated/security-threat-model/SKILL.md", names)
         self.assertIn("plugins/codex-memory/skills/openai-curated/gh-fix-ci/scripts/inspect_pr_checks.py", names)
+
+    def test_project_agent_templates_match_runtime_templates(self) -> None:
+        agents_dir = PROJECT_ROOT / "templates" / "project" / ".codex" / "agents"
+
+        for filename, payload in custom_agents_templates.CUSTOM_AGENT_TEMPLATES.items():
+            template = (agents_dir / filename).read_text(encoding="utf-8")
+            self.assertEqual(template, custom_agents_templates.render_toml(payload))
 
 
 class DemoCleanupTests(unittest.TestCase):
