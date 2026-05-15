@@ -224,7 +224,7 @@ EOF
 write_openspec_help() {
     cat <<'EOF'
 Codex OpenSpec commands:
-  upstream status|verify|sync --version <version>
+  upstream status|sync|verify --version <version>
 EOF
 }
 

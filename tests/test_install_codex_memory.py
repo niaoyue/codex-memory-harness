@@ -183,6 +183,15 @@ class InstallerTests(unittest.TestCase):
         agents_text = (
             "Codex Memory\n"
             "openspec/changes/<change-id>/proposal.md\n"
+            "每个 Codex 窗口启动或进入项目后，默认先执行启动自检\n"
+            "OpenSpec upstream snapshot 是默认项目骨架\n"
+            "默认流程\n"
+            "codex openspec upstream sync --version 1.3.1\n"
+            "codex openspec upstream verify\n"
+            "显式禁用 OpenSpec\n"
+            "只读/不写文件\n"
+            "网络或 upstream 不可用\n"
+            "降级必须\n"
             "candidate commit\n"
             "subagent_dispatch_plan.host_spawn_requests\n"
             "subagent_runtime.recommended=true\n"
@@ -214,6 +223,13 @@ class InstallerTests(unittest.TestCase):
 
         self.assertTrue(state["home_agents"]["mentions_required_subagent_dispatch"])
         self.assertEqual(state["home_agents"]["missing_required_subagent_dispatch_markers"], [])
+        self.assertTrue(state["home_agents"]["mentions_default_openspec_upstream"])
+        self.assertEqual(state["home_agents"]["missing_default_openspec_upstream_markers"], [])
+        self.assertTrue(state["home_agents"]["mentions_default_openspec_upstream_rule"])
+        self.assertEqual(
+            state["home_agents"]["missing_default_openspec_upstream_rule_markers"],
+            [],
+        )
 
     def test_check_state_rejects_partial_subagent_dispatch_guidance(self) -> None:
         agents_text = (
@@ -242,28 +258,33 @@ class InstallerTests(unittest.TestCase):
 
         home_agents = state["home_agents"]
         self.assertFalse(home_agents["mentions_required_subagent_dispatch"])
-        self.assertIn(
-            "subagent_dispatch_plan.host_spawn_requests",
+        self.assertCountEqual(
             home_agents["missing_required_subagent_dispatch_markers"],
+            [
+                "subagent_dispatch_plan.host_spawn_requests",
+                "subagent_runtime.recommended=true",
+                "不得只生成 dispatch plan",
+                "dispatch_required",
+                "host_spawn_request_count",
+                "downgrade_reason",
+                "dispatch_id",
+                "recommended_not_started",
+            ],
+        )
+        self.assertTrue(home_agents["mentions_current_openspec_layout"])
+        self.assertFalse(home_agents["mentions_default_openspec_upstream"])
+        self.assertCountEqual(
+            home_agents["missing_default_openspec_upstream_markers"],
+            ["codex openspec upstream sync --version 1.3.1", "codex openspec upstream verify"],
+        )
+        self.assertFalse(home_agents["mentions_default_openspec_upstream_rule"])
+        self.assertIn(
+            "OpenSpec upstream snapshot",
+            home_agents["missing_default_openspec_upstream_rule_markers"],
         )
         self.assertIn(
-            "subagent_runtime.recommended=true",
-            home_agents["missing_required_subagent_dispatch_markers"],
-        )
-        self.assertIn(
-            "不得只生成 dispatch plan",
-            home_agents["missing_required_subagent_dispatch_markers"],
-        )
-        self.assertIn("dispatch_required", home_agents["missing_required_subagent_dispatch_markers"])
-        self.assertIn(
-            "host_spawn_request_count",
-            home_agents["missing_required_subagent_dispatch_markers"],
-        )
-        self.assertIn("downgrade_reason", home_agents["missing_required_subagent_dispatch_markers"])
-        self.assertIn("dispatch_id", home_agents["missing_required_subagent_dispatch_markers"])
-        self.assertIn(
-            "recommended_not_started",
-            home_agents["missing_required_subagent_dispatch_markers"],
+            "默认流程",
+            home_agents["missing_default_openspec_upstream_rule_markers"],
         )
 
     def test_dependency_status_accepts_python_launcher_without_py(self) -> None:

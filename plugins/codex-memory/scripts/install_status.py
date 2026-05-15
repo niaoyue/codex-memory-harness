@@ -32,11 +32,45 @@ REQUIRED_SUBAGENT_DISPATCH_MARKERS = (
     "recommended_not_started",
 )
 
+REQUIRED_OPENSPEC_UPSTREAM_COMMAND_MARKERS = (
+    "codex openspec upstream sync --version 1.3.1",
+    "codex openspec upstream verify",
+)
+
+REQUIRED_OPENSPEC_UPSTREAM_DEFAULT_RULE_MARKERS = (
+    "每个 Codex 窗口启动或进入项目后，默认先执行启动自检",
+    "OpenSpec upstream snapshot",
+    "默认项目骨架",
+    "启动自检",
+    "默认流程",
+    *REQUIRED_OPENSPEC_UPSTREAM_COMMAND_MARKERS,
+    "显式禁用 OpenSpec",
+    "只读/不写文件",
+    "网络或 upstream 不可用",
+    "降级必须",
+)
+
 
 def missing_required_subagent_dispatch_markers(agents_text: str) -> list[str]:
     return [
         marker
         for marker in REQUIRED_SUBAGENT_DISPATCH_MARKERS
+        if marker not in agents_text
+    ]
+
+
+def missing_default_openspec_upstream_markers(agents_text: str) -> list[str]:
+    return [
+        marker
+        for marker in REQUIRED_OPENSPEC_UPSTREAM_COMMAND_MARKERS
+        if marker not in agents_text
+    ]
+
+
+def missing_default_openspec_upstream_rule_markers(agents_text: str) -> list[str]:
+    return [
+        marker
+        for marker in REQUIRED_OPENSPEC_UPSTREAM_DEFAULT_RULE_MARKERS
         if marker not in agents_text
     ]
 
@@ -53,6 +87,12 @@ def check_state(
     codex_config = inspect_codex_config(home=home_root(), plugin_root=plugin_root)
     agents_text = read_text(home_agents_path())
     missing_dispatch_markers = missing_required_subagent_dispatch_markers(agents_text)
+    missing_openspec_upstream_markers = missing_default_openspec_upstream_markers(
+        agents_text
+    )
+    missing_openspec_upstream_rule_markers = (
+        missing_default_openspec_upstream_rule_markers(agents_text)
+    )
 
     return {
         "plugin_root": str(plugin_root),
@@ -73,6 +113,12 @@ def check_state(
             "has_legacy_unmarked_block": AGENTS_START not in agents_text
             and "## Codex Memory 全局无感使用" in agents_text,
             "mentions_current_openspec_layout": "openspec/changes/" in agents_text,
+            "mentions_default_openspec_upstream": not missing_openspec_upstream_markers,
+            "missing_default_openspec_upstream_markers": missing_openspec_upstream_markers,
+            "mentions_default_openspec_upstream_rule": not missing_openspec_upstream_rule_markers,
+            "missing_default_openspec_upstream_rule_markers": (
+                missing_openspec_upstream_rule_markers
+            ),
             "mentions_candidate_review_gate": "candidate commit" in agents_text
             or "候选提交" in agents_text,
             "mentions_required_subagent_dispatch": not missing_dispatch_markers,

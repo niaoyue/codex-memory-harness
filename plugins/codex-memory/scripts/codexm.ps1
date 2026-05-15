@@ -191,7 +191,7 @@ function Invoke-OpenSpecCommand {
     param([string[]]$Arguments = @())
     $cwd = (Get-Location).ProviderPath
     if ($Arguments.Count -eq 0 -or $Arguments[0] -in @("help", "-h", "--help")) {
-        Write-Output "Codex OpenSpec 命令：upstream status|verify|sync --version <version>"
+        Write-Output "Codex OpenSpec 命令：upstream status|sync|verify --version <version>"
         exit 0
     }
     if ($Arguments[0].ToLowerInvariant() -ne "upstream") {

@@ -50,6 +50,9 @@ class LauncherEntrypointTests(unittest.TestCase):
 
         self.assertIn("codex memory doctor", block)
         self.assertIn("codex memory init", block)
+        self.assertIn("OpenSpec upstream snapshot 是默认项目骨架和启动自检的一部分", block)
+        self.assertIn("codex openspec upstream sync --version 1.3.1", block)
+        self.assertIn("codex openspec upstream verify", block)
         self.assertIn("codex harness verify run --profile primary", block)
         self.assertIn("codex package verify", block)
         self.assertIn("codex xhigh review --commit $commitSha", block)
@@ -84,10 +87,13 @@ class LauncherEntrypointTests(unittest.TestCase):
 
     def test_launcher_declares_memory_command_dispatcher(self) -> None:
         launcher = (PLUGIN_SCRIPTS_DIR / "codexm.ps1").read_text(encoding="utf-8")
+        posix_launcher = (PLUGIN_SCRIPTS_DIR / "codexm.sh").read_text(encoding="utf-8")
         workspace_helper = (PLUGIN_SCRIPTS_DIR / "codexm_workspace.ps1").read_text(encoding="utf-8")
         powershell_dispatch = launcher + "\n" + workspace_helper
 
         self.assertIn("function Invoke-MemoryCommand", launcher)
+        self.assertIn("upstream status|sync|verify", launcher)
+        self.assertIn("upstream status|sync|verify", posix_launcher)
         self.assertIn("function Invoke-HarnessCommand", launcher)
         self.assertIn("function Invoke-PackageCommand", launcher)
         self.assertIn("function Invoke-WorkspaceCommand", workspace_helper)

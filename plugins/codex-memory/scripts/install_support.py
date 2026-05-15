@@ -258,6 +258,8 @@ def agents_block(home_plugin: Path) -> str:
 - 本包默认随安装写入 `bundled-skills.json` 登记的所有可用治理技能，覆盖安全、GitHub、CLI、迁移、release gate、需求澄清、接口设计、TDD、提交、review、PRD、重构、文档、图像、OpenAI docs、plugin/skill 创建等场景；目标位置为 `~/.agents/skills`。
 - 默认采用 skill-first 工作流：任务开始先匹配可用技能；需求/策划文档用 `grill-me` 风格提出不确定、逻辑混乱和逻辑错误清单，能通过本地代码和文档自答的先补齐，不能自答的反馈用户；创建接口、协议、schema、CLI 或跨模块契约前优先用 `design-an-interface` 形成多个接口方向。
 - 持久规格与 change contract 默认遵循 OpenSpec 最新 `spec-driven` 结构：新变更写入 `openspec/changes/<change-id>/proposal.md`、`specs/<capability>/spec.md`、`design.md`、`tasks.md`；稳定行为规格写入 `openspec/specs/<capability>/spec.md`。Harness 执行衔接写入同一 change 下的 `harness.json` / `harness.md`；官方 OpenSpec schema/templates/license/package metadata 通过 `codex openspec upstream sync` 从 `@fission-ai/openspec` 同步到 `openspec/upstream/openspec/` 并用 manifest 哈希校验；`.codex/specs` 已退役，不再作为正式 spec 层。`docs/` 只放用户可读或长期公开项目文档，`.codex/memories`、`.codex/harness/tasks` 和事件/数据库/缓存仍为运行态，不提交。
+- 每个 Codex 窗口启动或进入项目后，默认先执行启动自检；启动自检包括项目 memory/init、OpenSpec upstream snapshot 同步与校验、安装状态检查。
+- OpenSpec upstream snapshot 是默认项目骨架和启动自检的一部分；默认流程必须先运行 `codex openspec upstream sync --version 1.3.1`，随后运行 `codex openspec upstream verify`。只有当用户显式禁用 OpenSpec、当前任务为只读/不写文件、网络或 upstream 不可用，或类似无法安全同步的情况，才允许降级；降级必须在 checkpoint、最终答复或工具调用简报中报告原因、影响和下一步。
 - 输出未完成 Task 汇总时，必须为每个未完成 Task 附带进度：状态、最近 checkpoint 或更新时间、已完成/剩余验收、阻塞点、下一步和证据来源；缺证据时标记 `unknown`，不得猜测百分比。
 - 需求被拆成多任务时，先分析依赖、决策、环境、接口和验证卡点；除非所有任务都被同一类阻塞卡住，否则按依赖关系使用多 SubAgent 并行推进。每个 SubAgent 必须有明确 scope、cwd、规则、验收和 forbidden paths，并按 harness checkpoint 回写结果。
 - 策划需求默认进入完整性审查：目标、状态、边界、异常、验收、多语言、多平台、WebGL/小游戏、性能、包体、安全、迁移和回滚缺口都要列出。技术选择默认支持多语言和全平台，重点考虑 WebGL/小游戏兼容、性能和包体；优先现有约定和官方库，但如果官方方案在关键指标上比第三方稳定方案差约 20% 以上且第三方 license/安全/维护可接受，应优先第三方。避免为抽象而过度封装，模块要可拆卸、可选择性编译和容易裁剪。
@@ -285,6 +287,8 @@ codex memory check-install
 codex memory migrate-legacy-global --dry-run
 codex harness verify list
 codex harness verify run --profile primary
+codex openspec upstream sync --version 1.3.1
+codex openspec upstream verify
 codex package verify
 codex-memory-doctor
 codex-raw
@@ -303,6 +307,8 @@ codex xhigh review --commit $commitSha
 ```powershell
 codex memory doctor
 codex memory init
+codex openspec upstream sync --version 1.3.1
+codex openspec upstream verify
 codex memory check-install
 ```
 
