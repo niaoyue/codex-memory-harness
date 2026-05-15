@@ -78,6 +78,10 @@
         "role",
         "agent_type",
         "message",
+        "specified_role_subagent_required",
+        "standing_user_authorization",
+        "dispatch_permission_source",
+        "host_tool_mapping",
         "total_timeout_policy",
         "observation_window_policy",
         "no_fixed_total_timeout"
@@ -94,6 +98,23 @@
         },
         "message": {
           "type": "string"
+        },
+        "specified_role_subagent_required": {
+          "type": "boolean",
+          "const": true
+        },
+        "standing_user_authorization": {
+          "type": "boolean",
+          "const": true
+        },
+        "dispatch_permission_source": {
+          "type": "string"
+        },
+        "host_tool_mapping": {
+          "type": "string",
+          "enum": [
+            "spawn_agent.agent_type"
+          ]
         },
         "review_commit_ref": {
           "type": "string"

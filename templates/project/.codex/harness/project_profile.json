@@ -13,7 +13,7 @@
       "medium",
       "high"
     ],
-    "reason": "Project policy requires Harness SubAgent dispatch for implementation tasks when the host supports it; if the host cannot dispatch, record a blocking downgrade."
+    "reason": "Project policy is standing user authorization: implementation tasks require specified-role Harness SubAgent dispatch when the host supports it; if the host cannot dispatch, record a blocking downgrade instead of asking the user to repeat the SubAgent request."
   },
   "harness": {
     "task_spec_dir": ".codex/harness/tasks",

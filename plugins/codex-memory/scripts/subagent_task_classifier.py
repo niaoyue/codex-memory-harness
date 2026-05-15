@@ -144,7 +144,7 @@ def route_policy_reason(route_plan: dict[str, Any]) -> str:
     policy = route_plan.get("subagent_runtime_policy")
     if isinstance(policy, dict) and str(policy.get("reason") or "").strip():
         return str(policy["reason"]).strip()
-    return "Route plan subagent_runtime_policy requests host_subagent_or_manual."
+    return "Route plan subagent_runtime_policy requests host SubAgent dispatch."
 
 
 def explicitly_disabled(task_payload: dict[str, Any]) -> bool:

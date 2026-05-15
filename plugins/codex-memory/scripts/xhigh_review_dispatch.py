@@ -25,6 +25,7 @@ XHIGH_REVIEW_ALIAS_COMMAND = f"codex xhigh review --commit {XHIGH_REVIEW_COMMIT_
 XHIGH_REVIEW_FALLBACK_COMMAND = (
     f'codex-raw -- review -c model_reasoning_effort="xhigh" --commit {XHIGH_REVIEW_COMMIT_REF}'
 )
+DISPATCH_PERMISSION_SOURCE = "AGENTS.md standing user authorization and review gate policy"
 REVIEW_RUNNER_RATE_LIMIT_BACKOFF_SECONDS = 20
 REVIEW_RUNNER_TRANSIENT_BACKOFF_SECONDS = 2
 REVIEW_RUNNER_UNLIMITED_RESUME_ATTEMPTS: int | None = None
@@ -60,6 +61,7 @@ def build_dispatch_plan(route_plan: dict[str, Any]) -> dict[str, Any]:
     fallback = fallback_command(commit_ref)
     message = (
         "Role: XHigh Review Runner\n"
+        "Standing user authorization: AGENTS.md and review gate policy authorize the host to start this specified-role SubAgent when host_spawn_requests are present; do not ask the user to repeat the SubAgent request.\n"
         "Do not modify files, commit, push, format, or revert anything.\n"
         f"Run this explicit runner command in the repository root: {command}\n"
         f"Review commit ref: {commit_ref}. Review only the changes introduced by this commit.\n"
@@ -87,8 +89,12 @@ def build_dispatch_plan(route_plan: dict[str, Any]) -> dict[str, Any]:
                 "binding_id": "binding-xhigh-review-runner",
                 "subagent_id": "agent-xhigh-review-runner",
                 "role": "XHigh Review Runner",
-                "agent_type": "worker",
+                "agent_type": "XHigh Review Runner",
                 "fork_context": True,
+                "specified_role_subagent_required": True,
+                "standing_user_authorization": True,
+                "dispatch_permission_source": DISPATCH_PERMISSION_SOURCE,
+                "host_tool_mapping": "spawn_agent.agent_type",
                 "dependencies": [],
                 "message": message,
                 "checkpoint_required": True,

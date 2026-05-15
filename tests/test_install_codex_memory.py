@@ -219,6 +219,13 @@ class InstallerTests(unittest.TestCase):
             "host_dispatch_allowed=true\n"
             "spawn_agent\n"
             "不得只生成 dispatch plan\n"
+            "长期明确授权\n"
+            "当前 prompt 未再次写 SubAgent\n"
+            "指定 role\n"
+            "Implementation Specialist\n"
+            "Workspace Coordinator\n"
+            "Route Review Specialist\n"
+            "XHigh Review Runner\n"
             "host_subagent_required\n"
             "OpenSpec\n"
             "openspec/changes/\n"
@@ -342,6 +349,13 @@ class InstallerTests(unittest.TestCase):
                 "subagent_dispatch_plan.host_spawn_requests",
                 "subagent_runtime.recommended=true",
                 "不得只生成 dispatch plan",
+                "长期明确授权",
+                "当前 prompt 未再次写 SubAgent",
+                "指定 role",
+                "Implementation Specialist",
+                "Workspace Coordinator",
+                "Route Review Specialist",
+                "XHigh Review Runner",
                 "host_subagent_required",
                 "OpenSpec",
                 "openspec/specs/",

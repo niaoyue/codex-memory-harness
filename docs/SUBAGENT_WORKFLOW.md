@@ -17,7 +17,9 @@
 
 因此本文件定义的是“角色协作协议”、最小 binding runtime 和调度计划协议。它声明的边界是：插件不自行启动子进程，但主 agent 可以按计划派发 Codex SubAgent。
 
-当用户明确选择 SubAgent、分角色或并行代理，任务属于复杂/应用级/多阶段实现，或项目持久化 `subagent_runtime_policy` 授权当前 route 时，主 agent 可以消费 lifecycle 写入的 `metadata.workspace_routing.subagent_dispatch_plan.host_spawn_requests` 来派发 Codex SubAgent。这个动作发生在主 agent 和 Codex 宿主运行时之间，不是 Python 插件自行启动子进程或远程 agent。
+当用户明确选择 SubAgent、分角色或并行代理，任务属于复杂/应用级/多阶段实现，或项目持久化 `subagent_runtime_policy` 授权当前 route 时，主 agent 必须消费 lifecycle 写入的 `metadata.workspace_routing.subagent_dispatch_plan.host_spawn_requests` 来派发 Codex SubAgent。这个动作发生在主 agent 和 Codex 宿主运行时之间，不是 Python 插件自行启动子进程或远程 agent。
+
+项目或全局 `AGENTS.md` 中的 SubAgent 规则是用户级长期明确授权。只要 runtime 写出 `host_dispatch_allowed=true` 或 `dispatch_required=true`，且 `host_spawn_requests` 非空，就应视为用户已经明确要求使用指定 role 的 SubAgent；主 agent 不应再因为当前 prompt 没有重复写“使用 SubAgent”而降级或要求确认。
 
 所有 SubAgent 都不得设置固定总时长。Codex SubAgent 的观察窗口、`wait_agent` 类观察参数或命令执行器 timeout 只能作为单次观察窗口；窗口到期后继续观察或读取最新输出，不得仅因观察窗口到期就中断、关闭或判失败。只要 SubAgent 有 stdout/stderr、checkpoint、状态更新或其他可见进度，就视为仍在运行。
 
@@ -196,6 +198,7 @@ candidate commit 只应包含本轮相关文件；如果工作树里混有用户
 
 - 主 agent 使用当前 Codex 会话提供的 SubAgent 能力时，按本文件定义角色和 artifact。
 - lifecycle 会在显式、route policy、复杂/应用级任务、xhigh review gate 或通用自动判断命中时写入 `subagent_runtime` 和 `subagent_dispatch_plan`。`route policy` 可来自 `.codex/harness/project_profile.json` 或 `.codex/harness/workspace-routing.json` 的 `subagent_runtime_policy`，用于把正式 implementation 任务的授权持久化。通用 planner 会综合 `task_intent`、`task_type`、`risk_level`、route 数量、scope 大小、复杂度和 review gate：功能 story、系统改动、发布 gate、高风险或复杂应用级任务会允许派发；普通低风险小修仍保持主 Agent 串行。只有当 `subagent_runtime.host_dispatch_allowed=true` 时，主 agent 才应按 `host_spawn_requests` 调用当前 Codex SubAgent 能力；推荐但未允许派发时只记录计划，等待用户选择、项目 policy 授权或当前 Codex 会话允许派发。
+- 每个 `host_spawn_requests` 都必须带 `standing_user_authorization=true`、`specified_role_subagent_required=true` 和指定 role 的 `agent_type`。标准映射是：specialist 使用 `Implementation Specialist`，coordinator 使用 `Workspace Coordinator`，专题 reviewer 使用 `Route Review Specialist`，最终 review gate runner 使用 `XHigh Review Runner`。`worker` / `default` 只能作为宿主缺少 custom agent 的降级形态，并必须写明降级原因。
 - 当 planner 判定实现任务需要旁路审查时，dispatch plan 会在 route specialist 之外加入 `Route Review Specialist`。它只做限定 scope 的风险和测试覆盖审查，不替代最终 commit-based 的 `codex xhigh review --commit <commit-sha>` gate。
 - 如果 Codex SubAgent 调用失败或 scope 冲突，主 agent 必须记录降级原因，并按同一个 dispatch plan 串行执行或回到普通主 Agent 流程。
 - 主 agent 可以派发 XHigh Review Runner 执行 `codex xhigh review --commit <commit-sha>`；这属于使用 Codex SubAgent 能力，不代表本仓库内建了独立执行器。

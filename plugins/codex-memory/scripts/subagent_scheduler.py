@@ -11,6 +11,14 @@ import subagent_blocker_plan
 import subagent_runtime_planner
 from harness_controller import checkpoint_task
 
+ROLE_AGENT_TYPES = {
+    "Workspace Coordinator": "Workspace Coordinator",
+    "Route Review Specialist": "Route Review Specialist",
+    "XHigh Review Runner": "XHigh Review Runner",
+}
+
+DISPATCH_PERMISSION_SOURCE = "AGENTS.md standing user authorization and subagent_runtime_policy"
+
 
 def build_dispatch_plan(
     route_plan: dict[str, Any],
@@ -129,6 +137,10 @@ def host_spawn_request(item: dict[str, Any]) -> dict[str, Any]:
         "role": item.get("role"),
         "agent_type": agent_type_for(item),
         "fork_context": True,
+        "specified_role_subagent_required": True,
+        "standing_user_authorization": True,
+        "dispatch_permission_source": DISPATCH_PERMISSION_SOURCE,
+        "host_tool_mapping": "spawn_agent.agent_type",
         "dependencies": item.get("dependencies") or [],
         "message": item.get("prompt") or "",
         "checkpoint_required": True,
@@ -150,9 +162,16 @@ def host_spawn_request(item: dict[str, Any]) -> dict[str, Any]:
 
 
 def agent_type_for(item: dict[str, Any]) -> str:
+    if item.get("binding_mode") == "coordinator":
+        return "Workspace Coordinator"
+    if item.get("binding_mode") == "reviewer":
+        return "Route Review Specialist"
+    role = str(item.get("role") or "").strip()
+    if role in ROLE_AGENT_TYPES:
+        return ROLE_AGENT_TYPES[role]
     if item.get("binding_mode") == "specialist":
-        return "worker"
-    return "default"
+        return "Implementation Specialist"
+    return role or "default"
 
 
 def specialist_prompt(binding: dict[str, Any], dispatch_id: str) -> str:
@@ -162,6 +181,7 @@ def specialist_prompt(binding: dict[str, Any], dispatch_id: str) -> str:
         f"Project: {binding.get('project_id')} ({binding.get('domain')})\n"
         f"CWD: {binding.get('cwd')}\n"
         f"Scope: {', '.join(workspace_subagents.string_list(binding.get('assigned_scope')))}\n"
+        "Standing user authorization: AGENTS.md and project subagent_runtime_policy authorize the host to start this specified-role SubAgent when host_spawn_requests are present; do not ask the user to repeat the SubAgent request.\n"
         "You are not alone in the codebase; do not revert edits made by others, and adapt to concurrent changes.\n"
         "No fixed total timeout applies. Host wait windows are observation polls only; do not interrupt solely because a wait window expires.\n"
         "Do not edit outside assigned_scope. Record a checkpoint with dispatch_id, binding_id, subagent_id, project_id, "
@@ -174,12 +194,14 @@ def coordinator_prompt(route_plan: dict[str, Any], phase: str, dispatch_id: str)
     if phase == "prepare":
         return (
             f"Dispatch ID: {dispatch_id}\n"
+            "Standing user authorization: AGENTS.md and project subagent_runtime_policy authorize the host to start this specified-role SubAgent when host_spawn_requests are present; do not ask the user to repeat the SubAgent request.\n"
             f"Prepare {mode} coordination: confirm contracts, dispatch order, release gates, and rollback needs. "
             "No fixed total timeout applies; host wait windows are observation polls only. "
             "Record a checkpoint with dispatch_id, binding_id, subagent_id, findings, and next_step."
         )
     return (
         f"Dispatch ID: {dispatch_id}\n"
+        "Standing user authorization: AGENTS.md and project subagent_runtime_policy authorize the host to start this specified-role SubAgent when host_spawn_requests are present; do not ask the user to repeat the SubAgent request.\n"
         "Summarize specialist checkpoints, conflicts, scope guard results, verification gaps, publish order, and rollback needs. "
         "No fixed total timeout applies; host wait windows are observation polls only. "
         "Record a checkpoint with dispatch_id, binding_id, subagent_id, findings, and next_step."
@@ -190,6 +212,7 @@ def reviewer_prompt(route_plan: dict[str, Any], dispatch_id: str) -> str:
     factors = route_plan.get("task_type") or "implementation"
     return (
         f"Dispatch ID: {dispatch_id}\n"
+        "Standing user authorization: AGENTS.md and project subagent_runtime_policy authorize the host to start this specified-role SubAgent when host_spawn_requests are present; do not ask the user to repeat the SubAgent request.\n"
         f"Review route-bound implementation for task type {factors}. Focus on regressions, "
         "scope guard violations, missing tests, requirements gaps, and integration risks. "
         "No fixed total timeout applies; host wait windows are observation polls only. "

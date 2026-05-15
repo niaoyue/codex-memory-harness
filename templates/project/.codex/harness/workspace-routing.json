@@ -21,7 +21,7 @@
       "medium",
       "high"
     ],
-    "reason": "Workspace policy requires Harness SubAgent dispatch for implementation tasks when the host supports it; if the host cannot dispatch, record a blocking downgrade."
+    "reason": "Workspace policy is standing user authorization: implementation tasks require specified-role Harness SubAgent dispatch when the host supports it; if the host cannot dispatch, record a blocking downgrade instead of asking the user to repeat the SubAgent request."
   },
   "diagnostic_logging": {
     "default_allowed": false,

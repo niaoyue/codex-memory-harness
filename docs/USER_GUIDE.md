@@ -405,16 +405,18 @@ docs/WORKSPACE_ROUTING_MIGRATION.md
 ```json
 {
   "subagent_runtime_policy": {
-    "execution_model": "host_subagent_or_manual",
-    "autostart": false,
+    "execution_model": "host_subagent_required",
+    "autostart": true,
     "task_types": ["implementation"],
     "risk_levels": ["medium", "high"],
-    "reason": "Project policy authorizes Harness SubAgent dispatch for normal implementation tasks when the host supports it."
+    "reason": "Project policy is standing user authorization: implementation tasks require specified-role Harness SubAgent dispatch when the host supports it."
   }
 }
 ```
 
-当 route plan 命中该 policy 时，lifecycle 会写入 `host_dispatch_allowed=true`、`dispatch_plan_required=true` 和 `main_agent_action=read_dispatch_plan_and_call_host_subagents`。这解决“单项目单 specialist 被默认 main_agent_serial 压住”的问题，但实际派发仍取决于当前 Codex 会话是否允许或提供 SubAgent 能力；这不是插件内建子进程，也不是 T59 需要等待的额外 API。
+当 route plan 命中该 policy 时，lifecycle 会写入 `host_dispatch_allowed=true`、`dispatch_required=true`、`autostart=true`、`dispatch_plan_required=true` 和 `main_agent_action=read_dispatch_plan_and_call_host_subagents`。这解决“单项目单 specialist 被默认 main_agent_serial 压住”和“当前 prompt 没重复写 SubAgent 就不派发”的问题：项目 policy 与 `AGENTS.md` 共同构成长期明确授权。实际派发仍取决于当前 Codex 会话是否允许或提供 SubAgent 能力；这不是插件内建子进程，也不是 T59 需要等待的额外 API。
+
+`host_spawn_requests` 会直接把 `agent_type` 映射为指定角色：`Implementation Specialist`、`Workspace Coordinator`、`Route Review Specialist` 或 `XHigh Review Runner`。如果宿主没有这些 custom agent，只能记录显式降级，不能静默改成 `worker` / `default` 后继续串行实现。
 
 没有项目 policy 时，runtime 也会做通用自动判断。planner 会综合：
 
@@ -422,7 +424,7 @@ docs/WORKSPACE_ROUTING_MIGRATION.md
 - `route_plan.task_type`：例如 `implementation`、`ui`、`contract`、`release`。
 - `risk_level`、route 数量、scope 大小、是否复杂应用级任务、是否 review gate。
 
-当这些信号表明任务是功能 story、系统改动、高风险、发布 gate、跨 route 或复杂应用级任务时，会触发 `autonomous_task_analysis` 或对应的 `complex_task` / `route_policy` / `xhigh_review_gate`。普通低风险小修仍保持 `main_agent_serial`。需要审查的实现任务会在 worker specialist 外额外生成 `Route Review Specialist`，最终代码审核仍优先使用 `codex xhigh review --commit <commit-sha>` 审核被审提交。
+当这些信号表明任务是功能 story、系统改动、高风险、发布 gate、跨 route 或复杂应用级任务时，会触发 `autonomous_task_analysis` 或对应的 `complex_task` / `route_policy` / `xhigh_review_gate`。普通低风险小修仍保持 `main_agent_serial`。需要审查的实现任务会在 `Implementation Specialist` 外额外生成 `Route Review Specialist`，最终代码审核仍优先使用 `codex xhigh review --commit <commit-sha>` 审核被审提交。
 
 这不是插件内建的独立 SubAgent 子进程执行器。当前系统准备 binding、scope guard、dispatch plan、runtime decision 和 review；实际派发由主 agent 使用 Codex SubAgent 能力完成，并通过 receipt/readiness report 回写结果。
 

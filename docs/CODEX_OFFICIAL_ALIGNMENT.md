@@ -129,7 +129,7 @@ templates/project/.codex/shared/
 
 目标：让 `subagent_dispatch_plan.host_spawn_requests` 能映射到官方 custom agents。
 
-当前已提供项目级模板，不默认写入用户全局：
+当前已提供项目级模板，不默认写入用户全局；dispatch plan 会把 `agent_type` 直接写成这些指定角色名，并用 `standing_user_authorization=true` 表明项目 `AGENTS.md` / `subagent_runtime_policy` 已提供长期明确授权：
 
 ```text
 templates/project/.codex/agents/workspace-coordinator.toml

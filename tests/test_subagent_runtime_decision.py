@@ -265,7 +265,8 @@ class SubagentRuntimeDecisionTests(unittest.TestCase):
         self.assertEqual(runtime["trigger"], "complex_task")
         self.assertEqual(runtime["planned_specialists"], 1)
         self.assertGreater(runtime["host_spawn_request_count"], 0)
-        self.assertEqual(dispatch_plan["host_spawn_requests"][0]["agent_type"], "worker")
+        self.assertEqual(dispatch_plan["host_spawn_requests"][0]["agent_type"], "Implementation Specialist")
+        self.assertTrue(dispatch_plan["host_spawn_requests"][0]["specified_role_subagent_required"])
         self.assertEqual(routing["bindings"][0]["project_id"], "workspace")
 
     def test_user_can_disable_complex_task_subagent_dispatch(self) -> None:

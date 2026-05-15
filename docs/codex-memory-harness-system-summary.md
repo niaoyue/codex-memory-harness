@@ -339,7 +339,7 @@ codex harness verify run --task-id <TASK_ID> --profile primary
 
 ## 11. SubAgent 角色协作
 
-当前项目不内建独立 SubAgent 子进程执行器。它支持的是通过 harness artifact 记录不同角色产物，让主 agent 使用 Codex SubAgent 能力按统一协议协作；同时可以通过 `codex workspace schedule` 从 route plan 生成 coordinator/specialist dispatch plan。
+当前项目不内建独立 SubAgent 子进程执行器。它支持的是通过 harness artifact 记录不同角色产物，让主 agent 使用 Codex SubAgent 能力按统一协议协作；同时可以通过 `codex workspace schedule` 从 route plan 生成 coordinator/specialist dispatch plan。`host_spawn_requests` 会把 `agent_type` 映射到 `Implementation Specialist`、`Workspace Coordinator`、`Route Review Specialist` 或 `XHigh Review Runner`，并携带 `standing_user_authorization=true`，避免新窗口因为当前 prompt 没重复指定 SubAgent 而静默串行。
 
 推荐角色：
 

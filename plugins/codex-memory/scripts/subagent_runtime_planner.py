@@ -244,13 +244,13 @@ def dispatch_roles(context: dict[str, Any], recommended: bool, bindings: list[di
     if not recommended:
         return []
     if context["review_gate"]:
-        return [{"kind": "xhigh_review_runner", "role": "XHigh Review Runner", "agent_type": "default"}]
+        return [{"kind": "xhigh_review_runner", "role": "XHigh Review Runner", "agent_type": "XHigh Review Runner"}]
     roles: list[dict[str, Any]] = []
     if any(item.get("binding_mode") == "coordinator" for item in bindings):
-        roles.append({"kind": "workspace_coordinator", "role": "Workspace Coordinator", "agent_type": "default"})
-    roles.append({"kind": "route_specialist", "role": "Route Specialist", "agent_type": "worker"})
+        roles.append({"kind": "workspace_coordinator", "role": "Workspace Coordinator", "agent_type": "Workspace Coordinator"})
+    roles.append({"kind": "route_specialist", "role": "Implementation Specialist", "agent_type": "Implementation Specialist"})
     if context["reviewer_required"]:
-        roles.append({"kind": "route_reviewer", "role": "Route Review Specialist", "agent_type": "default"})
+        roles.append({"kind": "route_reviewer", "role": "Route Review Specialist", "agent_type": "Route Review Specialist"})
     return roles
 
 

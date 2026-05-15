@@ -35,8 +35,12 @@ class SubagentSchedulerTests(unittest.TestCase):
             item for item in plan["host_spawn_requests"] if item["dispatch_id"] == specialist["dispatch_id"]
         ][0]
         self.assertIn("dispatch-binding-coordinator-prepare", specialist["dependencies"])
-        self.assertEqual(specialist_spawn["agent_type"], "worker")
+        self.assertEqual(specialist_spawn["agent_type"], "Implementation Specialist")
         self.assertTrue(specialist_spawn["fork_context"])
+        self.assertTrue(specialist_spawn["specified_role_subagent_required"])
+        self.assertTrue(specialist_spawn["standing_user_authorization"])
+        self.assertEqual(specialist_spawn["host_tool_mapping"], "spawn_agent.agent_type")
+        self.assertIn("standing user authorization", specialist_spawn["dispatch_permission_source"].lower())
         self.assertTrue(specialist_spawn["scope_guard_required"])
         self.assertEqual(specialist_spawn["wait_policy"], "progress_output_observation")
         self.assertEqual(specialist_spawn["idle_policy"], "progress_signal_observation_only")
@@ -51,6 +55,7 @@ class SubagentSchedulerTests(unittest.TestCase):
         self.assertIn("Do not edit outside assigned_scope", specialist["prompt"])
         self.assertIn("Host wait windows are observation polls only", specialist["prompt"])
         self.assertIn("do not revert edits made by others", specialist["prompt"])
+        self.assertIn("Standing user authorization", specialist["prompt"])
 
     def test_every_host_spawn_request_disables_fixed_total_timeout(self) -> None:
         bindings = workspace_subagents.create_bindings(_route_plan())
@@ -65,6 +70,17 @@ class SubagentSchedulerTests(unittest.TestCase):
             self.assertEqual(request["observation_window_policy"], "poll_only_never_interrupt")
             self.assertIn(f"Dispatch ID: {request['dispatch_id']}", request["message"])
             self.assertIn("dispatch_id", request["message"])
+            self.assertTrue(request["specified_role_subagent_required"])
+            self.assertTrue(request["standing_user_authorization"])
+            self.assertIn(
+                request["agent_type"],
+                {
+                    "Implementation Specialist",
+                    "Workspace Coordinator",
+                    "Route Review Specialist",
+                    "XHigh Review Runner",
+                },
+            )
 
     def test_required_runtime_marks_dispatch_plan_required_and_autostart(self) -> None:
         route_plan = _route_plan()

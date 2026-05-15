@@ -12,8 +12,8 @@
     "fallback"
   ],
   "subagent_runtime_policy": {
-    "execution_model": "host_subagent_or_manual",
-    "autostart": false,
+    "execution_model": "host_subagent_required",
+    "autostart": true,
     "task_types": [
       "implementation",
       "docs",
@@ -24,7 +24,7 @@
       "high",
       "release_blocking"
     ],
-    "reason": "Dogfood config authorizes Harness SubAgent dispatch metadata for this repository when the host supports it."
+    "reason": "Dogfood config is standing user authorization: this repository requires specified-role Harness SubAgent dispatch for implementation, docs, and release tasks when the host supports it; if the host cannot dispatch, record a blocking downgrade instead of asking the user to repeat the SubAgent request."
   },
   "diagnostic_logging": {
     "default_allowed": false,

@@ -139,11 +139,13 @@ OpenSpec/BMAD 这类治理集成属于专项例外：已有决策是 upstream-co
 
 - 创建 harness task。
 - 读取 `subagent_dispatch_plan.host_spawn_requests`。
-- 派发互不重叠的 specialist。
+- 把每个 request 的 `agent_type` 映射到指定角色 SubAgent，例如 `Implementation Specialist`、`Workspace Coordinator`、`Route Review Specialist` 或 `XHigh Review Runner`，并派发互不重叠的 specialist。
 - 在 SubAgent 运行时处理不改变其 scope 的本地任务。
 - 汇总 checkpoint、scope guard、验证结果、冲突和下一步。
 
-如果当前 Codex 会话无法使用 SubAgent、scope 冲突或所有任务共享同一阻塞，主 Agent 记录降级原因后串行执行。
+项目或全局 `AGENTS.md` 中的 SubAgent 派发规则是用户级长期明确授权。只要 runtime 写出 `host_dispatch_allowed=true` 或 `dispatch_required=true`，主 Agent 不应以“当前 prompt 未重复指定 SubAgent”为由要求用户再次确认。
+
+如果当前 Codex 会话无法使用 SubAgent、scope 冲突或所有任务共享同一阻塞，主 Agent 记录降级原因后串行执行；降级必须包含未执行的 `dispatch_id` 和实际 `actual_subagents`。
 
 ## 8. 代码 Review 规则
 

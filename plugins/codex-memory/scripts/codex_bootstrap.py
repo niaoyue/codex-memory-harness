@@ -53,8 +53,9 @@ DEFAULT_SUBAGENT_RUNTIME_POLICY = {
     "task_types": ["implementation"],
     "risk_levels": ["medium", "high"],
     "reason": (
-        "Project policy requires Harness SubAgent dispatch for implementation tasks when the "
-        "host supports it; if the host cannot dispatch, record a blocking downgrade."
+        "Project policy is standing user authorization: implementation tasks require specified-role "
+        "Harness SubAgent dispatch when the host supports it; if the host cannot dispatch, record "
+        "a blocking downgrade instead of asking the user to repeat the SubAgent request."
     ),
 }
 WORKSPACE_ROUTING_SCHEMA = "local://codex-memory-harness/schemas/workspace_routing_config.schema.json"

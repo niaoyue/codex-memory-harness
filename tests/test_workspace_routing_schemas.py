@@ -77,6 +77,13 @@ class WorkspaceRoutingSchemaTests(unittest.TestCase):
         )
         spawn = dispatch["$defs"]["host_spawn_request"]
         self.assertIn("total_timeout_policy", spawn["required"])
+        self.assertIn("specified_role_subagent_required", spawn["required"])
+        self.assertIn("standing_user_authorization", spawn["required"])
+        self.assertIn("dispatch_permission_source", spawn["required"])
+        self.assertIn("host_tool_mapping", spawn["required"])
+        self.assertEqual(spawn["properties"]["specified_role_subagent_required"]["const"], True)
+        self.assertEqual(spawn["properties"]["standing_user_authorization"]["const"], True)
+        self.assertEqual(spawn["properties"]["host_tool_mapping"]["enum"], ["spawn_agent.agent_type"])
         self.assertEqual(spawn["properties"]["total_timeout_policy"]["enum"], ["none"])
         self.assertIn("review_commit_ref", spawn["properties"])
         self.assertIn("poll_only_never_interrupt", spawn["properties"]["observation_window_policy"]["enum"])
