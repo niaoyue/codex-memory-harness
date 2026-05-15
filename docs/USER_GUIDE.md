@@ -418,6 +418,8 @@ docs/WORKSPACE_ROUTING_MIGRATION.md
 
 `host_spawn_requests` 会直接把 `agent_type` 映射为指定角色：`Implementation Specialist`、`Workspace Coordinator`、`Route Review Specialist` 或 `XHigh Review Runner`。如果宿主没有这些 custom agent，只能记录显式降级，不能静默改成 `worker` / `default` 后继续串行实现。
 
+最终 review gate 是例外优先级：即使当前仓库把 implementation/docs/release 配成 `host_subagent_required`，`codex xhigh review --commit <commit-sha>` 这类审核任务仍只派发 `XHigh Review Runner`，不进入实现型 specialist。
+
 没有项目 policy 时，runtime 也会做通用自动判断。planner 会综合：
 
 - `requirements_gate.task_intent`：例如 `feature_story`、`system_change`、`release_gate`。

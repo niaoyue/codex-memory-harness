@@ -44,7 +44,9 @@ def runtime_decision(
         "status": status,
         "trigger": trigger,
         "execution_model": execution_model,
-        "autostart": bool(dispatch_required or (recommended and context["policy_autostart"])),
+        "autostart": bool(dispatch_required or (
+            recommended and context["policy_autostart"] and not context["review_gate"]
+        )),
         "recommended": recommended,
         "dispatch_required": dispatch_required,
         "required_dispatch_reason": required_dispatch_reason(context) if dispatch_required else "",
@@ -87,7 +89,6 @@ def decision_context(
     policy = runtime_policy(route_plan)
     policy_execution_model = string(policy.get("execution_model"))
     policy_disabled = policy.get("enabled") is False or policy_execution_model == "main_agent_serial"
-    policy_required = policy_execution_model == "host_subagent_required"
     user_disabled = subagent_task_classifier.explicitly_disabled(task_payload)
     review_gate_dispatch_disabled = subagent_task_classifier.xhigh_review_dispatch_disabled(task_payload)
     specialists = [item for item in bindings if item.get("binding_mode") == "specialist"]
@@ -103,9 +104,10 @@ def decision_context(
     } or len(specialists) > 1
     explicit = subagent_task_classifier.explicitly_requested(task_payload)
     review_gate = subagent_task_classifier.review_gate_recommended(task_payload)
+    policy_required = policy_execution_model == "host_subagent_required" and not review_gate
     complex_task = subagent_task_classifier.complex_task_recommended(task_payload, route_plan)
     route_policy = not policy_disabled and subagent_task_classifier.route_policy_recommended(route_plan)
-    openspec_required = subagent_task_classifier.openspec_subagent_required(task_payload, route_plan)
+    openspec_required = (not review_gate) and subagent_task_classifier.openspec_subagent_required(task_payload, route_plan)
     context = {
         "route_plan": route_plan,
         "bindings": bindings,

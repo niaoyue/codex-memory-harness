@@ -162,8 +162,14 @@ class XHighReviewDispatchTests(unittest.TestCase):
         self.assertEqual(parts[:4], [r"C:\Windows\py.exe", "-3", "-X", "utf8"])
 
     def test_review_gate_recommends_runner_subagent_without_autostart(self) -> None:
+        plan = route_plan()
+        plan["subagent_runtime_policy"] = {
+            "execution_model": "host_subagent_required",
+            "autostart": True,
+            "reason": "Implementation tasks normally require role-bound SubAgent dispatch.",
+        }
         with MemoryEnv():
-            with mock.patch.object(workspace_lifecycle.workspace_router, "build_route_plan", return_value=route_plan()):
+            with mock.patch.object(workspace_lifecycle.workspace_router, "build_route_plan", return_value=plan):
                 runner = hook_runner.HookRunner(memory_store=memory_store.MemoryStore())
                 result = runner.run_event(
                     "before_task",

@@ -77,6 +77,15 @@ class WorkspaceRoutingSchemaTests(unittest.TestCase):
         )
         spawn = dispatch["$defs"]["host_spawn_request"]
         self.assertIn("total_timeout_policy", spawn["required"])
+        self.assertEqual(
+            spawn["properties"]["agent_type"]["enum"],
+            [
+                "Implementation Specialist",
+                "Workspace Coordinator",
+                "Route Review Specialist",
+                "XHigh Review Runner",
+            ],
+        )
         self.assertIn("specified_role_subagent_required", spawn["required"])
         self.assertIn("standing_user_authorization", spawn["required"])
         self.assertIn("dispatch_permission_source", spawn["required"])

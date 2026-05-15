@@ -94,7 +94,13 @@
           "type": "string"
         },
         "agent_type": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "Implementation Specialist",
+            "Workspace Coordinator",
+            "Route Review Specialist",
+            "XHigh Review Runner"
+          ]
         },
         "message": {
           "type": "string"
