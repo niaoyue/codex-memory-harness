@@ -207,8 +207,39 @@ def sync_from_package_dir(
         if not staged_result.get("ok"):
             staged_result["target"] = str(target_dir)
             return staged_result
+        if snapshot_equivalent_except_sync_metadata(staged_dir, target_dir):
+            result = verify_target(target_dir)
+            result["unchanged"] = True
+            return result
         replace_target_dir(staged_dir, target_dir)
     return verify_target(target_dir)
+
+
+def snapshot_equivalent_except_sync_metadata(staged_dir: Path, target_dir: Path) -> bool:
+    if not target_dir.exists():
+        return False
+    target_result = verify_target(target_dir)
+    if not target_result.get("ok"):
+        return False
+    staged_manifest = read_manifest(staged_dir / MANIFEST_NAME)
+    target_manifest = read_manifest(target_dir / MANIFEST_NAME)
+    if staged_manifest is None or target_manifest is None:
+        return False
+    return normalize_manifest_for_idempotence(staged_manifest) == normalize_manifest_for_idempotence(target_manifest)
+
+
+def read_manifest(path: Path) -> dict[str, Any] | None:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def normalize_manifest_for_idempotence(manifest: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(manifest)
+    normalized.pop("synced_at", None)
+    return normalized
 
 
 def build_snapshot_from_package_dir(

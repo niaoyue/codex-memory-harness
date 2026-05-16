@@ -146,6 +146,35 @@ class OpenSpecUpstreamTests(unittest.TestCase):
             self.assertTrue(result["ok"])
             self.assertFalse((target / "stale.txt").exists())
 
+    def test_sync_keeps_snapshot_clean_when_only_sync_metadata_changes(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            package_dir = root / "package"
+            _write_fake_package(package_dir)
+            target = root / "openspec" / "upstream" / "openspec"
+            openspec_upstream.sync_from_package_dir(
+                package_dir,
+                target,
+                package_name="@fission-ai/openspec",
+                view_metadata={"version": "1.3.1", "license": "MIT"},
+                pack_metadata={"integrity": "sha512-test", "shasum": "abc"},
+                schema_name="spec-driven",
+            )
+            manifest_before = (target / "manifest.json").read_text(encoding="utf-8")
+
+            result = openspec_upstream.sync_from_package_dir(
+                package_dir,
+                target,
+                package_name="@fission-ai/openspec",
+                view_metadata={"version": "1.3.1", "license": "MIT"},
+                pack_metadata={"integrity": "sha512-test", "shasum": "abc"},
+                schema_name="spec-driven",
+            )
+
+            self.assertTrue(result["ok"])
+            self.assertTrue(result["unchanged"])
+            self.assertEqual((target / "manifest.json").read_text(encoding="utf-8"), manifest_before)
+
     def test_sync_preserves_current_snapshot_when_required_file_missing(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
