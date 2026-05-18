@@ -131,8 +131,8 @@ Codex Memory 命令：
   codex memory hook <event> [...]
   codex memory promote --task-id <task-id> [--kind fact]
   codex memory shared validate|index rebuild
-  codex memory mine status|run
-  codex memory candidates list|accept|reject|deprecate
+  codex memory mine status|run [--recent 90d]
+  codex memory candidates list|show|accept|reject|deprecate
   codex memory retention status|cleanup --task-id <task-id> [--confirm]
   codex memory eval create|list|run
   codex memory migrate-legacy-global [--dry-run|--confirm]

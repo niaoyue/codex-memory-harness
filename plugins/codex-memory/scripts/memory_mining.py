@@ -4,7 +4,7 @@ import argparse
 import json
 import re
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -48,9 +48,10 @@ def normalize_event(event_type: str, payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def mine_candidates() -> dict[str, Any]:
+def mine_candidates(*, recent: str = "") -> dict[str, Any]:
     paths = history_paths()
-    events = read_jsonl(paths["events"])
+    all_events = read_jsonl(paths["events"])
+    events = filter_recent_events(all_events, recent)
     groups: dict[tuple[str, str, str], list[dict[str, Any]]] = defaultdict(list)
     for event in events:
         key = (
@@ -64,7 +65,14 @@ def mine_candidates() -> dict[str, Any]:
     write_jsonl(paths["candidates"], candidates)
     accepted = [item for item in candidates if item["status"] == "accepted"]
     write_jsonl(paths["accepted"], accepted)
-    return {"ok": True, "events": len(events), "candidates": len(candidates), "accepted": len(accepted)}
+    return {
+        "ok": True,
+        "events": len(events),
+        "total_events": len(all_events),
+        "recent": recent,
+        "candidates": len(candidates),
+        "accepted": len(accepted),
+    }
 
 
 def candidate_from_group(key: tuple[str, str, str], events: list[dict[str, Any]]) -> dict[str, Any]:
@@ -105,6 +113,13 @@ def list_candidates(status: str = "") -> dict[str, Any]:
     if status:
         items = [item for item in items if item.get("status") == status]
     return {"ok": True, "candidates": items}
+
+
+def show_candidate(candidate_id: str) -> dict[str, Any]:
+    for item in read_jsonl(history_paths()["candidates"]):
+        if item.get("candidate_id") == candidate_id:
+            return {"ok": True, "candidate": item}
+    return {"ok": False, "candidate_id": candidate_id, "error": "candidate not found"}
 
 
 def update_candidate(candidate_id: str, status: str) -> dict[str, Any]:
@@ -285,17 +300,52 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
+def filter_recent_events(events: list[dict[str, Any]], recent: str = "") -> list[dict[str, Any]]:
+    cutoff = recent_cutoff(recent)
+    if cutoff is None:
+        return events
+    return [event for event in events if event_datetime(event) >= cutoff]
+
+
+def recent_cutoff(value: str) -> datetime | None:
+    text = str(value or "").strip().lower()
+    if not text:
+        return None
+    match = re.fullmatch(r"(\d+)([dh])", text)
+    if not match:
+        raise ValueError("recent must use '<number>d' or '<number>h', for example '90d'")
+    amount = int(match.group(1))
+    delta = timedelta(days=amount) if match.group(2) == "d" else timedelta(hours=amount)
+    return datetime.now(timezone.utc) - delta
+
+
+def event_datetime(event: dict[str, Any]) -> datetime:
+    raw = str(event.get("created_at") or "")
+    if not raw:
+        return datetime.min.replace(tzinfo=timezone.utc)
+    try:
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return datetime.min.replace(tzinfo=timezone.utc)
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Mine sanitized memory events into reusable private memory candidates.")
     sub = parser.add_subparsers(dest="command", required=True)
     mine = sub.add_parser("mine")
     mine_sub = mine.add_subparsers(dest="mine_command", required=True)
     mine_sub.add_parser("status")
-    mine_sub.add_parser("run")
+    mine_run = mine_sub.add_parser("run")
+    mine_run.add_argument("--recent", default="")
     candidates = sub.add_parser("candidates")
     candidates_sub = candidates.add_subparsers(dest="candidates_command", required=True)
     list_cmd = candidates_sub.add_parser("list")
     list_cmd.add_argument("--status", default="")
+    show = candidates_sub.add_parser("show")
+    show.add_argument("candidate_id")
     for name in ("accept", "reject", "deprecate"):
         cmd = candidates_sub.add_parser(name)
         cmd.add_argument("candidate_id")
@@ -303,9 +353,11 @@ def main() -> int:
     if args.command == "mine" and args.mine_command == "status":
         result = status()
     elif args.command == "mine" and args.mine_command == "run":
-        result = mine_candidates()
+        result = mine_candidates(recent=args.recent)
     elif args.command == "candidates" and args.candidates_command == "list":
         result = list_candidates(status=args.status)
+    elif args.command == "candidates" and args.candidates_command == "show":
+        result = show_candidate(args.candidate_id)
     else:
         status_map = {"accept": "accepted", "reject": "rejected", "deprecate": "deprecated"}
         result = update_candidate(args.candidate_id, status_map[args.candidates_command])

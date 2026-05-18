@@ -636,7 +636,7 @@ docs/AI_DIAGNOSTIC_LOGGING.md
 - 当前已内建 `codex workspace game-client init/template` 和 `codex workspace project-template init/template`，但没有顶层 `codex game-client ...` 独立入口，也不内置具体业务项目的引擎脚本、服务器代码、后台代码或资产导入脚本。
 - 当前没有内建发布级 workspace 平台；已提供只读 workspace scanner、只读 route planner、最小 workspace verification aggregation、SubAgent route binding、scope guard、coordinator summary、dispatch plan、release manifest/evidence gate、memory lifecycle 软集成、project inventory、routing config、route plan 和验证聚合 schema，以及 `templates/project/.codex/harness/workspace-routing.json` 用户项目模板。本仓库当前 checkout 已补齐根 `.codex/harness/workspace-routing.json` dogfood 配置。
 - 当前已内建基础敏感信息扫描器和基础 AI 诊断日志 release gate；release gate 不覆盖所有平台构建配置和完整发布流水线。
-- 当前已落地自动历史记忆挖掘 runtime、review gate 优化 runtime 和 session-worktree 绑定的最小 runtime；before_first_write 强制拦截与多 session 自动合并仍依赖后续宿主/工作流接入。
+- 当前已落地历史记忆挖掘最小 runtime：自动记录脱敏事件、显式 `codex memory mine run [--recent ...]` 生成候选、`codex memory candidates ...` 治理候选，并把 accepted preferences 注入 context pack；低频自动触发、doctor 状态展示和按 session/project 维度清理仍待后续补齐。review gate 优化 runtime 和 session-worktree 绑定的最小 runtime 也已落地；before_first_write 强制拦截与多 session 自动合并仍依赖后续宿主/工作流接入。
 - 当前已实现项目共享 memory 初始化模板、promote、validate 和索引重建的最小 runtime；严格 JSON Schema 校验和多人冲突自动处理尚未实现。
 - 当前 workspace verifier 已支持每个 route 使用自己的 cwd/profile 聚合执行，并已提供 release profile 与 release manifest 证据聚合原型；完整渠道包/热更/构建产物平台仍由后续 T55 扩展。
 - 当前 eval replay 已支持 `.codex/evals` 本地 deterministic no-network checks；不执行远程沙箱。
@@ -653,7 +653,7 @@ docs/AI_DIAGNOSTIC_LOGGING.md
 4. 项目共享 memory：严格 schema 校验、冲突策略和 review 辅助。
 5. SubAgent integration gate：补强 Codex SubAgent 派发观察、取消状态、receipt 归档和多 specialist 结果合并。
 6. 发布级完整验证平台：覆盖渠道包、热更、构建产物、回滚材料和平台配置。
-7. 自动历史记忆挖掘：事件账本、候选挖掘、自动提升、context 注入和治理命令。
+7. 历史记忆挖掘自动化：补低频自动触发、doctor 状态展示、按 session/project 维度清理和冲突审查辅助；当前已具备事件账本、显式候选挖掘、候选治理和 accepted context 注入。
 8. Session-worktree 绑定：最小 registry、allocator、heartbeat 和 write-guard 已有；后续补宿主级强制拦截、stale cleanup、recover/prune 和多 session 合并。
 9. 可选本地语义检索：在不开启网络的前提下增强召回。
 10. Memory archive/cleanup 与 retention policy：提供正式归档、清理、按 `task_id` 删除和索引规模控制命令，作为后续语义索引前置条件。

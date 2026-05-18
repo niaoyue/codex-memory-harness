@@ -86,8 +86,8 @@ codex
 - `codex memory doctor`：诊断当前项目 memory/harness 状态，并检查官方 `features.hooks`、sandbox/approval、AGENTS.override、官方 Memories 和插件 hook 覆盖情况。
 - `codex memory init`：初始化缺失的项目 `.codex` memory/harness 配置。
 - `codex memory install/update/check-install`：安装、更新或检查插件接入。
-- `codex memory mine status|run`：查看或执行自动历史记忆挖掘。
-- `codex memory candidates list|accept|reject|deprecate`：治理自动挖掘出的记忆候选。
+- `codex memory mine status|run [--recent 90d]`：查看或显式执行历史记忆挖掘，可按最近天数/小时过滤事件。
+- `codex memory candidates list|show|accept|reject|deprecate`：查看和治理挖掘出的记忆候选。
 - `codex memory retention status|cleanup --task-id <task-id> [--confirm]`：查看记忆规模，或按任务精确归档/清理；默认 dry-run，只有 `--confirm` 执行写入。
 - `codex memory eval create|list|run`：把失败或高价值 artifact 转为本地 deterministic eval replay，并执行无网络安全检查。
 - `codex harness ...`：运行 harness 任务生命周期命令。
@@ -245,7 +245,7 @@ docs/MEMORY_LAYERING.md
 docs/MEMORY_RETRIEVAL_STRATEGY.md
 ```
 
-自动历史记忆挖掘的目标是让用户不需要每次手动整理习惯。设计方案要求系统从历史事件中自动发现重复的低风险工作流偏好、命令偏好和纠正模式；高置信低风险候选可自动进入当前用户的项目私有或全局私有记忆，高风险、冲突或证据不足的候选只进入待确认队列。当前这是计划中的 runtime 能力，方案见：
+历史记忆挖掘的目标是让用户不需要每次手动整理习惯。当前已经落地的边界是：事件会被脱敏记录，`codex memory mine run [--recent 90d]` 可显式生成候选，`codex memory candidates list|show|accept|reject|deprecate` 可治理候选，accepted candidates 会进入 context pack。低频自动触发挖掘、doctor 展示自动挖掘状态，以及按 session/project 维度清理历史挖掘数据仍是后续路线。完整方案见：
 
 ```text
 docs/AUTOMATED_MEMORY_MINING.md

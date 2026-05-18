@@ -279,10 +279,11 @@ AI 诊断日志只存在于实现和验证循环中。
 - AI 诊断日志策略文档。
 - 写入前敏感信息扫描器。
 - 项目共享 memory promote、validate 和 index rebuild。
-- 自动历史记忆挖掘、review gate 优化和 session-worktree 绑定的方案文档。
+- 历史记忆挖掘最小 runtime：事件账本、显式 `codex memory mine run [--recent ...]`、候选治理和 accepted context 注入。
+- review gate 优化和 session-worktree 绑定的方案文档。
 
 仍需实现：
 
 - 发布级完整验证平台。
-- 自动历史记忆挖掘 runtime。
+- 历史记忆挖掘自动化：低频自动触发、doctor 状态展示和按 session/project 维度清理。
 - session-worktree 宿主级强制 lifecycle、stale cleanup 和多 session 合并。

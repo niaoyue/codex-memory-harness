@@ -4,6 +4,7 @@ import os
 import sys
 import tempfile
 import unittest
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 
@@ -103,6 +104,22 @@ class MemoryMiningTests(unittest.TestCase):
         self.assertEqual(memory_mining.accepted_context(), [])
         rejected = memory_mining.list_candidates(status="rejected")["candidates"]
         self.assertEqual(rejected[0]["candidate_id"], candidate["candidate_id"])
+
+    def test_recent_filter_and_show_candidate_match_cli_contract(self) -> None:
+        self._append_repeated_verification_events()
+        paths = memory_mining.history_paths()
+        events = memory_mining.read_jsonl(paths["events"])
+        events[0]["created_at"] = (datetime.now(timezone.utc) - timedelta(days=120)).isoformat()
+        memory_mining.write_jsonl(paths["events"], events)
+
+        result = memory_mining.mine_candidates(recent="90d")
+        candidate = memory_mining.list_candidates()["candidates"][0]
+        shown = memory_mining.show_candidate(candidate["candidate_id"])
+
+        self.assertEqual(result["events"], 2)
+        self.assertEqual(result["total_events"], 3)
+        self.assertEqual(shown["candidate"]["candidate_id"], candidate["candidate_id"])
+        self.assertFalse(memory_mining.show_candidate("missing")["ok"])
 
     def test_context_pack_includes_accepted_learned_preferences(self) -> None:
         self._append_repeated_verification_events()

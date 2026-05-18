@@ -10,6 +10,9 @@ HOOK_SCRIPT="$SCRIPT_DIR/hook_runner.py"
 INSTALL_SCRIPT="$SCRIPT_DIR/install_codex_memory.py"
 VERIFICATION_SCRIPT="$SCRIPT_DIR/verification_runner.py"
 SHARED_MEMORY_SCRIPT="$SCRIPT_DIR/shared_memory.py"
+MEMORY_MINING_SCRIPT="$SCRIPT_DIR/memory_mining.py"
+MEMORY_RETENTION_SCRIPT="$SCRIPT_DIR/memory_retention.py"
+EVAL_REPLAY_SCRIPT="$SCRIPT_DIR/eval_replay.py"
 LEGACY_GLOBAL_MIGRATION_SCRIPT="$SCRIPT_DIR/legacy_global_memory_migration.py"
 WORKSPACE_SCRIPT="$SCRIPT_DIR/workspace_scanner.py"
 WORKSPACE_ROUTER_SCRIPT="$SCRIPT_DIR/workspace_router.py"
@@ -217,6 +220,10 @@ Codex Memory commands:
   codex memory hook <event> [...]
   codex memory promote --task-id <task-id> [--kind fact]
   codex memory shared validate|index rebuild
+  codex memory mine status|run [--recent 90d]
+  codex memory candidates list|show|accept|reject|deprecate
+  codex memory retention status|cleanup --task-id <task-id> [--confirm]
+  codex memory eval create|list|run
   codex memory migrate-legacy-global [--dry-run|--confirm]
 EOF
 }
@@ -308,6 +315,10 @@ invoke_memory() {
         codex-hook) run_py "$HOOK_BRIDGE_SCRIPT" "$@" ;;
         promote) run_py "$SHARED_MEMORY_SCRIPT" --project-root "$cwd" promote "$@" ;;
         shared) run_py "$SHARED_MEMORY_SCRIPT" --project-root "$cwd" shared "$@" ;;
+        mine) run_py "$MEMORY_MINING_SCRIPT" mine "$@" ;;
+        candidates) run_py "$MEMORY_MINING_SCRIPT" candidates "$@" ;;
+        retention) run_py "$MEMORY_RETENTION_SCRIPT" "$@" ;;
+        eval|evals) run_py "$EVAL_REPLAY_SCRIPT" --project-root "$cwd" "$@" ;;
         migrate-legacy-global) run_py "$LEGACY_GLOBAL_MIGRATION_SCRIPT" "$@" ;;
         verify) invoke_harness verify "$@" ;;
         harness) invoke_harness "$@" ;;

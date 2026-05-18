@@ -61,7 +61,7 @@ flowchart TD
 核心原则：
 
 - hook 只负责记录脱敏事件，不在同步路径里做重挖掘。
-- miner 低频运行，可由 `Stop`、任务完成、窗口启动或显式 doctor 触发。
+- 当前 miner 通过 `codex memory mine run` 显式运行；后续可接入 `Stop`、任务完成、窗口启动或 doctor 触发的低频自动挖掘。
 - 自动写入只允许进入当前用户私有层或当前项目私有层。
 - 项目共享层仍必须经过可审查 Markdown 与 validate 流程。
 
@@ -252,14 +252,14 @@ codex memory candidates reject <candidate-id>
 codex memory candidates deprecate <candidate-id>
 ```
 
-日常默认：
+当前日常默认：
 
 - 自动记录事件。
-- 自动挖掘低风险高置信偏好。
-- 自动注入 accepted 偏好。
-- 只在冲突、高风险或低置信时提示用户。
+- 显式运行 `codex memory mine run [--recent 90d]` 后生成候选。
+- 自动注入已 accepted 的偏好。
+- 冲突、高风险或低置信候选保持待治理状态，不自动生效。
 
-doctor 应展示：
+后续 doctor 应展示：
 
 - 自动挖掘是否启用。
 - 最近一次挖掘时间。
@@ -284,7 +284,7 @@ doctor 应展示：
 
 本节校正依据（2026-05-08 本地只读核对，2026-05-13 specs 迁移后更新）：当前项目验证闭环、任务清单和 grounded docs 检查入口见 `scripts/verify_project.py`、`.codex/harness/backlog/tasks.md`、`scripts/verify_grounded_docs.py`。
 
-自动记忆挖掘能力完成时，至少满足：
+完整自动记忆挖掘能力完成时，至少满足：
 
 1. 多次重复的低风险项目习惯能自动成为 accepted project private memory。
 2. accepted memory 会在相关任务开始时自动注入 context pack。
@@ -322,9 +322,9 @@ doctor 应展示：
 
 ### Phase AM-5：治理命令与清理
 
-- 增加 `codex memory mine ...` 与 `codex memory candidates ...`。
-- 增加按 task/session/project 删除。
-- doctor 输出自动挖掘状态。
+- 已落地 `codex memory mine status|run [--recent 90d]` 与 `codex memory candidates list|show|accept|reject|deprecate`。
+- 后续增加按 session/project 删除；当前 retention 已支持按 `task_id` 清理。
+- 后续让 doctor 输出自动挖掘状态。
 
 ### Phase AM-6：共享提升衔接
 

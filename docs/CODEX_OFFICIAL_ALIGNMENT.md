@@ -177,7 +177,7 @@ templates/project/.codex/agents/xhigh-review-runner.toml
 - smoke test 必须从 release package 解压目录运行，而不是直接调用源码里的 Python installer。
 - smoke test 必须使用临时 `CODEX_MEMORY_HOME`、`USERPROFILE`、`HOME` 和 `CODEX_HOME`，避免污染维护者真实用户目录。
 - smoke test 必须运行 `cmd /c install.bat --mode copy`，覆盖 batch 入口、Python runtime 解析、home plugin 复制、Codex config、全局 AGENTS、home marketplace、PowerShell profile 和 bundled skills；POSIX 安装验证需覆盖 `install.sh` 写入 `codexm.sh` profile wrapper。
-- smoke test 必须断言 `harness-release-gate` 等 7 个 bundled skills 完成首次安装。
+- smoke test 必须断言 `bundled-skills.json` 中登记的所有 bundled skills 完成首次安装，避免技能数量扩展后文档和 gate 再次漂移。
 
 `CODEX_MEMORY_HOME` 是安装器和验证用的高级覆盖变量，用于把用户级安装目标重定向到隔离目录；正常用户不需要设置它。`CODEX_HOME` 仍按 Codex 官方语义控制 Codex 配置根目录。
 
