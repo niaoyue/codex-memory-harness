@@ -16,6 +16,7 @@ HISTORY_DIR = "history"
 EVENTS_FILE = "events.jsonl"
 CANDIDATES_FILE = "candidates.jsonl"
 ACCEPTED_FILE = "accepted.jsonl"
+GOVERNED_STATUSES = {"accepted", "rejected", "deprecated"}
 
 
 def append_history_event(event_type: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -61,7 +62,8 @@ def mine_candidates(*, recent: str = "") -> dict[str, Any]:
         )
         if key[1] or key[2]:
             groups[key].append(event)
-    candidates = [candidate_from_group(key, items) for key, items in groups.items() if len(items) >= 2]
+    mined_candidates = [candidate_from_group(key, items) for key, items in groups.items() if len(items) >= 2]
+    candidates = merge_recent_candidates(read_jsonl(paths["candidates"]), mined_candidates) if recent else mined_candidates
     write_jsonl(paths["candidates"], candidates)
     accepted = [item for item in candidates if item["status"] == "accepted"]
     write_jsonl(paths["accepted"], accepted)
@@ -71,6 +73,7 @@ def mine_candidates(*, recent: str = "") -> dict[str, Any]:
         "total_events": len(all_events),
         "recent": recent,
         "candidates": len(candidates),
+        "mined_candidates": len(mined_candidates),
         "accepted": len(accepted),
     }
 
@@ -106,6 +109,29 @@ def candidate_from_group(key: tuple[str, str, str], events: list[dict[str, Any]]
         "evidence_refs": [str(item.get("event_id") or "") for item in events[-5:]],
         "auto_promoted": status == "accepted",
     }
+
+
+def merge_recent_candidates(
+    existing_candidates: list[dict[str, Any]],
+    mined_candidates: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    merged_by_id = {str(item.get("candidate_id") or ""): dict(item) for item in existing_candidates}
+    ordered_ids = [str(item.get("candidate_id") or "") for item in existing_candidates if item.get("candidate_id")]
+
+    for candidate in mined_candidates:
+        candidate_id = str(candidate.get("candidate_id") or "")
+        if not candidate_id:
+            continue
+        existing = merged_by_id.get(candidate_id)
+        next_candidate = dict(candidate)
+        if existing and existing.get("status") in GOVERNED_STATUSES:
+            next_candidate["status"] = existing["status"]
+            next_candidate["auto_promoted"] = bool(existing.get("auto_promoted"))
+        merged_by_id[candidate_id] = next_candidate
+        if candidate_id not in ordered_ids:
+            ordered_ids.append(candidate_id)
+
+    return [merged_by_id[candidate_id] for candidate_id in ordered_ids if candidate_id in merged_by_id]
 
 
 def list_candidates(status: str = "") -> dict[str, Any]:

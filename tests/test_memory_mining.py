@@ -54,6 +54,21 @@ class MemoryMiningTests(unittest.TestCase):
                 },
             )
 
+    def _append_repeated_events_for_command(self, command: str, *, project_id: str = "plugin-runtime") -> None:
+        for index in range(3):
+            memory_mining.append_history_event(
+                "after_tool",
+                {
+                    "task_id": f"mine-task-{index}",
+                    "session_id": f"session-{index}-{command}",
+                    "project_id": project_id,
+                    "scope": "project",
+                    "summary": "verification tests passed",
+                    "command": command,
+                    "ok": True,
+                },
+            )
+
     def test_mines_low_risk_repeated_events_into_accepted_context(self) -> None:
         self._append_repeated_verification_events()
 
@@ -120,6 +135,24 @@ class MemoryMiningTests(unittest.TestCase):
         self.assertEqual(result["total_events"], 3)
         self.assertEqual(shown["candidate"]["candidate_id"], candidate["candidate_id"])
         self.assertFalse(memory_mining.show_candidate("missing")["ok"])
+
+    def test_recent_mining_preserves_existing_accepted_candidates(self) -> None:
+        self._append_repeated_events_for_command("py -X utf8 -m unittest tests/test_old_memory.py")
+        memory_mining.mine_candidates()
+        old_accepted_id = memory_mining.accepted_context()[0]["candidate_id"]
+        paths = memory_mining.history_paths()
+        events = memory_mining.read_jsonl(paths["events"])
+        for event in events:
+            event["created_at"] = (datetime.now(timezone.utc) - timedelta(days=120)).isoformat()
+        memory_mining.write_jsonl(paths["events"], events)
+
+        self._append_repeated_events_for_command("py -X utf8 -m unittest tests/test_memory_mining.py")
+        result = memory_mining.mine_candidates(recent="90d")
+        accepted_ids = {item["candidate_id"] for item in memory_mining.read_jsonl(paths["accepted"])}
+
+        self.assertEqual(result["mined_candidates"], 1)
+        self.assertEqual(result["accepted"], 2)
+        self.assertIn(old_accepted_id, accepted_ids)
 
     def test_context_pack_includes_accepted_learned_preferences(self) -> None:
         self._append_repeated_verification_events()
