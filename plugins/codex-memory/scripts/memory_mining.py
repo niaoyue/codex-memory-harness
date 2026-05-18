@@ -169,6 +169,22 @@ def merge_mined_candidates(
 def is_manual_accept(candidate: dict[str, Any]) -> bool:
     return candidate.get("manual_decision") == MANUAL_ACCEPT_STATUS or (
         candidate.get("status") == MANUAL_ACCEPT_STATUS and candidate.get("auto_promoted") is False
+    ) or (
+        candidate.get("status") == MANUAL_ACCEPT_STATUS
+        and not candidate_auto_promotable(candidate)
+    )
+
+
+def candidate_auto_promotable(candidate: dict[str, Any]) -> bool:
+    support_count = int(candidate.get("support_count") or 0)
+    success_count = int(candidate.get("successful_outcome_count") or 0)
+    contradiction_count = int(candidate.get("contradiction_count") or 0)
+    return (
+        candidate.get("confidence") == "high"
+        and candidate.get("risk") == "low"
+        and support_count > 0
+        and success_count == support_count
+        and contradiction_count == 0
     )
 
 

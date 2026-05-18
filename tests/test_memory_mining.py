@@ -252,6 +252,27 @@ class MemoryMiningTests(unittest.TestCase):
         self.assertFalse(candidate["auto_promoted"])
         self.assertEqual(memory_mining.accepted_context()[0]["candidate_id"], candidate_id)
 
+    def test_full_mining_preserves_legacy_manual_accept(self) -> None:
+        command = "py -X utf8 -m unittest tests/test_memory_mining.py"
+        self._append_repeated_events_for_command(command, count=2)
+        memory_mining.mine_candidates()
+        paths = memory_mining.history_paths()
+        candidates = memory_mining.read_jsonl(paths["candidates"])
+        candidate_id = candidates[0]["candidate_id"]
+        candidates[0]["status"] = "accepted"
+        candidates[0]["auto_promoted"] = True
+        memory_mining.write_jsonl(paths["candidates"], candidates)
+        memory_mining.write_jsonl(paths["accepted"], candidates)
+
+        result = memory_mining.mine_candidates()
+        candidate = memory_mining.show_candidate(candidate_id)["candidate"]
+
+        self.assertEqual(result["mined_candidates"], 1)
+        self.assertEqual(result["accepted"], 1)
+        self.assertEqual(candidate["status"], "accepted")
+        self.assertFalse(candidate["auto_promoted"])
+        self.assertEqual(memory_mining.accepted_context()[0]["candidate_id"], candidate_id)
+
     def test_context_pack_includes_accepted_learned_preferences(self) -> None:
         self._append_repeated_verification_events()
         memory_mining.mine_candidates()
