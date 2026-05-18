@@ -16,6 +16,7 @@ HISTORY_DIR = "history"
 EVENTS_FILE = "events.jsonl"
 CANDIDATES_FILE = "candidates.jsonl"
 ACCEPTED_FILE = "accepted.jsonl"
+MANUAL_REMOVAL_STATUSES = {"rejected", "deprecated"}
 
 
 def append_history_event(event_type: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -121,7 +122,19 @@ def merge_recent_candidates(
         candidate_id = str(candidate.get("candidate_id") or "")
         if not candidate_id:
             continue
-        merged_by_id[candidate_id] = dict(candidate)
+        existing = merged_by_id.get(candidate_id)
+        next_candidate = dict(candidate)
+        if existing and existing.get("status") in MANUAL_REMOVAL_STATUSES:
+            next_candidate["status"] = existing["status"]
+            next_candidate["auto_promoted"] = False
+        elif (
+            existing
+            and existing.get("status") == "accepted"
+            and int(next_candidate.get("contradiction_count") or 0) == 0
+        ):
+            next_candidate["status"] = "accepted"
+            next_candidate["auto_promoted"] = bool(existing.get("auto_promoted"))
+        merged_by_id[candidate_id] = next_candidate
         if candidate_id not in ordered_ids:
             ordered_ids.append(candidate_id)
 
