@@ -200,6 +200,21 @@ class MemoryMiningTests(unittest.TestCase):
         self.assertEqual(candidate["status"], "rejected")
         self.assertEqual(memory_mining.accepted_context(), [])
 
+    def test_full_mining_preserves_manual_rejection(self) -> None:
+        command = "py -X utf8 -m unittest tests/test_memory_mining.py"
+        self._append_repeated_events_for_command(command)
+        memory_mining.mine_candidates()
+        candidate_id = memory_mining.list_candidates()["candidates"][0]["candidate_id"]
+        memory_mining.update_candidate(candidate_id, "rejected")
+
+        result = memory_mining.mine_candidates()
+        candidate = memory_mining.show_candidate(candidate_id)["candidate"]
+
+        self.assertEqual(result["mined_candidates"], 1)
+        self.assertEqual(result["accepted"], 0)
+        self.assertEqual(candidate["status"], "rejected")
+        self.assertEqual(memory_mining.accepted_context(), [])
+
     def test_context_pack_includes_accepted_learned_preferences(self) -> None:
         self._append_repeated_verification_events()
         memory_mining.mine_candidates()

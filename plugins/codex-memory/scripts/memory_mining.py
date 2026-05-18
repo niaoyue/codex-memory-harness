@@ -63,7 +63,11 @@ def mine_candidates(*, recent: str = "") -> dict[str, Any]:
         if key[1] or key[2]:
             groups[key].append(event)
     mined_candidates = [candidate_from_group(key, items) for key, items in groups.items() if len(items) >= 2]
-    candidates = merge_recent_candidates(read_jsonl(paths["candidates"]), mined_candidates) if recent else mined_candidates
+    candidates = merge_mined_candidates(
+        read_jsonl(paths["candidates"]),
+        mined_candidates,
+        preserve_unmined=bool(recent),
+    )
     write_jsonl(paths["candidates"], candidates)
     accepted = [item for item in candidates if item["status"] == "accepted"]
     write_jsonl(paths["accepted"], accepted)
@@ -111,18 +115,25 @@ def candidate_from_group(key: tuple[str, str, str], events: list[dict[str, Any]]
     }
 
 
-def merge_recent_candidates(
+def merge_mined_candidates(
     existing_candidates: list[dict[str, Any]],
     mined_candidates: list[dict[str, Any]],
+    *,
+    preserve_unmined: bool,
 ) -> list[dict[str, Any]]:
-    merged_by_id = {str(item.get("candidate_id") or ""): dict(item) for item in existing_candidates}
-    ordered_ids = [str(item.get("candidate_id") or "") for item in existing_candidates if item.get("candidate_id")]
+    existing_by_id = {str(item.get("candidate_id") or ""): dict(item) for item in existing_candidates}
+    merged_by_id = dict(existing_by_id) if preserve_unmined else {}
+    ordered_ids = [
+        str(item.get("candidate_id") or "")
+        for item in existing_candidates
+        if preserve_unmined and item.get("candidate_id")
+    ]
 
     for candidate in mined_candidates:
         candidate_id = str(candidate.get("candidate_id") or "")
         if not candidate_id:
             continue
-        existing = merged_by_id.get(candidate_id)
+        existing = existing_by_id.get(candidate_id)
         next_candidate = dict(candidate)
         if existing and existing.get("status") in MANUAL_REMOVAL_STATUSES:
             next_candidate["status"] = existing["status"]
