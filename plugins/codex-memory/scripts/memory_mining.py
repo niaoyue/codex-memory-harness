@@ -17,6 +17,7 @@ EVENTS_FILE = "events.jsonl"
 CANDIDATES_FILE = "candidates.jsonl"
 ACCEPTED_FILE = "accepted.jsonl"
 MANUAL_REMOVAL_STATUSES = {"rejected", "deprecated"}
+MANUAL_ACCEPT_STATUS = "accepted"
 
 
 def append_history_event(event_type: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -140,6 +141,16 @@ def merge_mined_candidates(
         if existing and existing.get("status") in MANUAL_REMOVAL_STATUSES:
             next_candidate["status"] = existing["status"]
             next_candidate["auto_promoted"] = False
+            copy_manual_decision(existing, next_candidate)
+        elif (
+            existing
+            and existing.get("status") == "accepted"
+            and is_manual_accept(existing)
+            and int(next_candidate.get("contradiction_count") or 0) == 0
+        ):
+            next_candidate["status"] = "accepted"
+            next_candidate["auto_promoted"] = False
+            copy_manual_decision(existing, next_candidate)
         elif (
             preserve_existing_accepted
             and existing
@@ -153,6 +164,18 @@ def merge_mined_candidates(
             ordered_ids.append(candidate_id)
 
     return [merged_by_id[candidate_id] for candidate_id in ordered_ids if candidate_id in merged_by_id]
+
+
+def is_manual_accept(candidate: dict[str, Any]) -> bool:
+    return candidate.get("manual_decision") == MANUAL_ACCEPT_STATUS or (
+        candidate.get("status") == MANUAL_ACCEPT_STATUS and candidate.get("auto_promoted") is False
+    )
+
+
+def copy_manual_decision(source: dict[str, Any], target: dict[str, Any]) -> None:
+    for key in ("manual_decision", "manual_decided_at"):
+        if source.get(key):
+            target[key] = source[key]
 
 
 def list_candidates(status: str = "") -> dict[str, Any]:
@@ -176,7 +199,9 @@ def update_candidate(candidate_id: str, status: str) -> dict[str, Any]:
     for item in items:
         if item.get("candidate_id") == candidate_id:
             item["status"] = status
-            item["auto_promoted"] = status == "accepted"
+            item["auto_promoted"] = False
+            item["manual_decision"] = status
+            item["manual_decided_at"] = utc_now()
             changed = True
     write_jsonl(paths["candidates"], items)
     write_jsonl(paths["accepted"], [item for item in items if item.get("status") == "accepted"])

@@ -60,8 +60,9 @@ class MemoryMiningTests(unittest.TestCase):
         *,
         project_id: str = "plugin-runtime",
         ok: bool = True,
+        count: int = 3,
     ) -> None:
-        for index in range(3):
+        for index in range(count):
             memory_mining.append_history_event(
                 "after_tool",
                 {
@@ -232,6 +233,24 @@ class MemoryMiningTests(unittest.TestCase):
         self.assertEqual(candidate["confidence"], "medium")
         self.assertEqual(candidate["status"], "observed")
         self.assertFalse(candidate["auto_promoted"])
+
+    def test_full_mining_preserves_manual_accept_for_observed_candidate(self) -> None:
+        command = "py -X utf8 -m unittest tests/test_memory_mining.py"
+        self._append_repeated_events_for_command(command, count=2)
+        memory_mining.mine_candidates()
+        candidate_id = memory_mining.list_candidates()["candidates"][0]["candidate_id"]
+
+        memory_mining.update_candidate(candidate_id, "accepted")
+        result = memory_mining.mine_candidates()
+        candidate = memory_mining.show_candidate(candidate_id)["candidate"]
+
+        self.assertEqual(result["mined_candidates"], 1)
+        self.assertEqual(result["accepted"], 1)
+        self.assertEqual(candidate["support_count"], 2)
+        self.assertEqual(candidate["status"], "accepted")
+        self.assertEqual(candidate["manual_decision"], "accepted")
+        self.assertFalse(candidate["auto_promoted"])
+        self.assertEqual(memory_mining.accepted_context()[0]["candidate_id"], candidate_id)
 
     def test_context_pack_includes_accepted_learned_preferences(self) -> None:
         self._append_repeated_verification_events()
