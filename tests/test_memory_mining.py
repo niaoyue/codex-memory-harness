@@ -54,7 +54,13 @@ class MemoryMiningTests(unittest.TestCase):
                 },
             )
 
-    def _append_repeated_events_for_command(self, command: str, *, project_id: str = "plugin-runtime") -> None:
+    def _append_repeated_events_for_command(
+        self,
+        command: str,
+        *,
+        project_id: str = "plugin-runtime",
+        ok: bool = True,
+    ) -> None:
         for index in range(3):
             memory_mining.append_history_event(
                 "after_tool",
@@ -63,9 +69,9 @@ class MemoryMiningTests(unittest.TestCase):
                     "session_id": f"session-{index}-{command}",
                     "project_id": project_id,
                     "scope": "project",
-                    "summary": "verification tests passed",
+                    "summary": "verification tests passed" if ok else "verification tests failed",
                     "command": command,
-                    "ok": True,
+                    "ok": ok,
                 },
             )
 
@@ -153,6 +159,25 @@ class MemoryMiningTests(unittest.TestCase):
         self.assertEqual(result["mined_candidates"], 1)
         self.assertEqual(result["accepted"], 2)
         self.assertIn(old_accepted_id, accepted_ids)
+
+    def test_recent_mining_downgrades_candidate_with_recent_failures(self) -> None:
+        command = "py -X utf8 -m unittest tests/test_memory_mining.py"
+        self._append_repeated_events_for_command(command)
+        memory_mining.mine_candidates()
+        paths = memory_mining.history_paths()
+        events = memory_mining.read_jsonl(paths["events"])
+        for event in events:
+            event["created_at"] = (datetime.now(timezone.utc) - timedelta(days=120)).isoformat()
+        memory_mining.write_jsonl(paths["events"], events)
+
+        self._append_repeated_events_for_command(command, ok=False)
+        result = memory_mining.mine_candidates(recent="90d")
+        candidates = memory_mining.list_candidates()["candidates"]
+
+        self.assertEqual(result["mined_candidates"], 1)
+        self.assertEqual(result["accepted"], 0)
+        self.assertEqual(candidates[0]["status"], "needs_review")
+        self.assertEqual(candidates[0]["contradiction_count"], 3)
 
     def test_context_pack_includes_accepted_learned_preferences(self) -> None:
         self._append_repeated_verification_events()
