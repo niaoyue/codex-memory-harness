@@ -67,6 +67,7 @@ def mine_candidates(*, recent: str = "") -> dict[str, Any]:
         read_jsonl(paths["candidates"]),
         mined_candidates,
         preserve_unmined=bool(recent),
+        preserve_existing_accepted=bool(recent),
     )
     write_jsonl(paths["candidates"], candidates)
     accepted = [item for item in candidates if item["status"] == "accepted"]
@@ -120,6 +121,7 @@ def merge_mined_candidates(
     mined_candidates: list[dict[str, Any]],
     *,
     preserve_unmined: bool,
+    preserve_existing_accepted: bool,
 ) -> list[dict[str, Any]]:
     existing_by_id = {str(item.get("candidate_id") or ""): dict(item) for item in existing_candidates}
     merged_by_id = dict(existing_by_id) if preserve_unmined else {}
@@ -139,7 +141,8 @@ def merge_mined_candidates(
             next_candidate["status"] = existing["status"]
             next_candidate["auto_promoted"] = False
         elif (
-            existing
+            preserve_existing_accepted
+            and existing
             and existing.get("status") == "accepted"
             and int(next_candidate.get("contradiction_count") or 0) == 0
         ):
