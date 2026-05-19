@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import contextlib
+import io
 import json
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -338,61 +341,37 @@ class ReviewWorkflowTests(unittest.TestCase):
 
     def test_cli_accepts_documented_subcommand_mode_flags(self) -> None:
         with temp_repo() as root:
-            by_mode = subprocess.run(
+            by_mode = _run_review_workflow_cli(
                 [
-                    sys.executable,
-                    "-X",
-                    "utf8",
-                    str(PLUGIN_SCRIPTS_DIR / "review_workflow.py"),
                     "--project-root",
                     str(root),
                     "preflight",
                     "--mode",
                     "uncommitted",
-                ],
-                cwd=PROJECT_ROOT,
-                capture_output=True,
-                text=True,
-                check=False,
+                ]
             )
-            by_alias = subprocess.run(
+            by_alias = _run_review_workflow_cli(
                 [
-                    sys.executable,
-                    "-X",
-                    "utf8",
-                    str(PLUGIN_SCRIPTS_DIR / "review_workflow.py"),
                     "--project-root",
                     str(root),
                     "status",
                     "--uncommitted",
-                ],
-                cwd=PROJECT_ROOT,
-                capture_output=True,
-                text=True,
-                check=False,
+                ]
             )
-            top_level_mode = subprocess.run(
+            top_level_mode = _run_review_workflow_cli(
                 [
-                    sys.executable,
-                    "-X",
-                    "utf8",
-                    str(PLUGIN_SCRIPTS_DIR / "review_workflow.py"),
                     "--project-root",
                     str(root),
                     "--mode",
                     "staged",
                     "status",
-                ],
-                cwd=PROJECT_ROOT,
-                capture_output=True,
-                text=True,
-                check=False,
+                ]
             )
 
-        self.assertEqual(by_mode.returncode, 0, by_mode.stderr)
-        self.assertEqual(by_alias.returncode, 0, by_alias.stderr)
-        self.assertEqual(top_level_mode.returncode, 0, top_level_mode.stderr)
-        self.assertEqual(json.loads(top_level_mode.stdout)["mode"], "staged")
+        self.assertEqual(by_mode["exit_code"], 0, by_mode["stdout"])
+        self.assertEqual(by_alias["exit_code"], 0, by_alias["stdout"])
+        self.assertEqual(top_level_mode["exit_code"], 0, top_level_mode["stdout"])
+        self.assertEqual(json.loads(top_level_mode["stdout"])["mode"], "staged")
 
     def test_resolved_findings_still_require_final_rerun(self) -> None:
         with fast_review_project() as root:
@@ -482,6 +461,16 @@ def _write(path: Path, text: str) -> None:
 
 def _head_commit(root: Path) -> str:
     return subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True, encoding="utf-8").strip()
+
+
+def _run_review_workflow_cli(args: list[str]) -> dict[str, object]:
+    stdout = io.StringIO()
+    with (
+        mock.patch.object(sys, "argv", ["review_workflow.py", *args]),
+        contextlib.redirect_stdout(stdout),
+    ):
+        exit_code = review_workflow.main()
+    return {"exit_code": exit_code, "stdout": stdout.getvalue()}
 
 
 if __name__ == "__main__":

@@ -81,8 +81,8 @@ def sensitive_check(project_root: Path, mode: str) -> dict[str, Any]:
     }
 
 
-def package_boundary_check(project_root: Path, mode: str) -> dict[str, Any]:
-    files = changed_files(project_root, mode)
+def package_boundary_check(project_root: Path, mode: str, files: list[str] | None = None) -> dict[str, Any]:
+    files = files if files is not None else changed_files(project_root, mode)
     blocked = []
     for path in files:
         normalized = path.replace("\\", "/").strip("/")
@@ -104,9 +104,9 @@ def verification_summary(project_root: Path) -> dict[str, Any]:
     }
 
 
-def slice_plan(project_root: Path, *, mode: str) -> list[dict[str, Any]]:
+def slice_plan(project_root: Path, *, mode: str, files: list[str] | None = None) -> list[dict[str, Any]]:
     groups: dict[str, list[str]] = {}
-    for path in changed_files(project_root, mode):
+    for path in files if files is not None else changed_files(project_root, mode):
         groups.setdefault(slice_kind(path), []).append(path)
     order = ["runtime", "tests", "docs", "templates", "install_packaging", "generated_or_deleted", "other"]
     return [

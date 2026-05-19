@@ -16,6 +16,7 @@ import version_manager
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 MAX_CODE_LINES = 500
 BEHAVIOR_TEST_TIMEOUT_SECONDS = 360
+BEHAVIOR_TEST_JOBS = min(4, max(1, os.cpu_count() or 1))
 CODE_SUFFIXES = {".py", ".ps1", ".bat", ".sh"}
 JSON_SUFFIXES = {".json"}
 SKIPPED_DIR_NAMES = {
@@ -276,6 +277,8 @@ def run_behavior_tests(timeout_seconds: int = BEHAVIOR_TEST_TIMEOUT_SECONDS) -> 
     tests_dir = PROJECT_ROOT / "tests"
     if not tests_dir.exists():
         return {"ok": False, "exit_code": 1, "stdout": "", "stderr": "tests directory is missing"}
+    runner = PROJECT_ROOT / "scripts" / "run_unittest_modules.py"
+    jobs = behavior_test_jobs()
     with tempfile.TemporaryDirectory() as temp_dir:
         memory_root = Path(temp_dir) / "behavior-memory"
         memory_root.mkdir()
@@ -289,12 +292,25 @@ def run_behavior_tests(timeout_seconds: int = BEHAVIOR_TEST_TIMEOUT_SECONDS) -> 
         )
         try:
             completed = subprocess.run(
-                [sys.executable, "-X", "utf8", "-m", "unittest", "discover", "-s", str(tests_dir)],
+                [
+                    sys.executable,
+                    "-X",
+                    "utf8",
+                    str(runner),
+                    "--json",
+                    "--summary-only",
+                    "--start-dir",
+                    str(tests_dir),
+                    "--jobs",
+                    str(jobs),
+                    "--module-timeout",
+                    str(timeout_seconds),
+                ],
                 cwd=PROJECT_ROOT,
                 env=env,
                 capture_output=True,
                 text=True,
-                timeout=timeout_seconds,
+                timeout=timeout_seconds + 60,
             )
         except subprocess.TimeoutExpired as exc:
             stdout = exc.stdout if isinstance(exc.stdout, str) else ""
@@ -305,12 +321,40 @@ def run_behavior_tests(timeout_seconds: int = BEHAVIOR_TEST_TIMEOUT_SECONDS) -> 
                 "stdout": stdout[-3000:],
                 "stderr": (stderr + f"\nBehavior tests timed out after {timeout_seconds}s.")[-3000:],
             }
+    payload: dict[str, object] = {}
+    parse_error = ""
+    if completed.stdout.strip():
+        try:
+            parsed = json.loads(completed.stdout)
+            if isinstance(parsed, dict):
+                payload = parsed
+            else:
+                parse_error = "behavior test runner output is not a JSON object"
+        except json.JSONDecodeError as exc:
+            parse_error = str(exc)
     return {
-        "ok": completed.returncode == 0,
+        "ok": completed.returncode == 0 and payload.get("ok") is True and not parse_error,
         "exit_code": completed.returncode,
+        "tests": payload.get("tests"),
+        "skipped": payload.get("skipped"),
+        "duration": payload.get("duration"),
+        "jobs": payload.get("jobs"),
+        "slowest_modules": payload.get("slowest_modules"),
+        "failed_modules": payload.get("failed_modules"),
+        "parse_error": parse_error,
         "stdout": completed.stdout[-3000:],
         "stderr": completed.stderr[-3000:],
     }
+
+
+def behavior_test_jobs() -> int:
+    configured = os.environ.get("CODEX_MEMORY_TEST_JOBS", "").strip()
+    if not configured:
+        return BEHAVIOR_TEST_JOBS
+    try:
+        return max(1, int(configured))
+    except ValueError:
+        return BEHAVIOR_TEST_JOBS
 
 
 def run_grounded_docs_check() -> dict[str, object]:

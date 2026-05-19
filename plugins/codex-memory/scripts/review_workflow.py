@@ -30,10 +30,11 @@ FULL_COMMIT_SHA_RE = re.compile(r"^[0-9a-fA-F]{40}$")
 
 def preflight(project_root: Path, *, mode: str = "uncommitted", task_id: str = "review") -> dict[str, Any]:
     fingerprint = diff_fingerprint(project_root, mode=mode)
+    changed_files = list(fingerprint.get("changed_files") or [])
     checks = [
         diff_check(project_root, mode),
         sensitive_check(project_root, mode),
-        package_boundary_check(project_root, mode),
+        package_boundary_check(project_root, mode, changed_files),
         verification_summary(project_root),
     ]
     result = {
@@ -42,7 +43,7 @@ def preflight(project_root: Path, *, mode: str = "uncommitted", task_id: str = "
         "mode": mode,
         "diff_fingerprint": fingerprint,
         "checks": checks,
-        "slice_plan": slice_plan(project_root, mode=mode),
+        "slice_plan": slice_plan(project_root, mode=mode, files=changed_files),
         "recorded_at": utc_now(),
     }
     write_json(review_dir(project_root) / "preflight.json", result)

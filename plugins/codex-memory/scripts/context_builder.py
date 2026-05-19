@@ -8,6 +8,7 @@ from memory_store import MemoryStore
 from retrieval_store import RetrievalEngine
 
 
+DISABLED_RETRIEVAL_MODES = {"none", "off", "disabled"}
 DEFAULT_CONTEXT_BUDGET = {
     "total_chars": 4200,
     "task_state_chars": 1100,
@@ -253,6 +254,8 @@ class ContextBuilder:
         retrieval_mode: str,
         evidence_limit_per_query: int,
     ) -> list[dict[str, Any]]:
+        if retrieval_mode.strip().lower() in DISABLED_RETRIEVAL_MODES:
+            return []
         combined: list[dict[str, Any]] = []
         seen: set[tuple[str, str, int | None, str]] = set()
         for query in queries:

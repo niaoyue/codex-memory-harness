@@ -102,14 +102,17 @@ class MemoryEnv:
         self.temp_dir = tempfile.TemporaryDirectory()
         self.old_scope = os.environ.get("CODEX_MEMORY_SCOPE")
         self.old_cwd = os.environ.get("CODEX_MEMORY_CWD")
+        self.old_retrieval_mode = os.environ.get("CODEX_MEMORY_RETRIEVAL_MODE")
         os.environ["CODEX_MEMORY_SCOPE"] = "project"
         os.environ["CODEX_MEMORY_CWD"] = self.temp_dir.name
+        os.environ["CODEX_MEMORY_RETRIEVAL_MODE"] = "none"
         Path(self.temp_dir.name, ".codex").mkdir()
         return self.temp_dir.name
 
     def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
         restore_env("CODEX_MEMORY_SCOPE", self.old_scope)
         restore_env("CODEX_MEMORY_CWD", self.old_cwd)
+        restore_env("CODEX_MEMORY_RETRIEVAL_MODE", self.old_retrieval_mode)
         self.temp_dir.cleanup()
 
 

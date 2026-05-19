@@ -168,7 +168,7 @@ class HookRunner:
         context_pack = self.context_builder.build_context_pack(
             task_id=canonical_task_id,
             queries=payload.get("queries"),
-            retrieval_mode=_string(payload.get("retrieval_mode")) or "auto",
+            retrieval_mode=_context_retrieval_mode(payload),
             max_total_chars=payload.get("max_total_chars"),
         )
         return {
@@ -271,7 +271,7 @@ class HookRunner:
         context_pack = self.context_builder.build_context_pack(
             task_id=resolved_task_id,
             queries=payload.get("queries"),
-            retrieval_mode=_string(payload.get("retrieval_mode")) or "auto",
+            retrieval_mode=_context_retrieval_mode(payload),
             max_total_chars=payload.get("max_total_chars"),
         )
         task_state = self.memory_store.get_task_state(resolved_task_id)
@@ -311,7 +311,7 @@ class HookRunner:
         distillation_result = self.distillation_store.distill_task(
             task_id=resolved_task_id,
             queries=payload.get("queries"),
-            retrieval_mode=_string(payload.get("retrieval_mode")) or "auto",
+            retrieval_mode=_context_retrieval_mode(payload),
             max_total_chars=int(payload.get("max_total_chars", 2400)),
         )
         return {
@@ -353,7 +353,7 @@ class HookRunner:
         distillation_result = self.distillation_store.distill_task(
             task_id=resolved_task_id,
             queries=payload.get("queries"),
-            retrieval_mode=_string(payload.get("retrieval_mode")) or "auto",
+            retrieval_mode=_context_retrieval_mode(payload),
             max_total_chars=int(payload.get("max_total_chars", 2400)),
         )
         workspace_memory = self._write_workspace_memory(resolved_task_id, task_state, summary_markdown)
@@ -430,6 +430,8 @@ def _copy_transient_routing_fields(source: dict[str, Any], target: dict[str, Any
 def _with_transient_routing_fields(source: dict[str, Any], target: dict[str, Any]) -> dict[str, Any]:
     return _copy_transient_routing_fields(source, target)
 
+def _context_retrieval_mode(payload: dict[str, Any]) -> str:
+    return _string(payload.get("retrieval_mode")) or _string(os.environ.get("CODEX_MEMORY_RETRIEVAL_MODE")) or "auto"
 
 def _has_routing_signal(payload: dict[str, Any]) -> bool:
     signals = payload.get("signals") if isinstance(payload.get("signals"), dict) else {}
