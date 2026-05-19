@@ -10,7 +10,17 @@ from pathlib import Path
 
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 GLOBAL_STORAGE_DIR: Path | None = None
-PROJECT_MARKERS = [".git", "AGENTS.md", "pyproject.toml", "package.json", "README.md"]
+PROJECT_MARKERS = [".codex", ".git", "AGENTS.md", "pyproject.toml", "package.json", "README.md"]
+PROJECT_CODEX_MARKERS = [
+    Path(".codex") / "harness",
+    Path(".codex") / "harness" / "project_profile.json",
+    Path(".codex") / "harness" / "commands.json",
+    Path(".codex") / "harness" / "workspace-routing.json",
+    Path(".codex") / "shared",
+    Path(".codex") / "shared" / "index.json",
+    Path(".codex") / "memories",
+    Path(".codex") / "memories" / "memory.db",
+]
 
 
 @dataclass(frozen=True)
@@ -50,10 +60,36 @@ def _global_storage_dir() -> Path:
     return GLOBAL_STORAGE_DIR or (_codex_home() / "codex-memory-harness" / "memories")
 
 
+def _is_official_codex_path_candidate(candidate: Path) -> bool:
+    try:
+        resolved = candidate.resolve()
+        home = Path.home().resolve()
+        blocked = {
+            home,
+            (home / ".codex").resolve(),
+            _codex_home().resolve(),
+        }
+        return resolved in blocked
+    except OSError:
+        return False
+
+
+def _is_unsafe_project_fallback(candidate: Path) -> bool:
+    try:
+        resolved = candidate.resolve()
+        home = Path.home().resolve()
+        codex_home = _codex_home().resolve()
+        return resolved == home or resolved == codex_home or codex_home in resolved.parents
+    except OSError:
+        return False
+
+
 def _find_project_root(start: Path) -> Path | None:
     current = start.resolve()
     for candidate in [current, *current.parents]:
-        if (candidate / ".codex").is_dir():
+        if _is_official_codex_path_candidate(candidate) or _is_unsafe_project_fallback(candidate):
+            continue
+        if any((candidate / marker).exists() for marker in PROJECT_CODEX_MARKERS):
             return candidate
         if any((candidate / marker).exists() for marker in PROJECT_MARKERS):
             return candidate
@@ -71,12 +107,22 @@ def resolve_storage_paths(
         raise ValueError("CODEX_MEMORY_SCOPE must be one of: project, global, auto")
 
     start = Path(cwd or _env_value("CODEX_MEMORY_CWD") or Path.cwd()).resolve()
-    project_root = (
+    override_root = (
         Path(project_root_override).resolve()
         if project_root_override and requested_scope in {"project", "auto"}
+        else None
+    )
+    project_root = (
+        override_root
+        if override_root and not _is_unsafe_project_fallback(override_root)
         else _find_project_root(start)
     )
-    if requested_scope == "global" or (requested_scope == "auto" and project_root is None):
+    unsafe_project_fallback = (
+        requested_scope == "project"
+        and project_root is None
+        and _is_unsafe_project_fallback(start)
+    )
+    if requested_scope == "global" or (requested_scope == "auto" and project_root is None) or unsafe_project_fallback:
         storage_dir = _global_storage_dir()
         resolved_scope = "global"
         resolved_project_root = None

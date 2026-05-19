@@ -262,6 +262,78 @@ class BootstrapTests(unittest.TestCase):
         self.assertTrue(project_memory_created)
         self.assertFalse(parent_memory_created)
 
+    def test_storage_layout_does_not_treat_parent_official_codex_dir_as_project(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            home = Path(temp_dir) / "home"
+            isolated = home / "AppData" / "Local" / "Temp" / "isolated-task"
+            isolated.mkdir(parents=True)
+            (home / ".codex").mkdir(parents=True)
+            real_is_official = init_storage._is_official_codex_path_candidate
+            blocked = {home.resolve(), (home / ".codex").resolve()}
+
+            with mock.patch.object(init_storage, "_is_official_codex_path_candidate", side_effect=lambda candidate: candidate.resolve() in blocked or real_is_official(candidate)):
+                layout = init_storage.ensure_storage_layout(
+                    scope="project",
+                    cwd=isolated,
+                )
+            isolated_memory_created = (isolated / ".codex" / "memories" / "memory.db").exists()
+            parent_memory_created = (home / ".codex" / "memories" / "memory.db").exists()
+
+        self.assertEqual(Path(layout["project_root"]).resolve(), isolated.resolve())
+        self.assertTrue(isolated_memory_created)
+        self.assertFalse(parent_memory_created)
+
+    def test_storage_layout_recognizes_plain_project_codex_marker_from_child_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            project_root = Path(temp_dir) / "project"
+            (project_root / "src").mkdir(parents=True)
+            (project_root / ".codex").mkdir()
+            paths = init_storage.resolve_storage_paths(scope="project", cwd=project_root / "src")
+        self.assertEqual(paths.project_root, project_root.resolve())
+
+    def test_storage_layout_recognizes_harness_codex_marker_from_child_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            project_root = Path(temp_dir) / "project"
+            child = project_root / "src" / "feature"
+            child.mkdir(parents=True)
+            harness_dir = project_root / ".codex" / "harness"
+            harness_dir.mkdir(parents=True)
+            (harness_dir / "project_profile.json").write_text("{}", encoding="utf-8")
+
+            paths = init_storage.resolve_storage_paths(scope="project", cwd=child)
+
+        self.assertEqual(paths.project_root, project_root.resolve())
+        self.assertEqual(paths.storage_dir.resolve(), (project_root / ".codex" / "memories").resolve())
+
+    def test_storage_layout_recognizes_existing_memory_only_layout_from_child_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            project_root = Path(temp_dir) / "project"
+            child = project_root / "src"
+            child.mkdir(parents=True)
+            (project_root / ".codex" / "memories").mkdir(parents=True)
+
+            paths = init_storage.resolve_storage_paths(scope="project", cwd=child)
+
+        self.assertEqual(paths.project_root, project_root.resolve())
+        self.assertEqual(paths.storage_dir.resolve(), (project_root / ".codex" / "memories").resolve())
+
+    def test_storage_layout_allows_project_local_codex_home_parent(self) -> None:
+        old_codex_home = os.environ.get("CODEX_HOME")
+        try:
+            with tempfile.TemporaryDirectory() as temp_dir:
+                project_root = Path(temp_dir) / "project"
+                child = project_root / "src"
+                child.mkdir(parents=True)
+                (project_root / ".git").mkdir()
+                os.environ["CODEX_HOME"] = str(project_root / ".codex")
+
+                paths = init_storage.resolve_storage_paths(scope="project", cwd=child)
+        finally:
+            _restore_env("CODEX_HOME", old_codex_home)
+
+        self.assertEqual(paths.project_root, project_root.resolve())
+        self.assertEqual(paths.storage_dir.resolve(), (project_root / ".codex" / "memories").resolve())
+
     def test_project_command_config_uses_codex_style_entrypoints(self) -> None:
         config = codex_bootstrap._command_config(
             PROJECT_ROOT / "plugins" / "codex-memory",
