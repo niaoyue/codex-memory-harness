@@ -1,5 +1,636 @@
 {
   "version": 1,
-  "updated_at": "2026-04-28",
-  "entries": []
+  "updated_at": "2026-05-19",
+  "entries": [
+    {
+      "id": "2026-05-12-audit-open-tasks-fact-design-docs-design_docs-868d40eab2",
+      "path": "facts/2026-05-12-audit-open-tasks-fact-design-docs-design_docs-868d40eab2.md",
+      "scope": "project",
+      "project_id": "design-docs",
+      "domain": "design_docs",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-12"
+    },
+    {
+      "id": "2026-05-12-audit-open-tasks-fact-workspace-meta-root-workspace_meta-be17d4d63e",
+      "path": "facts/2026-05-12-audit-open-tasks-fact-workspace-meta-root-workspace_meta-be17d4d63e.md",
+      "scope": "project",
+      "project_id": "workspace-meta-root",
+      "domain": "workspace_meta",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-12"
+    },
+    {
+      "id": "2026-05-12-commit-first-review-gate-20260512-fact-design-docs-design_docs-dad0494014",
+      "path": "facts/2026-05-12-commit-first-review-gate-20260512-fact-design-docs-design_docs-dad0494014.md",
+      "scope": "project",
+      "project_id": "design-docs",
+      "domain": "design_docs",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-12"
+    },
+    {
+      "id": "2026-05-12-commit-first-review-gate-20260512-fact-plugin-runtime-workspace_meta-2d9b744742",
+      "path": "facts/2026-05-12-commit-first-review-gate-20260512-fact-plugin-runtime-workspace_meta-2d9b744742.md",
+      "scope": "project",
+      "project_id": "plugin-runtime",
+      "domain": "workspace_meta",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-12"
+    },
+    {
+      "id": "2026-05-12-commit-first-review-gate-20260512-fact-test-suite-workspace_meta-0d78147abb",
+      "path": "facts/2026-05-12-commit-first-review-gate-20260512-fact-test-suite-workspace_meta-0d78147abb.md",
+      "scope": "project",
+      "project_id": "test-suite",
+      "domain": "workspace_meta",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-12"
+    },
+    {
+      "id": "2026-05-12-commit-first-review-gate-20260512-fact-workspace-meta-root-workspace_meta-cd3ce68056",
+      "path": "facts/2026-05-12-commit-first-review-gate-20260512-fact-workspace-meta-root-workspace_meta-cd3ce68056.md",
+      "scope": "project",
+      "project_id": "workspace-meta-root",
+      "domain": "workspace_meta",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-12"
+    },
+    {
+      "id": "2026-05-13-codex-specs-governance-20260513-fact-design-docs-design_docs-758798dd70",
+      "path": "facts/2026-05-13-codex-specs-governance-20260513-fact-design-docs-design_docs-758798dd70.md",
+      "scope": "project",
+      "project_id": "design-docs",
+      "domain": "design_docs",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-13"
+    },
+    {
+      "id": "2026-05-13-codex-specs-governance-20260513-fact-plugin-runtime-workspace_meta-f3b78a3a5b",
+      "path": "facts/2026-05-13-codex-specs-governance-20260513-fact-plugin-runtime-workspace_meta-f3b78a3a5b.md",
+      "scope": "project",
+      "project_id": "plugin-runtime",
+      "domain": "workspace_meta",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-13"
+    },
+    {
+      "id": "2026-05-13-codex-specs-governance-20260513-fact-workspace-meta-root-workspace_meta-ba2a54642c",
+      "path": "facts/2026-05-13-codex-specs-governance-20260513-fact-workspace-meta-root-workspace_meta-ba2a54642c.md",
+      "scope": "project",
+      "project_id": "workspace-meta-root",
+      "domain": "workspace_meta",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-13"
+    },
+    {
+      "id": "2026-05-13-codex-subagent-t59-20260513-fact-design-docs-design_docs-989d204b22",
+      "path": "facts/2026-05-13-codex-subagent-t59-20260513-fact-design-docs-design_docs-989d204b22.md",
+      "scope": "project",
+      "project_id": "design-docs",
+      "domain": "design_docs",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-13"
+    },
+    {
+      "id": "2026-05-13-codex-subagent-t59-20260513-fact-workspace-meta-root-workspace_meta-897346eeaf",
+      "path": "facts/2026-05-13-codex-subagent-t59-20260513-fact-workspace-meta-root-workspace_meta-897346eeaf.md",
+      "scope": "project",
+      "project_id": "workspace-meta-root",
+      "domain": "workspace_meta",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-13"
+    },
+    {
+      "id": "2026-05-13-commit-first-review-gate-20260512-fact-design-docs-design_docs-f91112ebb5",
+      "path": "facts/2026-05-13-commit-first-review-gate-20260512-fact-design-docs-design_docs-f91112ebb5.md",
+      "scope": "project",
+      "project_id": "design-docs",
+      "domain": "design_docs",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-13"
+    },
+    {
+      "id": "2026-05-13-commit-first-review-gate-20260512-fact-plugin-runtime-workspace_meta-e2b821e736",
+      "path": "facts/2026-05-13-commit-first-review-gate-20260512-fact-plugin-runtime-workspace_meta-e2b821e736.md",
+      "scope": "project",
+      "project_id": "plugin-runtime",
+      "domain": "workspace_meta",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-13"
+    },
+    {
+      "id": "2026-05-13-commit-first-review-gate-20260512-fact-test-suite-workspace_meta-09e951a660",
+      "path": "facts/2026-05-13-commit-first-review-gate-20260512-fact-test-suite-workspace_meta-09e951a660.md",
+      "scope": "project",
+      "project_id": "test-suite",
+      "domain": "workspace_meta",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-13"
+    },
+    {
+      "id": "2026-05-13-commit-first-review-gate-20260512-fact-workspace-meta-root-workspace_meta-9abfd4692e",
+      "path": "facts/2026-05-13-commit-first-review-gate-20260512-fact-workspace-meta-root-workspace_meta-9abfd4692e.md",
+      "scope": "project",
+      "project_id": "workspace-meta-root",
+      "domain": "workspace_meta",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-13"
+    },
+    {
+      "id": "2026-05-13-continue-open-tasks-20260513-fact-design-docs-design_docs-f292a7d813",
+      "path": "facts/2026-05-13-continue-open-tasks-20260513-fact-design-docs-design_docs-f292a7d813.md",
+      "scope": "project",
+      "project_id": "design-docs",
+      "domain": "design_docs",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-13"
+    },
+    {
+      "id": "2026-05-13-continue-open-tasks-20260513-fact-plugin-runtime-workspace_meta-c165e6cbb2",
+      "path": "facts/2026-05-13-continue-open-tasks-20260513-fact-plugin-runtime-workspace_meta-c165e6cbb2.md",
+      "scope": "project",
+      "project_id": "plugin-runtime",
+      "domain": "workspace_meta",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-13"
+    },
+    {
+      "id": "2026-05-13-continue-open-tasks-20260513-fact-test-suite-workspace_meta-d756582d23",
+      "path": "facts/2026-05-13-continue-open-tasks-20260513-fact-test-suite-workspace_meta-d756582d23.md",
+      "scope": "project",
+      "project_id": "test-suite",
+      "domain": "workspace_meta",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-13"
+    },
+    {
+      "id": "2026-05-13-migrate-docs-to-harness-specs-2026-fact-workspace-meta-root-workspace_meta-5f12b3706b",
+      "path": "facts/2026-05-13-migrate-docs-to-harness-specs-2026-fact-workspace-meta-root-workspace_meta-5f12b3706b.md",
+      "scope": "project",
+      "project_id": "workspace-meta-root",
+      "domain": "workspace_meta",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-13"
+    },
+    {
+      "id": "2026-05-13-migrate-docs-to-harness-specs-20260513-fact-design-docs-design_docs-a0869c1691",
+      "path": "facts/2026-05-13-migrate-docs-to-harness-specs-20260513-fact-design-docs-design_docs-a0869c1691.md",
+      "scope": "project",
+      "project_id": "design-docs",
+      "domain": "design_docs",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-13"
+    },
+    {
+      "id": "2026-05-13-migrate-planning-docs-to-codex-spe-fact-workspace-meta-root-workspace_meta-8c746f5eac",
+      "path": "facts/2026-05-13-migrate-planning-docs-to-codex-spe-fact-workspace-meta-root-workspace_meta-8c746f5eac.md",
+      "scope": "project",
+      "project_id": "workspace-meta-root",
+      "domain": "workspace_meta",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-13"
+    },
+    {
+      "id": "2026-05-13-migrate-planning-docs-to-codex-specs-20-fact-plugin-runtime-workspace_meta-c083393992",
+      "path": "facts/2026-05-13-migrate-planning-docs-to-codex-specs-20-fact-plugin-runtime-workspace_meta-c083393992.md",
+      "scope": "project",
+      "project_id": "plugin-runtime",
+      "domain": "workspace_meta",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-13"
+    },
+    {
+      "id": "2026-05-13-migrate-planning-docs-to-codex-specs-20-fact-release-tooling-build_release-a389398aac",
+      "path": "facts/2026-05-13-migrate-planning-docs-to-codex-specs-20-fact-release-tooling-build_release-a389398aac.md",
+      "scope": "project",
+      "project_id": "release-tooling",
+      "domain": "build_release",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-13"
+    },
+    {
+      "id": "2026-05-13-migrate-planning-docs-to-codex-specs-202605-fact-test-suite-workspace_meta-864f502394",
+      "path": "facts/2026-05-13-migrate-planning-docs-to-codex-specs-202605-fact-test-suite-workspace_meta-864f502394.md",
+      "scope": "project",
+      "project_id": "test-suite",
+      "domain": "workspace_meta",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-13"
+    },
+    {
+      "id": "2026-05-13-migrate-planning-docs-to-codex-specs-20260513-fact-design-docs-design_docs-f3c706769b",
+      "path": "facts/2026-05-13-migrate-planning-docs-to-codex-specs-20260513-fact-design-docs-design_docs-f3c706769b.md",
+      "scope": "project",
+      "project_id": "design-docs",
+      "domain": "design_docs",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-13"
+    },
+    {
+      "id": "2026-05-13-skill-add-dedupe-20260513-fact-design-docs-design_docs-2982a49fd7",
+      "path": "facts/2026-05-13-skill-add-dedupe-20260513-fact-design-docs-design_docs-2982a49fd7.md",
+      "scope": "project",
+      "project_id": "design-docs",
+      "domain": "design_docs",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-13"
+    },
+    {
+      "id": "2026-05-13-skill-add-dedupe-20260513-fact-plugin-runtime-workspace_meta-87d0fdbe98",
+      "path": "facts/2026-05-13-skill-add-dedupe-20260513-fact-plugin-runtime-workspace_meta-87d0fdbe98.md",
+      "scope": "project",
+      "project_id": "plugin-runtime",
+      "domain": "workspace_meta",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-13"
+    },
+    {
+      "id": "2026-05-13-skill-add-dedupe-20260513-fact-test-suite-workspace_meta-4bba3b3f3f",
+      "path": "facts/2026-05-13-skill-add-dedupe-20260513-fact-test-suite-workspace_meta-4bba3b3f3f.md",
+      "scope": "project",
+      "project_id": "test-suite",
+      "domain": "workspace_meta",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-13"
+    },
+    {
+      "id": "2026-05-13-skill-add-dedupe-20260513-fact-workspace-meta-root-workspace_meta-8d86de5ef4",
+      "path": "facts/2026-05-13-skill-add-dedupe-20260513-fact-workspace-meta-root-workspace_meta-8d86de5ef4.md",
+      "scope": "project",
+      "project_id": "workspace-meta-root",
+      "domain": "workspace_meta",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-13"
+    },
+    {
+      "id": "2026-05-13-t59-docs-readonly-audit-20260513-fact-design-docs-design_docs-1c1d892e52",
+      "path": "facts/2026-05-13-t59-docs-readonly-audit-20260513-fact-design-docs-design_docs-1c1d892e52.md",
+      "scope": "project",
+      "project_id": "design-docs",
+      "domain": "design_docs",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-13"
+    },
+    {
+      "id": "2026-05-13-t59-docs-readonly-audit-20260513-fact-workspace-meta-root-workspace_meta-94bcc196fb",
+      "path": "facts/2026-05-13-t59-docs-readonly-audit-20260513-fact-workspace-meta-root-workspace_meta-94bcc196fb.md",
+      "scope": "project",
+      "project_id": "workspace-meta-root",
+      "domain": "workspace_meta",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-13"
+    },
+    {
+      "id": "2026-05-13-unfinished-task-progress-summary-2-fact-workspace-meta-root-workspace_meta-0718863b5c",
+      "path": "facts/2026-05-13-unfinished-task-progress-summary-2-fact-workspace-meta-root-workspace_meta-0718863b5c.md",
+      "scope": "project",
+      "project_id": "workspace-meta-root",
+      "domain": "workspace_meta",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-13"
+    },
+    {
+      "id": "2026-05-13-unfinished-task-progress-summary-202605-fact-plugin-runtime-workspace_meta-b803ffe78e",
+      "path": "facts/2026-05-13-unfinished-task-progress-summary-202605-fact-plugin-runtime-workspace_meta-b803ffe78e.md",
+      "scope": "project",
+      "project_id": "plugin-runtime",
+      "domain": "workspace_meta",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-13"
+    },
+    {
+      "id": "2026-05-13-unfinished-task-progress-summary-20260513-fact-design-docs-design_docs-d602005970",
+      "path": "facts/2026-05-13-unfinished-task-progress-summary-20260513-fact-design-docs-design_docs-d602005970.md",
+      "scope": "project",
+      "project_id": "design-docs",
+      "domain": "design_docs",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-13"
+    },
+    {
+      "id": "2026-05-13-unfinished-task-progress-summary-20260513-fact-test-suite-workspace_meta-a02198ab02",
+      "path": "facts/2026-05-13-unfinished-task-progress-summary-20260513-fact-test-suite-workspace_meta-a02198ab02.md",
+      "scope": "project",
+      "project_id": "test-suite",
+      "domain": "workspace_meta",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-13"
+    },
+    {
+      "id": "2026-05-14-align-openspec-spec-layer-fact-design-docs-design_docs-371b34a657",
+      "path": "facts/2026-05-14-align-openspec-spec-layer-fact-design-docs-design_docs-371b34a657.md",
+      "scope": "project",
+      "project_id": "design-docs",
+      "domain": "design_docs",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-14"
+    },
+    {
+      "id": "2026-05-14-align-openspec-spec-layer-fact-plugin-runtime-workspace_meta-f97c81253a",
+      "path": "facts/2026-05-14-align-openspec-spec-layer-fact-plugin-runtime-workspace_meta-f97c81253a.md",
+      "scope": "project",
+      "project_id": "plugin-runtime",
+      "domain": "workspace_meta",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-14"
+    },
+    {
+      "id": "2026-05-14-align-openspec-spec-layer-fact-release-tooling-build_release-5ed172d0ed",
+      "path": "facts/2026-05-14-align-openspec-spec-layer-fact-release-tooling-build_release-5ed172d0ed.md",
+      "scope": "project",
+      "project_id": "release-tooling",
+      "domain": "build_release",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-14"
+    },
+    {
+      "id": "2026-05-14-align-openspec-spec-layer-fact-test-suite-workspace_meta-e6d1468d5c",
+      "path": "facts/2026-05-14-align-openspec-spec-layer-fact-test-suite-workspace_meta-e6d1468d5c.md",
+      "scope": "project",
+      "project_id": "test-suite",
+      "domain": "workspace_meta",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-14"
+    },
+    {
+      "id": "2026-05-14-align-openspec-spec-layer-fact-workspace-meta-root-workspace_meta-95ffa61ae8",
+      "path": "facts/2026-05-14-align-openspec-spec-layer-fact-workspace-meta-root-workspace_meta-95ffa61ae8.md",
+      "scope": "project",
+      "project_id": "workspace-meta-root",
+      "domain": "workspace_meta",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-14"
+    },
+    {
+      "id": "2026-05-14-audit-install-update-flow-fact-plugin-runtime-workspace_meta-a3ebee4e2b",
+      "path": "facts/2026-05-14-audit-install-update-flow-fact-plugin-runtime-workspace_meta-a3ebee4e2b.md",
+      "scope": "project",
+      "project_id": "plugin-runtime",
+      "domain": "workspace_meta",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-14"
+    },
+    {
+      "id": "2026-05-14-audit-install-update-flow-fact-test-suite-workspace_meta-eafe688fae",
+      "path": "facts/2026-05-14-audit-install-update-flow-fact-test-suite-workspace_meta-eafe688fae.md",
+      "scope": "project",
+      "project_id": "test-suite",
+      "domain": "workspace_meta",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-14"
+    },
+    {
+      "id": "2026-05-14-audit-install-update-flow-fact-workspace-meta-root-workspace_meta-4b8e850d99",
+      "path": "facts/2026-05-14-audit-install-update-flow-fact-workspace-meta-root-workspace_meta-4b8e850d99.md",
+      "scope": "project",
+      "project_id": "workspace-meta-root",
+      "domain": "workspace_meta",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-14"
+    },
+    {
+      "id": "2026-05-14-install-subagent-dispatch-rule-fact-design-docs-design_docs-48203040b9",
+      "path": "facts/2026-05-14-install-subagent-dispatch-rule-fact-design-docs-design_docs-48203040b9.md",
+      "scope": "project",
+      "project_id": "design-docs",
+      "domain": "design_docs",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-14"
+    },
+    {
+      "id": "2026-05-14-install-subagent-dispatch-rule-fact-plugin-runtime-workspace_meta-e4500019e4",
+      "path": "facts/2026-05-14-install-subagent-dispatch-rule-fact-plugin-runtime-workspace_meta-e4500019e4.md",
+      "scope": "project",
+      "project_id": "plugin-runtime",
+      "domain": "workspace_meta",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-14"
+    },
+    {
+      "id": "2026-05-14-install-subagent-dispatch-rule-fact-test-suite-workspace_meta-0f2a38f743",
+      "path": "facts/2026-05-14-install-subagent-dispatch-rule-fact-test-suite-workspace_meta-0f2a38f743.md",
+      "scope": "project",
+      "project_id": "test-suite",
+      "domain": "workspace_meta",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-14"
+    },
+    {
+      "id": "2026-05-14-install-subagent-dispatch-rule-fact-workspace-meta-root-workspace_meta-c9e88c0485",
+      "path": "facts/2026-05-14-install-subagent-dispatch-rule-fact-workspace-meta-root-workspace_meta-c9e88c0485.md",
+      "scope": "project",
+      "project_id": "workspace-meta-root",
+      "domain": "workspace_meta",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-14"
+    },
+    {
+      "id": "2026-05-14-review-44848753-fact-workspace-meta-root-workspace_meta-b42f7c302f",
+      "path": "facts/2026-05-14-review-44848753-fact-workspace-meta-root-workspace_meta-b42f7c302f.md",
+      "scope": "project",
+      "project_id": "workspace-meta-root",
+      "domain": "workspace_meta",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-14"
+    },
+    {
+      "id": "2026-05-14-review-b66bd936-fact-workspace-meta-root-workspace_meta-db0b023e8a",
+      "path": "facts/2026-05-14-review-b66bd936-fact-workspace-meta-root-workspace_meta-db0b023e8a.md",
+      "scope": "project",
+      "project_id": "workspace-meta-root",
+      "domain": "workspace_meta",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-14"
+    },
+    {
+      "id": "2026-05-14-review-b8becdd-fact-workspace-meta-root-workspace_meta-606d08f881",
+      "path": "facts/2026-05-14-review-b8becdd-fact-workspace-meta-root-workspace_meta-606d08f881.md",
+      "scope": "project",
+      "project_id": "workspace-meta-root",
+      "domain": "workspace_meta",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-14"
+    },
+    {
+      "id": "2026-05-15-openspec-default-upstream-init-fact-plugin-runtime-workspace_meta-2d5c296e12",
+      "path": "facts/2026-05-15-openspec-default-upstream-init-fact-plugin-runtime-workspace_meta-2d5c296e12.md",
+      "scope": "project",
+      "project_id": "plugin-runtime",
+      "domain": "workspace_meta",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-15"
+    },
+    {
+      "id": "2026-05-15-openspec-default-upstream-init-fact-test-suite-workspace_meta-6a7a1716ac",
+      "path": "facts/2026-05-15-openspec-default-upstream-init-fact-test-suite-workspace_meta-6a7a1716ac.md",
+      "scope": "project",
+      "project_id": "test-suite",
+      "domain": "workspace_meta",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-15"
+    },
+    {
+      "id": "2026-05-15-openspec-default-upstream-init-fact-workspace-meta-root-workspace_meta-949ca1907a",
+      "path": "facts/2026-05-15-openspec-default-upstream-init-fact-workspace-meta-root-workspace_meta-949ca1907a.md",
+      "scope": "project",
+      "project_id": "workspace-meta-root",
+      "domain": "workspace_meta",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-15"
+    },
+    {
+      "id": "2026-05-15-openspec-subagent-required-dispatch-fact-plugin-runtime-workspace_meta-c042c7702a",
+      "path": "facts/2026-05-15-openspec-subagent-required-dispatch-fact-plugin-runtime-workspace_meta-c042c7702a.md",
+      "scope": "project",
+      "project_id": "plugin-runtime",
+      "domain": "workspace_meta",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-15"
+    },
+    {
+      "id": "2026-05-15-openspec-subagent-required-dispatch-fact-project-templates-workspace_meta-4752a04599",
+      "path": "facts/2026-05-15-openspec-subagent-required-dispatch-fact-project-templates-workspace_meta-4752a04599.md",
+      "scope": "project",
+      "project_id": "project-templates",
+      "domain": "workspace_meta",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-15"
+    },
+    {
+      "id": "2026-05-15-openspec-subagent-required-dispatch-fact-test-suite-workspace_meta-f553ce4a6c",
+      "path": "facts/2026-05-15-openspec-subagent-required-dispatch-fact-test-suite-workspace_meta-f553ce4a6c.md",
+      "scope": "project",
+      "project_id": "test-suite",
+      "domain": "workspace_meta",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-15"
+    },
+    {
+      "id": "2026-05-12-commit-first-review-gate-20260512-route-workspace-release_train-897727a9bf",
+      "path": "routes/2026-05-12-commit-first-review-gate-20260512-route-workspace-release_train-897727a9bf.md",
+      "scope": "workspace",
+      "project_id": "workspace",
+      "domain": "release_train",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-12"
+    },
+    {
+      "id": "2026-05-13-codex-subagent-t59-20260513-route-workspace-cross_proje-7bbcc577-38a162c334",
+      "path": "routes/2026-05-13-codex-subagent-t59-20260513-route-workspace-cross_proje-7bbcc577-38a162c334.md",
+      "scope": "workspace",
+      "project_id": "workspace",
+      "domain": "cross_project_contract",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-13"
+    },
+    {
+      "id": "2026-05-13-commit-first-review-gate-20260512-route-workspace-release_train-3736f8b48c",
+      "path": "routes/2026-05-13-commit-first-review-gate-20260512-route-workspace-release_train-3736f8b48c.md",
+      "scope": "workspace",
+      "project_id": "workspace",
+      "domain": "release_train",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-13"
+    },
+    {
+      "id": "2026-05-13-continue-open-tasks-20260513-route-workspace-release_train-af8690e60d",
+      "path": "routes/2026-05-13-continue-open-tasks-20260513-route-workspace-release_train-af8690e60d.md",
+      "scope": "workspace",
+      "project_id": "workspace",
+      "domain": "release_train",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-13"
+    },
+    {
+      "id": "2026-05-13-migrate-planning-docs-to-codex-specs-2026051-route-workspace-release_train-57ac2929c2",
+      "path": "routes/2026-05-13-migrate-planning-docs-to-codex-specs-2026051-route-workspace-release_train-57ac2929c2.md",
+      "scope": "workspace",
+      "project_id": "workspace",
+      "domain": "release_train",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-13"
+    },
+    {
+      "id": "2026-05-13-t59-docs-readonly-audit-20260513-route-workspace-cross_proje-7bbcc577-754710a7db",
+      "path": "routes/2026-05-13-t59-docs-readonly-audit-20260513-route-workspace-cross_proje-7bbcc577-754710a7db.md",
+      "scope": "workspace",
+      "project_id": "workspace",
+      "domain": "cross_project_contract",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-13"
+    },
+    {
+      "id": "2026-05-14-align-openspec-spec-layer-route-workspace-release_train-2bbeb6260d",
+      "path": "routes/2026-05-14-align-openspec-spec-layer-route-workspace-release_train-2bbeb6260d.md",
+      "scope": "workspace",
+      "project_id": "workspace",
+      "domain": "release_train",
+      "status": "proposed",
+      "confidence": "medium",
+      "updated_at": "2026-05-14"
+    }
+  ]
 }
