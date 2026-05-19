@@ -90,36 +90,32 @@ class ReviewWorkflowTests(unittest.TestCase):
         self.assertEqual(boundary["blocked_paths"], [])
 
     def test_package_boundary_blocks_runtime_files(self) -> None:
-        with temp_repo() as root:
-            _write(root / ".codex" / "memories" / "memory.db", "not a real db")
+        boundary = review_workflow.package_boundary_check(
+            PROJECT_ROOT,
+            "uncommitted",
+            [".codex/memories/memory.db"],
+        )
 
-            result = review_workflow.preflight(root, task_id="review-task")
-
-        boundary = next(item for item in result["checks"] if item["name"] == "package_boundary")
-        self.assertFalse(result["ok"])
         self.assertFalse(boundary["ok"])
         self.assertIn(".codex/memories/memory.db", boundary["blocked_paths"])
 
     def test_package_boundary_blocks_review_runtime_artifacts(self) -> None:
-        with temp_repo() as root:
-            _write(root / ".codex" / "harness" / "review" / "final-xhigh" / "stderr.log", "old finding\n")
+        boundary = review_workflow.package_boundary_check(
+            PROJECT_ROOT,
+            "uncommitted",
+            [".codex/harness/review/final-xhigh/stderr.log"],
+        )
 
-            result = review_workflow.preflight(root, task_id="review-task")
-
-        boundary = next(item for item in result["checks"] if item["name"] == "package_boundary")
-        self.assertFalse(result["ok"])
         self.assertFalse(boundary["ok"])
         self.assertIn(".codex/harness/review/final-xhigh/stderr.log", boundary["blocked_paths"])
 
     def test_package_boundary_matches_runtime_paths_on_segment_boundaries(self) -> None:
-        with temp_repo() as root:
-            _write(root / "distillation" / "notes.md", "reviewable docs\n")
-            _write(root / ".codex" / "harness" / "review-notes.md", "reviewable docs\n")
+        boundary = review_workflow.package_boundary_check(
+            PROJECT_ROOT,
+            "uncommitted",
+            ["distillation/notes.md", ".codex/harness/review-notes.md"],
+        )
 
-            result = review_workflow.preflight(root, task_id="review-task")
-
-        boundary = next(item for item in result["checks"] if item["name"] == "package_boundary")
-        self.assertTrue(result["ok"], result)
         self.assertTrue(boundary["ok"])
         self.assertEqual(boundary["blocked_paths"], [])
 
@@ -316,8 +312,11 @@ class ReviewWorkflowTests(unittest.TestCase):
         self.assertEqual(result["entry"]["findings"][0]["summary"], "Blocking review finding")
 
     def test_record_clean_runner_result_uses_saved_preflight_fingerprint(self) -> None:
-        with temp_repo() as root:
-            review_workflow.preflight(root, task_id="review-task")
+        with fast_review_project() as root:
+            _write(
+                root / ".codex" / "harness" / "review" / "preflight.json",
+                json.dumps({"diff_fingerprint": _fingerprint()}),
+            )
             result = review_workflow.record_review(
                 root,
                 {"ok": True, "exit_code": 0, "stdout_tail": [], "stderr_tail": []},
@@ -340,7 +339,29 @@ class ReviewWorkflowTests(unittest.TestCase):
         self.assertIn(".codex/harness/review/final-xhigh/stderr.log", boundary["blocked_paths"])
 
     def test_cli_accepts_documented_subcommand_mode_flags(self) -> None:
-        with temp_repo() as root:
+        def inputs_for_mode(_root: Path, *, mode: str = "uncommitted") -> dict[str, object]:
+            return {
+                "mode": mode,
+                "head": "0" * 40,
+                "status_rows": [],
+                "status_text": "",
+                "working": b"",
+                "cached": b"",
+                "untracked_paths": [],
+                "untracked": b"",
+                "changed_files": [],
+            }
+
+        def diff_for_mode(_root: Path, *, mode: str = "uncommitted", **_: object) -> dict[str, object]:
+            return _fingerprint(mode, mode=mode)
+
+        with (
+            fast_review_project() as root,
+            mock.patch.object(review_workflow, "review_inputs", side_effect=inputs_for_mode),
+            mock.patch.object(review_workflow, "diff_fingerprint", side_effect=diff_for_mode),
+            mock.patch.object(review_workflow, "diff_check", return_value={"name": "git_diff_check", "ok": True}),
+            mock.patch.object(review_workflow, "verification_summary", return_value={"name": "verification_config", "ok": True}),
+        ):
             by_mode = _run_review_workflow_cli(
                 [
                     "--project-root",

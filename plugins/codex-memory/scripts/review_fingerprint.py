@@ -19,14 +19,38 @@ REVIEW_METADATA_PATHS = {
 }
 
 
-def diff_fingerprint(project_root: Path, *, mode: str = "uncommitted") -> dict[str, Any]:
+def review_inputs(project_root: Path, *, mode: str = "uncommitted") -> dict[str, Any]:
     if mode not in REVIEW_MODES:
         raise ValueError(f"Unsupported review mode: {mode}")
     head = git_text(project_root, ["rev-parse", "HEAD"], check=False).strip()
-    status_text = status_snapshot(project_root, mode=mode)
+    status_rows = porcelain_status(project_root)
+    status_text = status_snapshot_from_rows(status_rows, mode=mode)
     working = git_bytes(project_root, ["diff", "--binary", "--full-index"]) if mode in {"uncommitted", "working"} else b""
     cached = git_bytes(project_root, ["diff", "--cached", "--binary", "--full-index"]) if mode in {"uncommitted", "staged"} else b""
-    untracked = untracked_snapshot(project_root) if mode in {"uncommitted", "working"} else b""
+    untracked_paths = untracked_files(project_root) if mode in {"uncommitted", "working"} else []
+    untracked = untracked_snapshot(project_root, untracked_paths) if mode in {"uncommitted", "working"} else b""
+    changed = changed_files(project_root, mode, status_rows=status_rows)
+    return {
+        "mode": mode,
+        "head": head,
+        "status_rows": status_rows,
+        "status_text": status_text,
+        "working": working,
+        "cached": cached,
+        "untracked_paths": untracked_paths,
+        "untracked": untracked,
+        "changed_files": changed,
+    }
+
+
+def diff_fingerprint(project_root: Path, *, mode: str = "uncommitted", inputs: dict[str, Any] | None = None) -> dict[str, Any]:
+    data = inputs or review_inputs(project_root, mode=mode)
+    mode = str(data["mode"])
+    head = str(data["head"])
+    status_text = str(data["status_text"])
+    working = _bytes_value(data["working"])
+    cached = _bytes_value(data["cached"])
+    untracked = _bytes_value(data["untracked"])
     digest = hashlib.sha256()
     for label, value in (("head", head.encode()), ("status", status_text.encode()), ("working", working), ("cached", cached), ("untracked", untracked)):
         digest.update(label.encode() + b"\0" + value + b"\0")
@@ -39,7 +63,7 @@ def diff_fingerprint(project_root: Path, *, mode: str = "uncommitted") -> dict[s
         "working_diff_sha256": hashlib.sha256(working).hexdigest(),
         "cached_diff_sha256": hashlib.sha256(cached).hexdigest(),
         "untracked_sha256": hashlib.sha256(untracked).hexdigest(),
-        "changed_files": changed_files(project_root, mode),
+        "changed_files": list(data["changed_files"]),
     }
 
 
@@ -71,8 +95,8 @@ def _diff_check_once(project_root: Path, name: str, args: list[str]) -> dict[str
     }
 
 
-def sensitive_check(project_root: Path, mode: str) -> dict[str, Any]:
-    diff_text = sensitive_review_text(project_root, mode)
+def sensitive_check(project_root: Path, mode: str, inputs: dict[str, Any] | None = None) -> dict[str, Any]:
+    diff_text = sensitive_review_text(project_root, mode, inputs=inputs)
     result = sensitive_scan.sanitize_for_persistence(diff_text)
     return {
         "name": "sensitive_scan",
@@ -116,20 +140,30 @@ def slice_plan(project_root: Path, *, mode: str, files: list[str] | None = None)
     ]
 
 
-def changed_files(project_root: Path, mode: str) -> list[str]:
+def changed_files(project_root: Path, mode: str, *, status_rows: list[tuple[str, str]] | None = None) -> list[str]:
     args = ["diff", "--name-only"]
     if mode == "staged":
         args.insert(1, "--cached")
     files = git_text(project_root, args, check=False).splitlines()
     status_files = []
+    rows = porcelain_status(project_root) if status_rows is None else status_rows
     if mode == "uncommitted":
-        status_files = [path for _, path in porcelain_status(project_root)]
+        status_files = [path for _, path in rows]
     elif mode == "working":
-        status_files = [path for code, path in porcelain_status(project_root) if is_working_status(code)]
+        status_files = [path for code, path in rows if is_working_status(code)]
     return sorted({item for item in normalize_review_paths(files + status_files) if not is_review_metadata_path(item)})
 
 
-def review_diff_text(project_root: Path, mode: str) -> str:
+def review_diff_text(project_root: Path, mode: str, inputs: dict[str, Any] | None = None) -> str:
+    if inputs is not None:
+        parts = []
+        if mode in {"uncommitted", "working"}:
+            parts.append(_bytes_value(inputs["working"]).decode("utf-8", errors="replace"))
+        if mode in {"uncommitted", "staged"}:
+            parts.append(_bytes_value(inputs["cached"]).decode("utf-8", errors="replace"))
+        if mode in {"uncommitted", "working"}:
+            parts.append(_bytes_value(inputs["untracked"]).decode("utf-8", errors="replace"))
+        return "\n".join(parts)
     parts = []
     if mode in {"uncommitted", "working"}:
         parts.append(git_text(project_root, ["diff", "--binary", "--full-index"], check=False))
@@ -140,15 +174,16 @@ def review_diff_text(project_root: Path, mode: str) -> str:
     return "\n".join(parts)
 
 
-def sensitive_review_text(project_root: Path, mode: str) -> str:
-    parts = [review_diff_text(project_root, mode)]
+def sensitive_review_text(project_root: Path, mode: str, inputs: dict[str, Any] | None = None) -> str:
+    parts = [review_diff_text(project_root, mode, inputs=inputs)]
     if mode in {"uncommitted", "working"}:
-        parts.append(untracked_full_text(project_root))
+        paths = list(inputs["untracked_paths"]) if inputs is not None else None
+        parts.append(untracked_full_text(project_root, paths))
     return "\n".join(parts)
 
 
-def untracked_snapshot(project_root: Path) -> bytes:
-    paths = untracked_files(project_root)
+def untracked_snapshot(project_root: Path, paths: list[str] | None = None) -> bytes:
+    paths = untracked_files(project_root) if paths is None else paths
     chunks: list[bytes] = []
     for relative in paths:
         path = project_root / relative
@@ -167,9 +202,9 @@ def untracked_snapshot(project_root: Path) -> bytes:
     return b"".join(chunks)
 
 
-def untracked_full_text(project_root: Path) -> str:
+def untracked_full_text(project_root: Path, paths: list[str] | None = None) -> str:
     chunks: list[str] = []
-    for relative in untracked_files(project_root):
+    for relative in untracked_files(project_root) if paths is None else paths:
         path = project_root / relative
         try:
             data = path.read_bytes()
@@ -190,16 +225,20 @@ def untracked_files(project_root: Path) -> list[str]:
 
 
 def status_snapshot(project_root: Path, *, mode: str) -> str:
+    return status_snapshot_from_rows(porcelain_status(project_root), mode=mode)
+
+
+def status_snapshot_from_rows(rows: list[tuple[str, str]], *, mode: str) -> str:
     if mode == "staged":
         return ""
-    rows = []
-    for code, path in porcelain_status(project_root):
+    selected = []
+    for code, path in rows:
         if mode == "working" and not is_working_status(code):
             continue
         if is_review_metadata_path(path):
             continue
-        rows.append(f"{code} {path}")
-    return "\n".join(rows) + ("\n" if rows else "")
+        selected.append(f"{code} {path}")
+    return "\n".join(selected) + ("\n" if selected else "")
 
 
 def porcelain_status(project_root: Path) -> list[tuple[str, str]]:
@@ -273,3 +312,11 @@ def run_git(project_root: Path, args: list[str]) -> subprocess.CompletedProcess[
 
 def tail(text: str, limit: int = 2000) -> str:
     return text[-limit:]
+
+
+def _bytes_value(value: Any) -> bytes:
+    if isinstance(value, bytes):
+        return value
+    if isinstance(value, str):
+        return value.encode("utf-8")
+    return bytes(value)

@@ -17,6 +17,7 @@ from review_fingerprint import (
     package_boundary_check,
     sensitive_check,
     slice_plan,
+    review_inputs,
     verification_summary,
 )
 from review_findings import detect_review_findings
@@ -29,11 +30,12 @@ FULL_COMMIT_SHA_RE = re.compile(r"^[0-9a-fA-F]{40}$")
 
 
 def preflight(project_root: Path, *, mode: str = "uncommitted", task_id: str = "review") -> dict[str, Any]:
-    fingerprint = diff_fingerprint(project_root, mode=mode)
+    inputs = review_inputs(project_root, mode=mode)
+    fingerprint = diff_fingerprint(project_root, mode=mode, inputs=inputs)
     changed_files = list(fingerprint.get("changed_files") or [])
     checks = [
         diff_check(project_root, mode),
-        sensitive_check(project_root, mode),
+        sensitive_check(project_root, mode, inputs=inputs),
         package_boundary_check(project_root, mode, changed_files),
         verification_summary(project_root),
     ]

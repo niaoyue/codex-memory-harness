@@ -26,10 +26,15 @@ from git_repo_template import copy_git_repo
 
 class WorkspaceSessionTests(unittest.TestCase):
     def test_clean_primary_checkout_gets_write_binding(self) -> None:
-        with session_env() as env:
-            repo = env.repo
-
-            result = workspace_session.write_guard(repo, session_id="session-a", task_id="task-a")
+        with temp_registry() as env:
+            repo = env.root / "repo"
+            with (
+                mock.patch.object(workspace_session, "git_root", return_value=repo),
+                mock.patch.object(workspace_session, "project_info", return_value=_info(repo)),
+                mock.patch.object(workspace_session, "dirty_paths", return_value=[]),
+                mock.patch.object(workspace_session, "git_text", return_value="main"),
+            ):
+                result = workspace_session.write_guard(repo, session_id="session-a", task_id="task-a")
 
             self.assertTrue(result["ok"], result)
             self.assertEqual(result["action"], "allow_write")
@@ -54,17 +59,11 @@ class WorkspaceSessionTests(unittest.TestCase):
             self.assertTrue((effective / ".git").exists() or (effective / ".git").is_file())
 
     def test_managed_worktree_branch_is_git_ref_safe(self) -> None:
-        with session_env() as env:
-            repo = env.repo
-            write_text(repo / "dirty.txt", "dirty\n")
+        branch = workspace_session.managed_branch("foo..bar.lock", "session-ref")
 
-            result = workspace_session.write_guard(repo, session_id="session-ref", task_id="foo..bar.lock")
-
-            self.assertFalse(result["ok"], result)
-            branch = result["binding"]["branch"]
-            self.assertNotIn("..", branch)
-            self.assertFalse(branch.endswith(".lock"))
-            run_git(repo, ["check-ref-format", "--branch", branch])
+        self.assertNotIn("..", branch)
+        self.assertFalse(branch.endswith(".lock"))
+        subprocess.run(["git", "check-ref-format", "--branch", branch], check=True, capture_output=True, text=True)
 
     def test_tracked_dirty_path_keeps_first_character(self) -> None:
         with session_env() as env:

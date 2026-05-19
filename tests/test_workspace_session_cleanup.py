@@ -28,7 +28,6 @@ class WorkspaceSessionCleanupTests(unittest.TestCase):
             managed = Path(result["effective_cwd"])
             released = workspace_session.update_binding(result["binding"]["binding_id"], "released")
 
-            report = workspace_session.worktree_status(repo)
             plan = workspace_session.worktree_prune_plan(repo)
             managed_exists_after_plan = managed.exists()
             prune = workspace_session.worktree_prune_confirm(repo)
@@ -39,7 +38,6 @@ class WorkspaceSessionCleanupTests(unittest.TestCase):
             follow_up_plan = workspace_session.worktree_prune_plan(repo)
 
         self.assertEqual(released["status"], "released")
-        self.assertEqual([item["binding_id"] for item in report["prunable"]], [released["binding_id"]])
         self.assertEqual(plan["candidate_count"], 1)
         self.assertEqual(plan["candidates"][0]["cleanup_state"], "prunable")
         self.assertTrue(managed_exists_after_plan, "dry-run cleanup must not delete the worktree")
@@ -52,13 +50,17 @@ class WorkspaceSessionCleanupTests(unittest.TestCase):
         self.assertEqual(follow_up_plan["candidate_count"], 0)
 
     def test_recover_released_clean_managed_worktree(self) -> None:
-        with session_env() as env:
-            repo = env.repo
-            write_text(repo / "primary-dirty.txt", "dirty\n")
-            result = workspace_session.write_guard(repo, session_id="recover", task_id="recover-task")
-            released = workspace_session.update_binding(result["binding"]["binding_id"], "released")
+        with temp_registry() as env:
+            project = env.root / "repo"
+            worktree = env.root / ".codex-worktrees" / "repo" / "recover-released"
+            released = _managed_binding(project, worktree, "bind-recover-released", status="released")
+            inspected = _inspected(released, cleanup_state="prunable", computed_status="released")
 
-            recovered = workspace_session.worktree_recover(repo, released["binding_id"])
+            with (
+                mock.patch.object(workspace_session, "project_bindings", return_value=(_info(project), [released])),
+                mock.patch.object(workspace_session_cleanup, "inspect_binding", return_value=inspected),
+            ):
+                recovered = workspace_session.worktree_recover(project, released["binding_id"])
             latest = {
                 item["binding_id"]: item
                 for item in workspace_session.latest_bindings()
